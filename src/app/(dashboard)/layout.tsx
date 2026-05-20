@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { Sidebar } from '@/components/shared/sidebar'
 import { BottomNav } from '@/components/shared/bottom-nav'
 import { TopNav } from '@/components/shared/top-nav'
 
@@ -27,12 +26,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
 
       <TopNav />
-      <div className="relative flex min-h-screen pt-16">
-        <Sidebar />
-        <main className="min-w-0 flex-1 pb-24 lg:pb-0">
-          {children}
-        </main>
-      </div>
+      <main className="relative min-h-screen pt-16 pb-24 md:pb-0">
+        {children}
+      </main>
       <BottomNav />
     </div>
   )

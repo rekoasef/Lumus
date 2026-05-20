@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { ReportsDashboard } from '@/components/modules/finanzas/reports-dashboard'
 import type { CategoryStat, MonthStat } from '@/components/modules/finanzas/reports-dashboard'
+import type { FinanceReport } from '@/types/finance.types'
 
 const MONTH_ABBR = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 const MONTH_FULL = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
@@ -89,12 +90,22 @@ export default async function ReportesPage() {
     balance:  (current?.ingresos ?? 0) - (current?.gastos ?? 0),
   }
 
+  const { data: aiReportsData } = await supabase
+    .from('finance_reports')
+    .select('id, user_id, month, content, created_at')
+    .eq('user_id', user.id)
+    .order('month', { ascending: false })
+    .limit(24)
+
+  const aiReports = (aiReportsData ?? []) as FinanceReport[]
+
   return (
     <ReportsDashboard
       expensesByCategory={expensesByCategory}
       monthlyEvolution={monthlyEvolution}
       currentMonth={currentMonthStats}
       monthLabel={`${MONTH_FULL[currentMonth - 1]} ${currentYear}`}
+      aiReports={aiReports}
     />
   )
 }

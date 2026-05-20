@@ -22,7 +22,7 @@ export async function PATCH(
     .update({ ...result.data, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('user_id', user.id)
-    .select('id, name, amount, currency, billing_cycle, next_billing, active, icon, wallet_id, created_at, updated_at')
+    .select('id, name, amount, currency, billing_cycle, next_billing, active, variable, icon, wallet_id, created_at, updated_at')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

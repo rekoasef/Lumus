@@ -11,6 +11,13 @@ export function useWallets(initialWallets: Wallet[]) {
 
   const totalBalance = wallets.reduce((sum, w) => sum + w.balance, 0)
 
+  // Suma de balances agrupados por moneda
+  const balanceByCurrency = wallets.reduce<Record<string, number>>((acc, w) => {
+    const currency = w.currency ?? 'ARS'
+    acc[currency] = (acc[currency] ?? 0) + w.balance
+    return acc
+  }, {})
+
   const createWallet = useCallback(async (input: CreateWalletInput): Promise<Wallet | null> => {
     setLoading(true)
     setError(null)
@@ -53,6 +60,27 @@ export function useWallets(initialWallets: Wallet[]) {
     }
   }, [])
 
+  const adjustBalance = useCallback(async (id: string, newBalance: number, note: string): Promise<Wallet | null> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/finance/wallets/${id}/adjust`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_balance: newBalance, note: note || undefined }),
+      })
+      if (!res.ok) throw new Error('Error al ajustar el balance')
+      const { wallet } = await res.json() as { wallet: Wallet }
+      setWallets(prev => prev.map(w => w.id === id ? wallet : w))
+      return wallet
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error desconocido')
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   const deleteWallet = useCallback(async (id: string): Promise<boolean> => {
     setLoading(true)
     setError(null)
@@ -69,13 +97,20 @@ export function useWallets(initialWallets: Wallet[]) {
     }
   }, [])
 
+  const localUpdateBalance = useCallback((id: string, delta: number) => {
+    setWallets(prev => prev.map(w => w.id === id ? { ...w, balance: w.balance + delta } : w))
+  }, [])
+
   return {
     wallets,
     totalBalance,
+    balanceByCurrency,
     loading,
     error,
     createWallet,
     updateWallet,
+    adjustBalance,
     deleteWallet,
+    localUpdateBalance,
   }
 }

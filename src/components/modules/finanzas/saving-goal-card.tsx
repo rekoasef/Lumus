@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Trash2, CheckCircle2, Plus } from 'lucide-react'
-import type { SavingGoal } from '@/types/finance.types'
+import { Pencil, Trash2, CheckCircle2, Plus, Wallet } from 'lucide-react'
+import type { SavingGoal, Wallet as WalletType } from '@/types/finance.types'
 
 function daysUntil(dateStr: string | null): { label: string; urgent: boolean } | null {
   if (!dateStr) return null
@@ -21,20 +21,27 @@ function daysUntil(dateStr: string | null): { label: string; urgent: boolean } |
 
 interface SavingGoalCardProps {
   goal: SavingGoal
+  wallets: WalletType[]
   onEdit: (g: SavingGoal) => void
   onDelete: (id: string) => void
-  onContribute: (id: string, amount: number) => Promise<void>
+  onContribute: (id: string, amount: number, walletId?: string | null) => Promise<void>
   onMarkAchieved: (id: string) => Promise<void>
 }
 
-export function SavingGoalCard({ goal, onEdit, onDelete, onContribute, onMarkAchieved }: SavingGoalCardProps) {
+export function SavingGoalCard({ goal, wallets, onEdit, onDelete, onContribute, onMarkAchieved }: SavingGoalCardProps) {
   const [contributing, setContributing] = useState(false)
-  const [amount, setAmount] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [amount, setAmount]             = useState('')
+  const [walletId, setWalletId]         = useState<string | null>(goal.wallet_id)
+  const [saving, setSaving]             = useState(false)
 
-  const pct = goal.target_amount > 0 ? Math.min(goal.current_amount / goal.target_amount, 1) : 0
-  const remaining = Math.max(goal.target_amount - goal.current_amount, 0)
-  const deadline = daysUntil(goal.target_date)
+  const associatedWallet = wallets.find(w => w.id === goal.wallet_id)
+
+  // Si hay billetera vinculada, su balance actual ES el progreso de la meta
+  const currentAmount = associatedWallet ? associatedWallet.balance : goal.current_amount
+
+  const pct       = goal.target_amount > 0 ? Math.min(currentAmount / goal.target_amount, 1) : 0
+  const remaining = Math.max(goal.target_amount - currentAmount, 0)
+  const deadline  = daysUntil(goal.target_date)
 
   const color = goal.achieved || pct >= 1
     ? 'var(--success)'
@@ -54,10 +61,15 @@ export function SavingGoalCard({ goal, onEdit, onDelete, onContribute, onMarkAch
     const n = parseFloat(amount)
     if (!n || n <= 0) return
     setSaving(true)
-    await onContribute(goal.id, n)
+    await onContribute(goal.id, n, walletId)
     setAmount('')
     setContributing(false)
     setSaving(false)
+  }
+
+  function openContribute() {
+    setWalletId(goal.wallet_id)
+    setContributing(true)
   }
 
   return (
@@ -74,14 +86,23 @@ export function SavingGoalCard({ goal, onEdit, onDelete, onContribute, onMarkAch
             <p className="lumus-heading text-sm font-semibold text-[var(--text-primary)]">
               {goal.name}
             </p>
-            {deadline && (
-              <p
-                className="lumus-label mt-0.5 text-[0.6rem]"
-                style={{ color: deadline.urgent ? 'var(--warning)' : 'var(--text-muted)' }}
-              >
-                {deadline.label}
-              </p>
-            )}
+            <div className="mt-0.5 flex items-center gap-2">
+              {deadline && (
+                <p
+                  className="lumus-label text-[0.6rem]"
+                  style={{ color: deadline.urgent ? 'var(--warning)' : 'var(--text-muted)' }}
+                >
+                  {deadline.label}
+                </p>
+              )}
+              {associatedWallet && (
+                <span className="flex items-center gap-0.5 text-[0.58rem] text-[var(--text-muted)]">
+                  {deadline && '·'}
+                  <Wallet size={9} className="shrink-0" />
+                  {associatedWallet.name}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -124,7 +145,7 @@ export function SavingGoalCard({ goal, onEdit, onDelete, onContribute, onMarkAch
           <>
             <div className="flex items-baseline justify-between">
               <p className="lumus-heading text-2xl font-bold" style={{ color }}>
-                {fmt(goal.current_amount)}
+                {fmt(currentAmount)}
               </p>
               <p className="text-xs text-[var(--text-muted)]">de {fmt(goal.target_amount)}</p>
             </div>
@@ -144,36 +165,63 @@ export function SavingGoalCard({ goal, onEdit, onDelete, onContribute, onMarkAch
 
         {!goal.achieved && (
           contributing ? (
-            <div className="flex gap-2 pt-1">
-              <div className="relative flex-1">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)]">$</span>
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={e => setAmount(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleContribute()}
-                  placeholder="0"
-                  autoFocus
-                  className="w-full rounded-lg border border-white/10 bg-white/5 py-1.5 pl-6 pr-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none"
-                />
+            <div className="space-y-2 pt-1">
+              {/* Monto */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)]">$</span>
+                  <input
+                    type="number"
+                    value={amount}
+                    onChange={e => setAmount(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleContribute()}
+                    placeholder="0"
+                    autoFocus
+                    className="w-full rounded-lg border border-white/10 bg-white/5 py-1.5 pl-6 pr-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none"
+                  />
+                </div>
+                <button
+                  onClick={handleContribute}
+                  disabled={saving || !amount}
+                  className="rounded-lg bg-[var(--accent-lumus)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                >
+                  {saving ? '…' : 'Guardar'}
+                </button>
+                <button
+                  onClick={() => { setContributing(false); setAmount('') }}
+                  className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-[var(--text-muted)] hover:bg-white/5"
+                >
+                  ×
+                </button>
               </div>
-              <button
-                onClick={handleContribute}
-                disabled={saving || !amount}
-                className="rounded-lg bg-[var(--accent-lumus)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
-              >
-                {saving ? '…' : 'Guardar'}
-              </button>
-              <button
-                onClick={() => { setContributing(false); setAmount('') }}
-                className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-[var(--text-muted)] hover:bg-white/5"
-              >
-                ×
-              </button>
+
+              {/* Billetera */}
+              {wallets.length > 0 && (
+                <div>
+                  <label className="lumus-label mb-1 block text-[0.58rem] text-[var(--text-muted)]">
+                    REGISTRAR EN
+                  </label>
+                  <select
+                    value={walletId ?? ''}
+                    onChange={e => setWalletId(e.target.value || null)}
+                    className="w-full rounded-lg border border-white/10 bg-[#111118] px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none"
+                  >
+                    <option value="">Sin billetera (solo aporte manual)</option>
+                    {wallets.map(w => (
+                      <option key={w.id} value={w.id}>{w.name}</option>
+                    ))}
+                  </select>
+                  {walletId && (
+                    <p className="mt-0.5 text-[0.58rem] text-[var(--text-muted)]">
+                      El aporte se registrará como gasto en esa billetera.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <button
-              onClick={() => setContributing(true)}
+              onClick={openContribute}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/10 py-1.5 text-xs text-[var(--text-muted)] transition-colors hover:border-white/20 hover:text-[var(--text-secondary)]"
             >
               <Plus size={12} />

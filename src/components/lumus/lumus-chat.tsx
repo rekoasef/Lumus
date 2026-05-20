@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, Send, Sparkles, RotateCcw } from 'lucide-react'
+import { X, Send, RotateCcw } from 'lucide-react'
 import { useAIStore } from '@/stores/ai-store'
 import type { AIModule } from '@/types'
+import { LumusOrb, LumusOrbIcon } from './lumus-orb'
+import type { OrbState } from './lumus-orb'
 
 interface LumusChatProps {
   module: AIModule
@@ -15,6 +17,7 @@ interface LumusChatProps {
 export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusChatProps) {
   const { messages, isLoading, addMessage, setLoading, setModule, clearMessages } = useAIStore()
   const [input, setInput] = useState('')
+  const [orbState, setOrbState] = useState<OrbState>('idle')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -22,6 +25,20 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
     setModule(module)
     inputRef.current?.focus()
   }, [module, setModule])
+
+  useEffect(() => {
+    if (isLoading) {
+      setOrbState('thinking')
+      return
+    }
+    const last = messages[messages.length - 1]
+    if (last?.role === 'assistant') {
+      setOrbState('speaking')
+      const t = setTimeout(() => setOrbState('idle'), 2500)
+      return () => clearTimeout(t)
+    }
+    setOrbState('idle')
+  }, [isLoading, messages])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -89,9 +106,7 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--accent-muted)]">
-              <Sparkles size={14} className="text-[var(--accent-lumus)]" />
-            </div>
+            <LumusOrbIcon size={36} state={orbState} />
             <div>
               <p className="lumus-heading text-sm font-semibold text-[var(--text-primary)]">Lumus</p>
               <p className="lumus-label text-[0.58rem] uppercase tracking-widest text-[var(--text-muted)]">
@@ -124,9 +139,13 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
           {messages.length === 0 && (
-            <div className="py-4">
-              <p className="text-center text-sm text-[var(--text-muted)]">
-                Hola, soy Lumus. ¿En qué te puedo ayudar con {moduleLabel.toLowerCase()}?
+            <div className="flex flex-col items-center pt-4 pb-2">
+              <LumusOrb state={orbState} size={180} />
+              <p className="lumus-heading -mt-2 text-center text-base font-semibold text-[var(--text-primary)]">
+                Hola, soy Lumus
+              </p>
+              <p className="mt-1 text-center text-xs text-[var(--text-muted)]">
+                ¿En qué te puedo ayudar con {moduleLabel.toLowerCase()}?
               </p>
             </div>
           )}
@@ -137,8 +156,8 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
               className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               {msg.role === 'assistant' && (
-                <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[var(--accent-muted)]">
-                  <Sparkles size={10} className="text-[var(--accent-lumus)]" />
+                <div className="mt-1 flex-shrink-0">
+                  <LumusOrbIcon size={26} state="idle" />
                 </div>
               )}
               <div
@@ -160,8 +179,8 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
 
           {isLoading && (
             <div className="flex gap-2">
-              <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[var(--accent-muted)]">
-                <Sparkles size={10} className="text-[var(--accent-lumus)]" />
+              <div className="mt-1 flex-shrink-0">
+                <LumusOrbIcon size={26} state="thinking" />
               </div>
               <div
                 className="rounded-2xl rounded-tl-sm px-4 py-3"

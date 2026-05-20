@@ -6,6 +6,7 @@ import type { FinanceCategory, CategoryType } from '@/types/finance.types'
 import { CategoryForm } from './category-form'
 import { useFinanceCategories } from '@/hooks/use-finance-categories'
 import type { CreateCategoryInput } from '@/lib/validations/finance'
+import { CategoryIcon } from '@/lib/utils/category-icons'
 
 interface CategoryListProps {
   initialCategories: FinanceCategory[]
@@ -73,11 +74,19 @@ export function CategoryList({ initialCategories }: CategoryListProps) {
             key={cat.id}
             className="group flex items-center justify-between rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2.5"
           >
-            <div className="flex items-center gap-2 min-w-0">
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: cat.color }}
-              />
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `${cat.color}22` }}
+              >
+                {cat.icon ? (
+                  <CategoryIcon icon={cat.icon} size={14} style={{ color: cat.color }} />
+                ) : (
+                  <span className="text-[0.65rem] font-bold" style={{ color: cat.color }}>
+                    {cat.name[0].toUpperCase()}
+                  </span>
+                )}
+              </div>
               <span className="truncate text-sm text-[var(--text-secondary)]">{cat.name}</span>
             </div>
             {!cat.is_default && (

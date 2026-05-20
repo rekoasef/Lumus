@@ -1,10 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X } from 'lucide-react'
+import { X, Search } from 'lucide-react'
 import { createBudgetSchema, type CreateBudgetInput } from '@/lib/validations/finance'
 import type { Budget, FinanceCategory } from '@/types/finance.types'
+import { CategoryIcon } from '@/lib/utils/category-icons'
 
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -21,6 +23,11 @@ interface BudgetFormProps {
 export function BudgetForm({ categories, onSave, onClose, initial }: BudgetFormProps) {
   const now = new Date()
   const expenseCategories = categories.filter(c => c.type === 'gasto')
+  const [search, setSearch] = useState('')
+
+  const filtered = expenseCategories.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase())
+  )
 
   const {
     register,
@@ -32,9 +39,9 @@ export function BudgetForm({ categories, onSave, onClose, initial }: BudgetFormP
     resolver: zodResolver(createBudgetSchema),
     defaultValues: {
       category_id: initial?.category_id ?? '',
-      amount: initial?.amount ?? undefined,
-      month: initial?.month ?? now.getMonth() + 1,
-      year: initial?.year ?? now.getFullYear(),
+      amount:      initial?.amount      ?? undefined,
+      month:       initial?.month       ?? now.getMonth() + 1,
+      year:        initial?.year        ?? now.getFullYear(),
     },
   })
 
@@ -62,10 +69,16 @@ export function BudgetForm({ categories, onSave, onClose, initial }: BudgetFormP
                 CATEGORÍA
               </label>
               <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5">
-                <span
-                  className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                  style={{ backgroundColor: initial.category?.color ?? '#7c6dfa' }}
-                />
+                <div
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                  style={{ backgroundColor: `${initial.category?.color ?? '#7c6dfa'}22` }}
+                >
+                  <CategoryIcon
+                    icon={initial.category?.icon}
+                    size={13}
+                    style={{ color: initial.category?.color ?? '#7c6dfa' }}
+                  />
+                </div>
                 <span className="text-sm text-[var(--text-secondary)]">
                   {initial.category?.name ?? 'Sin categoría'}
                 </span>
@@ -77,12 +90,26 @@ export function BudgetForm({ categories, onSave, onClose, initial }: BudgetFormP
               <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
                 CATEGORÍA
               </label>
+
+              {/* Buscador */}
+              <div className="relative mb-1.5">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar categoría..."
+                  className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-8 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
+                />
+              </div>
+
+              {/* Lista filtrada */}
               <div className="max-h-44 overflow-y-auto space-y-1 rounded-lg border border-white/10 bg-white/5 p-2">
-                {expenseCategories.length === 0 ? (
+                {filtered.length === 0 ? (
                   <p className="py-3 text-center text-xs text-[var(--text-muted)]">
-                    No hay categorías de gasto disponibles
+                    {search ? 'Sin resultados' : 'No hay categorías de gasto disponibles'}
                   </p>
-                ) : expenseCategories.map(cat => (
+                ) : filtered.map(cat => (
                   <button
                     key={cat.id}
                     type="button"
@@ -93,14 +120,27 @@ export function BudgetForm({ categories, onSave, onClose, initial }: BudgetFormP
                         : 'text-[var(--text-secondary)] hover:bg-white/5'
                     }`}
                   >
-                    <span
-                      className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                      style={{ backgroundColor: cat.color }}
-                    />
+                    <div
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                      style={{ backgroundColor: `${cat.color}22` }}
+                    >
+                      {cat.icon ? (
+                        <CategoryIcon
+                          icon={cat.icon}
+                          size={13}
+                          style={{ color: selectedCategoryId === cat.id ? 'var(--accent-lumus)' : cat.color }}
+                        />
+                      ) : (
+                        <span className="text-[0.6rem] font-bold" style={{ color: cat.color }}>
+                          {cat.name[0].toUpperCase()}
+                        </span>
+                      )}
+                    </div>
                     {cat.name}
                   </button>
                 ))}
               </div>
+
               {errors.category_id && (
                 <p className="mt-1 text-xs text-[var(--danger)]">{errors.category_id.message}</p>
               )}

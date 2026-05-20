@@ -1,13 +1,15 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, TrendingDown, TrendingUp, Minus } from 'lucide-react'
+import { ArrowLeft, TrendingDown, TrendingUp, Minus, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
 import {
   PieChart, Pie, Cell, Tooltip,
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer,
 } from 'recharts'
 import { formatCurrency } from '@/lib/utils/format-currency'
+import type { FinanceReport } from '@/types/finance.types'
 
 export interface CategoryStat {
   id: string
@@ -28,6 +30,7 @@ interface ReportsDashboardProps {
   monthlyEvolution: MonthStat[]
   currentMonth: { gastos: number; ingresos: number; balance: number }
   monthLabel: string
+  aiReports: FinanceReport[]
 }
 
 const TOOLTIP_STYLE: React.CSSProperties = {
@@ -38,11 +41,74 @@ const TOOLTIP_STYLE: React.CSSProperties = {
   boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
 }
 
+function renderMarkdown(text: string) {
+  return text.split('\n').map((line, i) => {
+    if (line.startsWith('## ')) {
+      return (
+        <h3 key={i} className="mb-1 mt-5 text-sm font-semibold text-[var(--text-primary)] first:mt-0">
+          {line.slice(3)}
+        </h3>
+      )
+    }
+    if (line.startsWith('- ') || line.startsWith('• ')) {
+      return (
+        <li key={i} className="ml-3 list-none text-sm leading-relaxed text-[var(--text-secondary)] before:mr-1.5 before:content-['·']">
+          {line.slice(2)}
+        </li>
+      )
+    }
+    if (line.trim() === '') return <div key={i} className="h-1" />
+    return <p key={i} className="text-sm leading-relaxed text-[var(--text-secondary)]">{line}</p>
+  })
+}
+
+function AIReportCard({ report }: { report: FinanceReport }) {
+  const [open, setOpen] = useState(false)
+
+  const [y, m] = report.month.split('-').map(Number)
+  const monthLabel = new Date(y, m - 1, 1).toLocaleString('es-AR', { month: 'long', year: 'numeric' })
+  const createdAt = new Date(report.created_at).toLocaleDateString('es-AR', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  })
+
+  return (
+    <div className="lumus-glass overflow-hidden rounded-xl">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-white/[0.02]"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-muted)]">
+            <Sparkles size={13} className="text-[var(--accent-lumus)]" />
+          </div>
+          <div>
+            <p className="text-sm font-medium capitalize text-[var(--text-primary)]">{monthLabel}</p>
+            <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">Generado el {createdAt}</p>
+          </div>
+        </div>
+        {open
+          ? <ChevronUp size={14} className="flex-shrink-0 text-[var(--text-muted)]" />
+          : <ChevronDown size={14} className="flex-shrink-0 text-[var(--text-muted)]" />
+        }
+      </button>
+
+      {open && (
+        <div className="border-t border-white/[0.06] px-5 pb-5 pt-4">
+          <div className="space-y-0.5">
+            {renderMarkdown(report.content)}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ReportsDashboard({
   expensesByCategory,
   monthlyEvolution,
   currentMonth,
   monthLabel,
+  aiReports,
 }: ReportsDashboardProps) {
   const top5 = expensesByCategory.slice(0, 5)
   const hasExpenses = expensesByCategory.length > 0
@@ -300,6 +366,37 @@ export function ReportsDashboard({
                 />
               </LineChart>
             </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Informes IA */}
+        <div className="mt-8">
+          <div className="mb-4 flex items-center gap-2">
+            <Sparkles size={14} className="text-[var(--accent-lumus)]" />
+            <h2 className="lumus-heading text-lg font-semibold text-[var(--text-primary)]">
+              Informes mensuales
+            </h2>
+            {aiReports.length > 0 && (
+              <span className="lumus-label rounded-full bg-[var(--accent-muted)] px-2 py-0.5 text-[0.58rem] text-[var(--accent-lumus)]">
+                {aiReports.length}
+              </span>
+            )}
+          </div>
+
+          {aiReports.length === 0 ? (
+            <div className="lumus-glass rounded-2xl py-14 text-center">
+              <Sparkles size={22} className="mx-auto mb-3 text-[var(--text-muted)]" />
+              <p className="text-sm text-[var(--text-muted)]">Todavía no generaste ningún informe.</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Volvé al dashboard de Finanzas y usá el banner para generar tu primer informe mensual.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {aiReports.map(r => (
+                <AIReportCard key={r.id} report={r} />
+              ))}
+            </div>
           )}
         </div>
 

@@ -9,7 +9,7 @@ export async function GET(_req: NextRequest) {
 
   const { data, error } = await supabase
     .from('subscriptions')
-    .select('id, name, amount, currency, billing_cycle, next_billing, active, icon, wallet_id, created_at, updated_at')
+    .select('id, name, amount, currency, billing_cycle, next_billing, active, variable, icon, wallet_id, created_at, updated_at')
     .eq('user_id', user.id)
     .order('active', { ascending: false })
     .order('name', { ascending: true })
@@ -38,11 +38,12 @@ export async function POST(req: NextRequest) {
       amount:        result.data.amount,
       currency:      result.data.currency,
       billing_cycle: result.data.billing_cycle,
+      variable:      result.data.variable ?? false,
       wallet_id:     result.data.wallet_id ?? null,
       next_billing:  result.data.next_billing ?? null,
       icon:          result.data.icon ?? null,
     })
-    .select('id, name, amount, currency, billing_cycle, next_billing, active, icon, wallet_id, created_at, updated_at')
+    .select('id, name, amount, currency, billing_cycle, next_billing, active, variable, icon, wallet_id, created_at, updated_at')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

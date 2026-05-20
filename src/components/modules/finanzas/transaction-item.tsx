@@ -2,6 +2,7 @@
 
 import { Pencil, Trash2, Sparkles } from 'lucide-react'
 import type { Transaction } from '@/types/finance.types'
+import { CategoryIcon } from '@/lib/utils/category-icons'
 
 interface TransactionItemProps {
   transaction: Transaction
@@ -11,11 +12,12 @@ interface TransactionItemProps {
 
 export function TransactionItem({ transaction, onEdit, onDelete }: TransactionItemProps) {
   const isGasto = transaction.type === 'gasto'
+  const color   = transaction.category?.color ?? (isGasto ? '#ef4444' : '#22c55e')
 
   const formattedAmount = new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency: 'ARS',
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
   }).format(transaction.amount)
 
   const formattedDate = new Date(transaction.date + 'T12:00:00').toLocaleDateString('es-AR', {
@@ -25,18 +27,18 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
 
   return (
     <div className="group flex items-center gap-4 rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-3 transition-colors hover:bg-white/[0.04]">
-      {/* Indicador de tipo */}
+      {/* Ícono de categoría */}
       <div
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold"
-        style={{
-          backgroundColor: transaction.category?.color
-            ? `${transaction.category.color}22`
-            : isGasto ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)',
-          color: transaction.category?.color
-            ?? (isGasto ? 'var(--danger)' : 'var(--success)'),
-        }}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+        style={{ backgroundColor: `${color}22` }}
       >
-        {transaction.category?.icon?.slice(0, 2).toUpperCase() ?? (isGasto ? '−' : '+')}
+        {transaction.category?.icon ? (
+          <CategoryIcon icon={transaction.category.icon} size={15} style={{ color }} />
+        ) : (
+          <span className="text-xs font-bold" style={{ color }}>
+            {isGasto ? '−' : '+'}
+          </span>
+        )}
       </div>
 
       {/* Descripción */}
@@ -51,10 +53,7 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
         </div>
         <div className="mt-0.5 flex items-center gap-2">
           {transaction.category && (
-            <span
-              className="lumus-label text-[0.58rem]"
-              style={{ color: transaction.category.color }}
-            >
+            <span className="lumus-label text-[0.58rem]" style={{ color }}>
               {transaction.category.name}
             </span>
           )}
@@ -72,11 +71,7 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
       </p>
 
       {/* Monto */}
-      <p
-        className={`lumus-heading shrink-0 text-base font-bold ${
-          isGasto ? 'text-[var(--danger)]' : 'text-[var(--success)]'
-        }`}
-      >
+      <p className={`lumus-heading shrink-0 text-base font-bold ${isGasto ? 'text-[var(--danger)]' : 'text-[var(--success)]'}`}>
         {isGasto ? '−' : '+'}{formattedAmount}
       </p>
 

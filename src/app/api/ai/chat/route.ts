@@ -14,6 +14,8 @@ const bodySchema = z.object({
     role: z.enum(['user', 'assistant']),
     content: z.string(),
   })).max(20),
+  isVoice: z.boolean().optional(),
+  currentVoice: z.enum(['alloy', 'echo', 'fable', 'nova', 'onyx', 'shimmer']).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -31,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { message, module, conversationHistory } = parsed.data
+  const { message, module, conversationHistory, isVoice, currentVoice } = parsed.data
 
   const cacheKey = generateCacheKey(user.id, module, message)
   const cached = await getCachedResponse(supabase, user.id, cacheKey)
@@ -40,7 +42,21 @@ export async function POST(req: NextRequest) {
   }
 
   const snapshot = await buildUserSnapshot(supabase, user.id)
-  const systemPrompt = getModulePrompt(module as AIModule, snapshot)
+  const basePrompt = getModulePrompt(module as AIModule, snapshot)
+  const systemPrompt = isVoice
+    ? `${basePrompt}
+
+IMPORTANTE — modo voz:
+- Respondé en máximo 2 oraciones cortas y naturales
+- Sin markdown, sin listas, sin asteriscos
+- Hablá como si estuvieras en una conversación cara a cara
+- Tu voz actual es: ${currentVoice ?? 'nova'}
+- Tus voces disponibles son: alloy (neutral y versátil), echo (nítida y clara), fable (expresiva), nova (cálida, tu voz por defecto), onyx (grave y autoritaria), shimmer (suave y gentil)
+- Si el usuario pregunta qué voces tenés, listá todas con sus descripciones
+- Si el usuario pide cambiar de voz, al FINAL de tu respuesta agregá exactamente el tag: [VOZ:nombre_en_minuscula]
+  Ejemplo: "¡Listo! Ahora hablo con voz Onyx. [VOZ:onyx]"
+  Nombres válidos: alloy, echo, fable, nova, onyx, shimmer`
+    : basePrompt
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 

@@ -12,6 +12,12 @@ const WALLET_TYPES = [
   { value: 'virtual',  label: 'Virtual' },
 ] as const
 
+const CURRENCIES = [
+  { value: 'ARS', label: 'ARS', flag: '🇦🇷' },
+  { value: 'USD', label: 'USD', flag: '🇺🇸' },
+  { value: 'EUR', label: 'EUR', flag: '🇪🇺' },
+] as const
+
 const PRESET_COLORS = [
   '#6366f1', '#22c55e', '#f97316', '#3b82f6',
   '#a855f7', '#ec4899', '#14b8a6', '#eab308',
@@ -33,12 +39,12 @@ export function WalletForm({ onSave, onClose, initial }: WalletFormProps) {
   } = useForm<CreateWalletInput>({
     resolver: zodResolver(createWalletSchema),
     defaultValues: {
-      name: initial?.name ?? '',
-      type: initial?.type ?? 'efectivo',
-      balance: initial?.balance ?? 0,
+      name:     initial?.name     ?? '',
+      type:     initial?.type     ?? 'efectivo',
+      balance:  initial?.balance  ?? 0,
       currency: initial?.currency ?? 'ARS',
-      color: initial?.color ?? '#6366f1',
-      icon: initial?.icon ?? null,
+      color:    initial?.color    ?? '#6366f1',
+      icon:     initial?.icon     ?? null,
     },
   })
 
@@ -51,33 +57,24 @@ export function WalletForm({ onSave, onClose, initial }: WalletFormProps) {
           <h2 className="lumus-heading text-xl font-semibold text-[var(--text-primary)]">
             {initial ? 'Editar billetera' : 'Nueva billetera'}
           </h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-white/10"
-          >
+          <button onClick={onClose} className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-white/10">
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit(onSave)} className="space-y-4">
           <div>
-            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-              NOMBRE
-            </label>
+            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">NOMBRE</label>
             <input
               {...register('name')}
               placeholder="Ej: Cuenta Galicia"
               className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
             />
-            {errors.name && (
-              <p className="mt-1 text-xs text-[var(--danger)]">{errors.name.message}</p>
-            )}
+            {errors.name && <p className="mt-1 text-xs text-[var(--danger)]">{errors.name.message}</p>}
           </div>
 
           <div>
-            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-              TIPO
-            </label>
+            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">TIPO</label>
             <div className="flex gap-2">
               {WALLET_TYPES.map(t => (
                 <button
@@ -96,11 +93,30 @@ export function WalletForm({ onSave, onClose, initial }: WalletFormProps) {
             </div>
           </div>
 
+          <div>
+            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">MONEDA</label>
+            <div className="flex gap-2">
+              {CURRENCIES.map(c => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setValue('currency', c.value)}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                    watch('currency') === c.value
+                      ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
+                      : 'border-white/10 bg-white/5 text-[var(--text-secondary)] hover:border-white/20'
+                  }`}
+                >
+                  <span>{c.flag}</span>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {!initial && (
             <div>
-              <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-                BALANCE INICIAL
-              </label>
+              <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">BALANCE INICIAL</label>
               <input
                 {...register('balance', { valueAsNumber: true })}
                 type="number"
@@ -112,9 +128,7 @@ export function WalletForm({ onSave, onClose, initial }: WalletFormProps) {
           )}
 
           <div>
-            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-              COLOR
-            </label>
+            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">COLOR</label>
             <div className="flex flex-wrap gap-2">
               {PRESET_COLORS.map(color => (
                 <button

@@ -86,9 +86,10 @@ export type UpdateBudgetInput = z.infer<typeof updateBudgetSchema>
 
 export const createSubscriptionSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido').max(100),
-  amount: z.number().positive('El monto debe ser mayor a 0'),
+  amount: z.number().min(0, 'El monto no puede ser negativo'),
   currency: z.string().length(3),
   billing_cycle: z.enum(['mensual', 'anual', 'semanal']),
+  variable: z.boolean(),
   wallet_id: z.string().uuid().nullable().optional(),
   next_billing: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   icon: z.string().max(50).nullable().optional(),
@@ -97,6 +98,15 @@ export const createSubscriptionSchema = z.object({
 export const updateSubscriptionSchema = createSubscriptionSchema.partial().extend({
   active: z.boolean().optional(),
 })
+
+export const paySubscriptionSchema = z.object({
+  amount: z.number().positive('El monto debe ser mayor a 0'),
+  category_id: z.string().uuid().nullable().optional(),
+  wallet_id: z.string().uuid().nullable().optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+})
+
+export type PaySubscriptionInput = z.infer<typeof paySubscriptionSchema>
 
 export type CreateSubscriptionInput = z.infer<typeof createSubscriptionSchema>
 export type UpdateSubscriptionInput = z.infer<typeof updateSubscriptionSchema>

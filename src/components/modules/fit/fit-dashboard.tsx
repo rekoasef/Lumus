@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Sparkles, Dumbbell, Trash2 } from 'lucide-react'
+import { Plus, Dumbbell, Trash2 } from 'lucide-react'
+import { LumusOrbIcon } from '@/components/lumus/lumus-orb'
 import { useHealthLog } from '@/hooks/use-health-log'
 import { useBodyRecords } from '@/hooks/use-body-records'
 import { useWorkoutRoutines } from '@/hooks/use-workout-routines'
@@ -81,7 +82,7 @@ export function FitDashboard({
           onClick={() => setShowLumus(true)}
           className="flex items-center gap-2 rounded-xl bg-[var(--accent-muted)] px-3.5 py-2 text-sm font-medium text-[var(--accent-lumus)] transition-colors hover:bg-[var(--accent-lumus)]/20"
         >
-          <Sparkles size={14} />
+          <LumusOrbIcon size={22} />
           Lumus
         </button>
       </div>

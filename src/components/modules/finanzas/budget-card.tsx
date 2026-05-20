@@ -2,6 +2,7 @@
 
 import { Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import type { Budget } from '@/types/finance.types'
+import { CategoryIcon } from '@/lib/utils/category-icons'
 
 const ALERT_THRESHOLD = 0.8 // 80%
 
@@ -47,10 +48,16 @@ export function BudgetCard({ budget, currency = 'ARS', onEdit, onDelete }: Budge
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-semibold"
-            style={{ backgroundColor: `${accentColor}22`, color: accentColor }}
+            className="flex h-9 w-9 items-center justify-center rounded-lg"
+            style={{ backgroundColor: `${accentColor}22` }}
           >
-            {budget.category?.name?.[0]?.toUpperCase() ?? '$'}
+            {budget.category?.icon ? (
+              <CategoryIcon icon={budget.category.icon} size={16} style={{ color: accentColor }} />
+            ) : (
+              <span className="text-sm font-semibold" style={{ color: accentColor }}>
+                {budget.category?.name?.[0]?.toUpperCase() ?? '$'}
+              </span>
+            )}
           </div>
           <div>
             <p className="lumus-heading text-sm font-semibold text-[var(--text-primary)]">

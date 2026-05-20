@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LumusOrbIcon } from '@/components/lumus/lumus-orb'
 import { useRecipes } from '@/hooks/use-recipes'
 import { useMealLogs } from '@/hooks/use-meal-logs'
 import { useShoppingList } from '@/hooks/use-shopping-list'
@@ -92,7 +93,7 @@ export function ComidasDashboard({
           onClick={() => setShowLumus(true)}
           className="flex items-center gap-2 rounded-xl bg-[var(--accent-muted)] px-3.5 py-2 text-sm font-medium text-[var(--accent-lumus)] transition-colors hover:bg-[var(--accent-lumus)]/20"
         >
-          <Sparkles size={14} />
+          <LumusOrbIcon size={22} />
           Lumus
         </button>
       </div>
@@ -191,7 +192,7 @@ export function ComidasDashboard({
               className="flex items-center gap-3 rounded-xl px-4 py-3"
               style={{ background: 'rgba(124,109,250,0.08)', border: '1px solid rgba(124,109,250,0.2)' }}
             >
-              <Sparkles size={14} className="animate-pulse text-[var(--accent-lumus)]" />
+              <LumusOrbIcon size={22} state="thinking" />
               <span className="text-sm text-[var(--accent-lumus)]">Generando receta con IA...</span>
             </div>
           )}

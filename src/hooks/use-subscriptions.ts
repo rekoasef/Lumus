@@ -90,6 +90,36 @@ export function useSubscriptions(initialSubscriptions: Subscription[]) {
     return updated !== null
   }, [updateSubscription])
 
+  const paySubscription = useCallback(async (
+    id: string,
+    amount: number,
+    categoryId: string | null,
+    walletId: string | null,
+    date: string,
+  ): Promise<boolean> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/finance/subscriptions/${id}/pay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, category_id: categoryId, wallet_id: walletId, date }),
+      })
+      if (!res.ok) {
+        const { error: msg } = await res.json().catch(() => ({ error: 'Error al registrar el pago' }))
+        throw new Error(typeof msg === 'string' ? msg : 'Error al registrar el pago')
+      }
+      const { subscription } = await res.json() as { subscription: Subscription }
+      setSubscriptions(prev => prev.map(s => s.id === id ? subscription : s))
+      return true
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error desconocido')
+      throw e
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   const monthlyTotal = subscriptions
     .filter(s => s.active)
     .reduce((sum, s) => {
@@ -108,5 +138,6 @@ export function useSubscriptions(initialSubscriptions: Subscription[]) {
     updateSubscription,
     deleteSubscription,
     toggleActive,
+    paySubscription,
   }
 }

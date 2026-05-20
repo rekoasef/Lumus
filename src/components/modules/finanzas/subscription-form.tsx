@@ -33,20 +33,22 @@ export function SubscriptionForm({ wallets, onSave, onClose, initial }: Subscrip
       amount:        initial?.amount        ?? undefined,
       currency:      initial?.currency      ?? 'ARS',
       billing_cycle: initial?.billing_cycle ?? 'mensual',
+      variable:      initial?.variable      ?? false,
       wallet_id:     initial?.wallet_id     ?? null,
       next_billing:  initial?.next_billing  ?? null,
       icon:          initial?.icon          ?? null,
     },
   })
 
-  const selectedCycle = watch('billing_cycle')
+  const selectedCycle    = watch('billing_cycle')
+  const isVariable       = watch('variable')
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="lumus-glass w-full max-w-md rounded-2xl p-6">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="lumus-heading text-xl font-semibold text-[var(--text-primary)]">
-            {initial ? 'Editar suscripción' : 'Nueva suscripción'}
+            {initial ? 'Editar vencimiento' : 'Nuevo vencimiento'}
           </h2>
           <button
             onClick={onClose}
@@ -63,7 +65,7 @@ export function SubscriptionForm({ wallets, onSave, onClose, initial }: Subscrip
             </label>
             <input
               {...register('name')}
-              placeholder="Ej: Netflix, Spotify, ChatGPT..."
+              placeholder="Ej: Netflix, Spotify, Expensas..."
               className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
             />
             {errors.name && (
@@ -71,10 +73,41 @@ export function SubscriptionForm({ wallets, onSave, onClose, initial }: Subscrip
             )}
           </div>
 
+          {/* Tipo de monto: fijo / variable */}
+          <div>
+            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
+              TIPO DE MONTO
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setValue('variable', false)}
+                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                  !isVariable
+                    ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
+                    : 'border-white/10 bg-white/5 text-[var(--text-secondary)] hover:border-white/20'
+                }`}
+              >
+                Fijo
+              </button>
+              <button
+                type="button"
+                onClick={() => setValue('variable', true)}
+                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                  isVariable
+                    ? 'border-[var(--warning)] bg-[var(--warning)]/10 text-[var(--warning)]'
+                    : 'border-white/10 bg-white/5 text-[var(--text-secondary)] hover:border-white/20'
+                }`}
+              >
+                Variable
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-                MONTO
+                {isVariable ? 'MONTO TÍPICO (ref.)' : 'MONTO'}
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--text-muted)]">$</span>
@@ -82,7 +115,7 @@ export function SubscriptionForm({ wallets, onSave, onClose, initial }: Subscrip
                   {...register('amount', { valueAsNumber: true })}
                   type="number"
                   step="1"
-                  min="1"
+                  min="0"
                   placeholder="0"
                   className="w-full rounded-lg border border-white/10 bg-white/5 py-2.5 pl-7 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
                 />
@@ -129,7 +162,7 @@ export function SubscriptionForm({ wallets, onSave, onClose, initial }: Subscrip
 
           <div>
             <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-              PRÓXIMO COBRO <span className="text-[var(--text-muted)] normal-case">(opcional)</span>
+              PRÓXIMO VENCIMIENTO <span className="text-[var(--text-muted)] normal-case">(opcional)</span>
             </label>
             <input
               {...register('next_billing')}
@@ -168,7 +201,7 @@ export function SubscriptionForm({ wallets, onSave, onClose, initial }: Subscrip
               disabled={isSubmitting}
               className="flex-1 rounded-lg bg-[var(--accent-lumus)] py-2.5 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
-              {isSubmitting ? 'Guardando...' : initial ? 'Guardar cambios' : 'Crear suscripción'}
+              {isSubmitting ? 'Guardando...' : initial ? 'Guardar cambios' : 'Crear vencimiento'}
             </button>
           </div>
         </form>

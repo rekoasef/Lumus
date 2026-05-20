@@ -66,6 +66,7 @@ export interface Subscription {
   billing_cycle: BillingCycle
   next_billing: string | null
   active: boolean
+  variable: boolean
   icon: string | null
   created_at: string
   updated_at: string
@@ -84,6 +85,14 @@ export interface SavingGoal {
   created_at: string
   updated_at: string
   progress_pct?: number
+}
+
+export interface FinanceReport {
+  id: string
+  user_id: string
+  month: string
+  content: string
+  created_at: string
 }
 
 export type TransactionFilter = {

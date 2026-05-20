@@ -2,17 +2,17 @@
 
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X, Sparkles, Loader2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { X, Search } from 'lucide-react'
+import { useState } from 'react'
 import { createTransactionSchema, type CreateTransactionInput } from '@/lib/validations/finance'
 import type { Transaction, Wallet, FinanceCategory } from '@/types/finance.types'
+import { CategoryIcon } from '@/lib/utils/category-icons'
 
 interface TransactionFormProps {
   wallets: Wallet[]
   categories: FinanceCategory[]
-  onSave: (data: CreateTransactionInput, autoClassified: boolean) => Promise<void>
+  onSave: (data: CreateTransactionInput) => Promise<void>
   onClose: () => void
-  onClassify: (description: string, amount: number, type: 'gasto' | 'ingreso') => Promise<{ category_id: string | null; confidence: number }>
   initial?: Transaction
 }
 
@@ -21,7 +21,6 @@ export function TransactionForm({
   categories,
   onSave,
   onClose,
-  onClassify,
   initial,
 }: TransactionFormProps) {
   const {
@@ -33,54 +32,24 @@ export function TransactionForm({
   } = useForm<CreateTransactionInput>({
     resolver: zodResolver(createTransactionSchema),
     defaultValues: {
-      wallet_id: initial?.wallet_id ?? wallets[0]?.id ?? '',
+      wallet_id:   initial?.wallet_id   ?? wallets[0]?.id ?? '',
       category_id: initial?.category_id ?? null,
-      type: initial?.type ?? 'gasto',
-      amount: initial?.amount ?? undefined,
+      type:        initial?.type        ?? 'gasto',
+      amount:      initial?.amount      ?? undefined,
       description: initial?.description ?? '',
-      date: initial?.date ?? new Date().toISOString().slice(0, 10),
+      date:        initial?.date        ?? new Date().toISOString().slice(0, 10),
     },
   })
 
-  const [autoClassified, setAutoClassified] = useState(false)
-  const [classifying, setClassifying] = useState(false)
-  const [aiConfidence, setAiConfidence] = useState<number | null>(null)
-  const classifyTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [categorySearch, setCategorySearch] = useState('')
 
-  const watchedType = watch('type')
-  const watchedDescription = watch('description')
-  const watchedAmount = watch('amount')
+  const watchedType       = watch('type')
+  const watchedCategoryId = watch('category_id')
 
-  const filteredCategories = categories.filter(c => c.type === watchedType)
-
-  // Autocompletar categoría cuando hay descripción + monto + tipo
-  useEffect(() => {
-    if (!watchedDescription || watchedDescription.length < 3) return
-    if (!watchedAmount || watchedAmount <= 0) return
-    if (watchedType === 'transferencia') return
-    if (initial) return // No reclasificar en edición
-
-    if (classifyTimeout.current) clearTimeout(classifyTimeout.current)
-
-    classifyTimeout.current = setTimeout(async () => {
-      setClassifying(true)
-      const result = await onClassify(watchedDescription, watchedAmount, watchedType as 'gasto' | 'ingreso')
-      setClassifying(false)
-
-      if (result.category_id && result.confidence >= 0.65) {
-        setValue('category_id', result.category_id)
-        setAutoClassified(true)
-        setAiConfidence(result.confidence)
-      }
-    }, 700)
-
-    return () => { if (classifyTimeout.current) clearTimeout(classifyTimeout.current) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedDescription, watchedAmount, watchedType])
-
-  async function handleFormSave(data: CreateTransactionInput) {
-    await onSave(data, autoClassified)
-  }
+  const filteredByType = categories.filter(c => c.type === watchedType)
+  const visibleCategories = categorySearch.trim()
+    ? filteredByType.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
+    : filteredByType
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -94,7 +63,7 @@ export function TransactionForm({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(handleFormSave)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSave)} className="space-y-4">
 
           {/* Tipo */}
           <div className="flex gap-2">
@@ -102,7 +71,11 @@ export function TransactionForm({
               <button
                 key={t}
                 type="button"
-                onClick={() => { setValue('type', t); setAutoClassified(false); setAiConfidence(null) }}
+                onClick={() => {
+                  setValue('type', t)
+                  setValue('category_id', null)
+                  setCategorySearch('')
+                }}
                 className={`flex-1 rounded-lg border py-2 text-xs font-medium capitalize transition-colors ${
                   watchedType === t
                     ? t === 'gasto'
@@ -131,21 +104,14 @@ export function TransactionForm({
             {errors.amount && <p className="mt-1 text-xs text-[var(--danger)]">{errors.amount.message}</p>}
           </div>
 
-          {/* Descripción con trigger de IA */}
+          {/* Descripción */}
           <div>
-            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-              DESCRIPCIÓN
-            </label>
-            <div className="relative">
-              <input
-                {...register('description')}
-                placeholder="Ej: Almuerzo en el trabajo"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 pr-9 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
-              />
-              {classifying && (
-                <Loader2 size={14} className="absolute right-3 top-3 animate-spin text-[var(--accent-lumus)]" />
-              )}
-            </div>
+            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">DESCRIPCIÓN</label>
+            <input
+              {...register('description')}
+              placeholder="Ej: Almuerzo en el trabajo"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
+            />
           </div>
 
           {/* Billetera */}
@@ -162,28 +128,66 @@ export function TransactionForm({
             {errors.wallet_id && <p className="mt-1 text-xs text-[var(--danger)]">{errors.wallet_id.message}</p>}
           </div>
 
-          {/* Categoría — solo para gasto/ingreso */}
+          {/* Categoría con buscador — solo para gasto/ingreso */}
           {watchedType !== 'transferencia' && (
             <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <label className="lumus-label text-[0.65rem] text-[var(--text-muted)]">CATEGORÍA</label>
-                {autoClassified && aiConfidence !== null && (
-                  <span className="flex items-center gap-1 text-[0.6rem] text-[var(--accent-lumus)]">
-                    <Sparkles size={10} />
-                    IA ({Math.round(aiConfidence * 100)}%)
-                  </span>
+              <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">CATEGORÍA</label>
+
+              {/* Buscador */}
+              <div className="relative mb-2">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                <input
+                  type="text"
+                  value={categorySearch}
+                  onChange={e => setCategorySearch(e.target.value)}
+                  placeholder="Buscar categoría..."
+                  className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-8 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
+                />
+              </div>
+
+              {/* Chips de categoría */}
+              <div className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto">
+                {/* Sin categoría */}
+                <button
+                  type="button"
+                  onClick={() => setValue('category_id', null)}
+                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    !watchedCategoryId
+                      ? 'border-white/20 bg-white/10 text-[var(--text-primary)]'
+                      : 'border-white/[0.07] text-[var(--text-muted)] hover:border-white/15 hover:text-[var(--text-secondary)]'
+                  }`}
+                >
+                  Sin categoría
+                </button>
+
+                {visibleCategories.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setValue('category_id', c.id)}
+                    className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                      watchedCategoryId === c.id
+                        ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
+                        : 'border-white/[0.07] text-[var(--text-muted)] hover:border-white/15 hover:text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    {c.icon && (
+                      <CategoryIcon
+                        icon={c.icon}
+                        size={12}
+                        style={{ color: watchedCategoryId === c.id ? 'var(--accent-lumus)' : c.color }}
+                      />
+                    )}
+                    {c.name}
+                  </button>
+                ))}
+
+                {visibleCategories.length === 0 && categorySearch && (
+                  <p className="py-2 text-xs text-[var(--text-muted)]">
+                    Sin resultados para &quot;{categorySearch}&quot;
+                  </p>
                 )}
               </div>
-              <select
-                {...register('category_id')}
-                onChange={e => { setValue('category_id', e.target.value || null); setAutoClassified(false) }}
-                className="w-full rounded-lg border border-white/10 bg-[#111118] px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none"
-              >
-                <option value="">Sin categoría</option>
-                {filteredCategories.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
             </div>
           )}
 

@@ -315,6 +315,30 @@ export type Database = {
         }
         Relationships: []
       }
+      finance_reports: {
+        Row: {
+          id: string
+          user_id: string
+          month: string
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          month: string
+          content: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          month?: string
+          content?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       habit_logs: {
         Row: {
           completed: boolean | null
@@ -873,6 +897,7 @@ export type Database = {
           next_billing: string | null
           updated_at: string | null
           user_id: string
+          variable: boolean
           wallet_id: string | null
         }
         Insert: {
@@ -887,6 +912,7 @@ export type Database = {
           next_billing?: string | null
           updated_at?: string | null
           user_id: string
+          variable?: boolean
           wallet_id?: string | null
         }
         Update: {
@@ -901,6 +927,7 @@ export type Database = {
           next_billing?: string | null
           updated_at?: string | null
           user_id?: string
+          variable?: boolean
           wallet_id?: string | null
         }
         Relationships: [

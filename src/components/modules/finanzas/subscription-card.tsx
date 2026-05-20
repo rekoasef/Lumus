@@ -1,6 +1,6 @@
 'use client'
 
-import { Pencil, Trash2, Calendar, Power } from 'lucide-react'
+import { Pencil, Trash2, Calendar, Power, CheckCircle2 } from 'lucide-react'
 import type { Subscription } from '@/types/finance.types'
 
 const CYCLE_LABELS: Record<string, string> = {
@@ -41,9 +41,10 @@ interface SubscriptionCardProps {
   onEdit: (s: Subscription) => void
   onDelete: (id: string) => void
   onToggleActive: (id: string, active: boolean) => void
+  onPay: (s: Subscription) => void
 }
 
-export function SubscriptionCard({ subscription: s, onEdit, onDelete, onToggleActive }: SubscriptionCardProps) {
+export function SubscriptionCard({ subscription: s, onEdit, onDelete, onToggleActive, onPay }: SubscriptionCardProps) {
   const color = getAccentColor(s.name)
   const monthly = monthlyEquivalent(s.amount, s.billing_cycle)
   const billing = nextBillingLabel(s.next_billing)
@@ -67,9 +68,16 @@ export function SubscriptionCard({ subscription: s, onEdit, onDelete, onToggleAc
             {s.icon ?? s.name[0].toUpperCase()}
           </div>
           <div>
-            <p className="lumus-heading text-sm font-semibold text-[var(--text-primary)]">
-              {s.name}
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="lumus-heading text-sm font-semibold text-[var(--text-primary)]">
+                {s.name}
+              </p>
+              {s.variable && (
+                <span className="rounded px-1 py-0.5 text-[0.5rem] font-semibold uppercase tracking-wide border border-[var(--warning)]/30 text-[var(--warning)]">
+                  Variable
+                </span>
+              )}
+            </div>
             <p className="lumus-label mt-0.5 text-[0.6rem] text-[var(--text-muted)]">
               {CYCLE_LABELS[s.billing_cycle] ?? s.billing_cycle}
               {!s.active && ' · Inactiva'}
@@ -78,6 +86,15 @@ export function SubscriptionCard({ subscription: s, onEdit, onDelete, onToggleAc
         </div>
 
         <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {s.active && (
+            <button
+              onClick={() => onPay(s)}
+              className="rounded-md p-1.5 text-[var(--success)] hover:bg-[var(--success)]/10"
+              aria-label="Marcar como pagado"
+            >
+              <CheckCircle2 size={14} />
+            </button>
+          )}
           <button
             onClick={() => onToggleActive(s.id, !s.active)}
             className={`rounded-md p-1.5 transition-colors ${
@@ -111,11 +128,19 @@ export function SubscriptionCard({ subscription: s, onEdit, onDelete, onToggleAc
           <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">
             {s.billing_cycle === 'mensual' ? 'POR MES' : 'POR CICLO'}
           </p>
-          <p className="lumus-heading mt-0.5 text-2xl font-bold" style={{ color }}>
-            {fmt(s.amount)}
-          </p>
-          {s.billing_cycle !== 'mensual' && (
-            <p className="text-xs text-[var(--text-muted)]">≈ {fmt(monthly)} / mes</p>
+          {s.variable ? (
+            <p className="lumus-heading mt-0.5 text-2xl font-bold text-[var(--text-muted)]">
+              Variable
+            </p>
+          ) : (
+            <>
+              <p className="lumus-heading mt-0.5 text-2xl font-bold" style={{ color }}>
+                {fmt(s.amount)}
+              </p>
+              {s.billing_cycle !== 'mensual' && (
+                <p className="text-xs text-[var(--text-muted)]">≈ {fmt(monthly)} / mes</p>
+              )}
+            </>
           )}
         </div>
 

@@ -39,7 +39,7 @@ Contexto financiero del mes actual:
 - Presupuesto total definido: $${Math.round(f.presupuesto_mes).toLocaleString('es-AR')}
 - Categoría donde más se gasta: ${f.categoria_top_gasto}
 - Días hasta fin de mes: ${f.dias_para_fin_mes}
-- Suscripciones activas (costo mensual): $${f.total_suscripciones_mes.toLocaleString('es-AR')}
+- Vencimientos activos (costo mensual): $${f.total_suscripciones_mes.toLocaleString('es-AR')}
 - Metas de ahorro activas: ${metasStr}
 
 Tu rol: asesor financiero personal de ${snapshot.perfil.nombre}. Ayudás a entender su situación económica, detectar gastos excesivos, sugerir formas de ahorrar y tomar mejores decisiones con el dinero. Sé directo y concreto con los números.`

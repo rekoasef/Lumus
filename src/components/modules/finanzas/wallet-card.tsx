@@ -1,27 +1,28 @@
 'use client'
 
-import { Pencil, Trash2, Wallet, Building2, Smartphone } from 'lucide-react'
+import { Pencil, Trash2, Wallet, Building2, Smartphone, SlidersHorizontal } from 'lucide-react'
 import type { Wallet as WalletType } from '@/types/finance.types'
 
 const WALLET_ICONS: Record<string, React.ReactNode> = {
   efectivo: <Wallet size={18} />,
-  banco: <Building2 size={18} />,
-  virtual: <Smartphone size={18} />,
+  banco:    <Building2 size={18} />,
+  virtual:  <Smartphone size={18} />,
 }
 
 const WALLET_LABELS: Record<string, string> = {
   efectivo: 'Efectivo',
-  banco: 'Banco',
-  virtual: 'Virtual',
+  banco:    'Banco',
+  virtual:  'Virtual',
 }
 
 interface WalletCardProps {
   wallet: WalletType
   onEdit: (wallet: WalletType) => void
+  onAdjust: (wallet: WalletType) => void
   onDelete: (id: string) => void
 }
 
-export function WalletCard({ wallet, onEdit, onDelete }: WalletCardProps) {
+export function WalletCard({ wallet, onEdit, onAdjust, onDelete }: WalletCardProps) {
   const formattedBalance = new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency: wallet.currency,
@@ -49,6 +50,14 @@ export function WalletCard({ wallet, onEdit, onDelete }: WalletCardProps) {
         </div>
 
         <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            onClick={() => onAdjust(wallet)}
+            className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--accent-muted)] hover:text-[var(--accent-lumus)]"
+            aria-label="Ajustar balance"
+            title="Ajustar balance"
+          >
+            <SlidersHorizontal size={14} />
+          </button>
           <button
             onClick={() => onEdit(wallet)}
             className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-white/10 hover:text-[var(--text-primary)]"

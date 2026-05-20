@@ -82,17 +82,39 @@ export function useSavingGoals(initialGoals: SavingGoal[]) {
     }
   }, [])
 
-  const contribute = useCallback(async (id: string, amount: number): Promise<boolean> => {
-    const goal = goals.find(g => g.id === id)
-    if (!goal) return false
-    const updated = await updateGoal(id, { current_amount: goal.current_amount + amount })
-    return updated !== null
-  }, [goals, updateGoal])
+  const contribute = useCallback(async (
+    id: string,
+    amount: number,
+    walletId?: string | null,
+  ): Promise<boolean> => {
+    setLoading(true)
+    setError(null)
+    const date = new Date().toISOString().slice(0, 10)
+    try {
+      const res = await fetch(`/api/finance/saving-goals/${id}/contribute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, wallet_id: walletId ?? null, date }),
+      })
+      if (!res.ok) {
+        const { error: msg } = await res.json().catch(() => ({ error: 'Error al registrar el aporte' }))
+        throw new Error(typeof msg === 'string' ? msg : 'Error al registrar el aporte')
+      }
+      const { goal } = await res.json() as { goal: SavingGoal }
+      setGoals(prev => prev.map(g => g.id === id ? goal : g))
+      return true
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error desconocido')
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   const markAchieved = useCallback(async (id: string): Promise<boolean> => {
     const goal = goals.find(g => g.id === id)
     if (!goal) return false
-    const updated = await updateGoal(id, { achieved: true, current_amount: goal.target_amount })
+    const updated = await updateGoal(id, { achieved: true, current_amount: Math.max(goal.current_amount, goal.target_amount) })
     return updated !== null
   }, [goals, updateGoal])
 

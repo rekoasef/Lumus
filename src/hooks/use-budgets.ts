@@ -10,17 +10,20 @@ export function useBudgets(initialBudgets: Budget[], initialMonth: number, initi
   const [year, setYear] = useState(initialYear)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [autoCopied, setAutoCopied] = useState(false)
 
   const refresh = useCallback(async (m = month, y = year) => {
     setLoading(true)
     setError(null)
+    setAutoCopied(false)
     try {
       const res = await fetch(`/api/finance/budgets?month=${m}&year=${y}`)
       if (!res.ok) throw new Error('Error al cargar presupuestos')
-      const data = await res.json() as { budgets: Budget[]; month: number; year: number }
+      const data = await res.json() as { budgets: Budget[]; month: number; year: number; auto_copied?: boolean }
       setBudgets(data.budgets)
       setMonth(data.month)
       setYear(data.year)
+      if (data.auto_copied) setAutoCopied(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
     } finally {
@@ -98,6 +101,7 @@ export function useBudgets(initialBudgets: Budget[], initialMonth: number, initi
     year,
     loading,
     error,
+    autoCopied,
     refresh,
     createBudget,
     updateBudget,

@@ -2,11 +2,14 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Plus, TrendingUp, TrendingDown, Layers, ChevronLeft, ChevronRight, BarChart2, Sparkles } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, Wallet as WalletIcon, ChevronLeft, ChevronRight, BarChart2, Minus } from 'lucide-react'
 import { LumusChat } from '@/components/lumus/lumus-chat'
+import { LumusOrb } from '@/components/lumus/lumus-orb'
 import type { Wallet, FinanceCategory, Transaction, Budget, Subscription, SavingGoal } from '@/types/finance.types'
 import { WalletCard } from './wallet-card'
 import { WalletForm } from './wallet-form'
+import { WalletAdjustForm } from './wallet-adjust-form'
+import { PaySubscriptionForm } from './pay-subscription-form'
 import { CategoryList } from './category-list'
 import { TransactionList } from './transaction-list'
 import { BudgetCard } from './budget-card'
@@ -19,7 +22,13 @@ import { useWallets } from '@/hooks/use-wallets'
 import { useBudgets } from '@/hooks/use-budgets'
 import { useSubscriptions } from '@/hooks/use-subscriptions'
 import { useSavingGoals } from '@/hooks/use-saving-goals'
-import type { CreateWalletInput, UpdateWalletInput, CreateBudgetInput, CreateSubscriptionInput, CreateSavingGoalInput } from '@/lib/validations/finance'
+import { useExchangeRates } from '@/hooks/use-exchange-rates'
+import { useTransactions } from '@/hooks/use-transactions'
+import { useFinanceReport } from '@/hooks/use-finance-report'
+import { MonthlyReportBanner } from './monthly-report-banner'
+import { MonthlyReportModal } from './monthly-report-modal'
+import type { CreateWalletInput, UpdateWalletInput, CreateBudgetInput, CreateSubscriptionInput, CreateSavingGoalInput, UpdateTransactionInput } from '@/lib/validations/finance'
+import type { CreateTransactionInput } from '@/lib/validations/finance'
 
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -45,22 +54,34 @@ export function FinanzasDashboard({
   initialSubscriptions,
   initialGoals,
 }: FinanzasDashboardProps) {
-  const { wallets, totalBalance, loading, createWallet, updateWallet, deleteWallet } =
+  const { wallets, totalBalance: _totalBalance, balanceByCurrency, loading, createWallet, updateWallet, adjustBalance, deleteWallet, localUpdateBalance } =
     useWallets(initialWallets)
+  const { rates: exchangeRates, toARS } = useExchangeRates()
+  const {
+    transactions,
+    monthGastos,
+    monthIngresos,
+    loading: txLoading,
+    createTransaction,
+    updateTransaction,
+    deleteTransaction,
+  } = useTransactions(initialTransactions)
   const [showWalletForm, setShowWalletForm] = useState(false)
   const [editingWallet, setEditingWallet] = useState<Wallet | null>(null)
+  const [adjustingWallet, setAdjustingWallet] = useState<Wallet | null>(null)
   const [activeSection, setActiveSection] = useState<Section>('transacciones')
 
   const now = new Date()
-  const { budgets, month, year, loading: budgetsLoading, refresh: refreshBudgets, createBudget, updateBudget, deleteBudget } =
+  const { budgets, month, year, loading: budgetsLoading, autoCopied, refresh: refreshBudgets, createBudget, updateBudget, deleteBudget } =
     useBudgets(initialBudgets, now.getMonth() + 1, now.getFullYear())
   const [showBudgetForm, setShowBudgetForm] = useState(false)
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null)
 
-  const { subscriptions, loading: subsLoading, monthlyTotal, createSubscription, updateSubscription, deleteSubscription, toggleActive } =
+  const { subscriptions, loading: subsLoading, monthlyTotal, createSubscription, updateSubscription, deleteSubscription, toggleActive, paySubscription } =
     useSubscriptions(initialSubscriptions)
   const [showSubForm, setShowSubForm] = useState(false)
   const [editingSub, setEditingSub] = useState<Subscription | null>(null)
+  const [payingSub, setPayingSub] = useState<Subscription | null>(null)
 
   const { goals, loading: goalsLoading, createGoal, updateGoal, deleteGoal, contribute, markAchieved } =
     useSavingGoals(initialGoals)
@@ -68,6 +89,8 @@ export function FinanzasDashboard({
   const [editingGoal, setEditingGoal] = useState<SavingGoal | null>(null)
 
   const [chatOpen, setChatOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const { report, generating, error: reportError, prevMonthLabel, generate } = useFinanceReport()
 
   const CHAT_SUGGESTIONS = [
     '¿En qué gasto de más?',
@@ -76,12 +99,41 @@ export function FinanzasDashboard({
     '¿Cómo estoy financieramente?',
   ]
 
-  const gastosDelMes = initialTransactions
-    .filter(t => t.type === 'gasto')
-    .reduce((sum, t) => sum + t.amount, 0)
-  const ingresosDelMes = initialTransactions
-    .filter(t => t.type === 'ingreso')
-    .reduce((sum, t) => sum + t.amount, 0)
+  const gastosDelMes = monthGastos
+  const ingresosDelMes = monthIngresos
+
+  async function handleTransactionCreate(data: CreateTransactionInput) {
+    const tx = await createTransaction(data)
+    if (tx) {
+      const delta = tx.type === 'gasto' ? -tx.amount : tx.type === 'ingreso' ? tx.amount : 0
+      if (delta !== 0) localUpdateBalance(tx.wallet_id, delta)
+    }
+    return tx
+  }
+
+  async function handleTransactionUpdate(id: string, data: UpdateTransactionInput) {
+    const old = transactions.find(t => t.id === id)
+    const tx = await updateTransaction(id, data)
+    if (tx && old) {
+      // Revertir efecto anterior
+      const oldDelta = old.type === 'gasto' ? old.amount : old.type === 'ingreso' ? -old.amount : 0
+      if (oldDelta !== 0) localUpdateBalance(old.wallet_id, oldDelta)
+      // Aplicar nuevo efecto
+      const newDelta = tx.type === 'gasto' ? -tx.amount : tx.type === 'ingreso' ? tx.amount : 0
+      if (newDelta !== 0) localUpdateBalance(tx.wallet_id, newDelta)
+    }
+    return tx
+  }
+
+  async function handleTransactionDelete(id: string) {
+    const tx = transactions.find(t => t.id === id)
+    const ok = await deleteTransaction(id)
+    if (ok && tx) {
+      const delta = tx.type === 'gasto' ? tx.amount : tx.type === 'ingreso' ? -tx.amount : 0
+      if (delta !== 0) localUpdateBalance(tx.wallet_id, delta)
+    }
+    return ok
+  }
 
   const fmt = (n: number, currency = 'ARS') =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(n)
@@ -97,6 +149,12 @@ export function FinanzasDashboard({
     setEditingWallet(null)
   }
 
+  async function handleAdjustBalance(newBalance: number, note: string) {
+    if (!adjustingWallet) return
+    await adjustBalance(adjustingWallet.id, newBalance, note)
+    setAdjustingWallet(null)
+  }
+
   async function handleDeleteWallet(id: string) {
     if (!confirm('¿Eliminar esta billetera? Las transacciones asociadas quedarán sin billetera.')) return
     await deleteWallet(id)
@@ -105,6 +163,10 @@ export function FinanzasDashboard({
   function handleEditWallet(wallet: Wallet) {
     setEditingWallet(wallet)
     setShowWalletForm(true)
+  }
+
+  function handleAdjustWallet(wallet: Wallet) {
+    setAdjustingWallet(wallet)
   }
 
   async function handleSaveBudget(data: CreateBudgetInput) {
@@ -151,8 +213,14 @@ export function FinanzasDashboard({
   }
 
   async function handleDeleteSub(id: string) {
-    if (!confirm('¿Eliminar esta suscripción?')) return
+    if (!confirm('¿Eliminar este vencimiento?')) return
     await deleteSubscription(id)
+  }
+
+  async function handlePaySub(amount: number, categoryId: string | null, walletId: string | null, date: string) {
+    if (!payingSub) return
+    await paySubscription(payingSub.id, amount, categoryId, walletId, date)
+    setPayingSub(null)
   }
 
   async function handleSaveGoal(data: CreateSavingGoalInput) {
@@ -180,13 +248,21 @@ export function FinanzasDashboard({
     { id: 'billeteras',    label: 'Billeteras' },
     { id: 'categorias',    label: 'Categorías' },
     { id: 'presupuestos',  label: 'Presupuestos' },
-    { id: 'suscripciones', label: 'Suscripciones' },
+    { id: 'suscripciones', label: 'Vencimientos' },
     { id: 'metas',         label: 'Metas' },
   ]
 
   return (
     <div className="min-h-screen px-5 py-8 lg:px-12 lg:py-12">
       <div className="mx-auto max-w-[1120px]">
+
+        {/* Banner de informe mensual — aparece cuando no hay informe del mes anterior */}
+        {report === null && (
+          <MonthlyReportBanner
+            monthLabel={prevMonthLabel}
+            onOpen={() => setReportOpen(true)}
+          />
+        )}
 
         {/* Header */}
         <header className="mb-10">
@@ -199,55 +275,108 @@ export function FinanzasDashboard({
                 Controlá tus billeteras, gastos e ingresos.
               </p>
             </div>
-            <div className="flex flex-col items-end gap-3">
-              <div className="text-right">
-                <p className="lumus-label text-[0.62rem] text-[var(--text-muted)]">BALANCE TOTAL</p>
-                <p className={`lumus-heading mt-1 text-3xl font-bold ${
-                  totalBalance >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'
-                }`}>
-                  {fmt(totalBalance)}
-                </p>
-              </div>
-              <Link
-                href="/finanzas/reportes"
-                className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-[var(--text-muted)] transition-colors hover:border-white/20 hover:text-[var(--text-secondary)]"
-              >
-                <BarChart2 size={12} />
-                Ver reportes
-              </Link>
-            </div>
+            <Link
+              href="/finanzas/reportes"
+              className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-[var(--text-muted)] transition-colors hover:border-white/20 hover:text-[var(--text-secondary)]"
+            >
+              <BarChart2 size={12} />
+              Ver reportes
+            </Link>
           </div>
 
-          {/* Stats del mes */}
-          <div className="mt-8 grid grid-cols-3 gap-4">
-            <div className="lumus-glass rounded-xl p-4">
-              <div className="flex items-center gap-2 text-[var(--accent-lumus)]">
-                <Layers size={16} />
-                <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">BILLETERAS</p>
+          {/* Stats del mes — 4 cards */}
+          {(() => {
+            const resto      = ingresosDelMes - gastosDelMes
+            const restoColor = resto > 0 ? 'var(--success)' : resto < 0 ? 'var(--danger)' : 'var(--text-muted)'
+            const restoLabel = resto > 0 ? 'Sobraste' : resto < 0 ? 'Sobregirado' : 'Equilibrado'
+
+            // Total equivalente en ARS usando cotizaciones
+            const totalARSEquiv = Object.entries(balanceByCurrency).reduce((sum, [currency, amount]) => {
+              return sum + toARS(amount, currency)
+            }, 0)
+
+            const hasForeignCurrency = Object.keys(balanceByCurrency).some(c => c !== 'ARS')
+
+            return (
+              <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+
+                {/* Billeteras — breakdown por moneda + total ARS equivalente */}
+                <div className="lumus-glass rounded-xl p-4">
+                  <div className="flex items-center gap-2">
+                    <WalletIcon size={14} className="text-[var(--accent-lumus)]" />
+                    <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">BILLETERAS</p>
+                  </div>
+
+                  {/* Una línea por moneda */}
+                  <div className="mt-2 space-y-0.5">
+                    {Object.entries(balanceByCurrency).map(([currency, amount]) => (
+                      <p key={currency} className={`lumus-heading text-xl font-bold leading-tight ${amount >= 0 ? 'text-[var(--accent-lumus)]' : 'text-[var(--danger)]'}`}>
+                        {new Intl.NumberFormat('es-AR', {
+                          style: 'currency',
+                          currency,
+                          minimumFractionDigits: currency === 'ARS' ? 0 : 2,
+                          maximumFractionDigits: currency === 'ARS' ? 0 : 2,
+                        }).format(amount)}
+                      </p>
+                    ))}
+                    {wallets.length === 0 && (
+                      <p className="lumus-heading text-xl font-bold text-[var(--accent-lumus)]">$0</p>
+                    )}
+                  </div>
+
+                  {/* Total en ARS equivalente (solo si hay moneda extranjera) */}
+                  {hasForeignCurrency && exchangeRates && (
+                    <p className="mt-1 text-[0.58rem] text-[var(--text-muted)]">
+                      ≈ {fmt(totalARSEquiv)} ARS total
+                    </p>
+                  )}
+
+                  <p className="mt-0.5 text-[0.6rem] text-[var(--text-muted)]">
+                    {wallets.length} {wallets.length === 1 ? 'billetera' : 'billeteras'}
+                  </p>
+                </div>
+
+                {/* Ingresos del mes */}
+                <div className="lumus-glass rounded-xl p-4">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp size={14} className="text-[var(--success)]" />
+                    <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">INGRESOS</p>
+                  </div>
+                  <p className="lumus-heading mt-2 text-xl font-bold text-[var(--success)]">
+                    {fmt(ingresosDelMes)}
+                  </p>
+                  <p className="mt-0.5 text-[0.6rem] text-[var(--text-muted)]">Este mes</p>
+                </div>
+
+                {/* Gastos del mes */}
+                <div className="lumus-glass rounded-xl p-4">
+                  <div className="flex items-center gap-2">
+                    <TrendingDown size={14} className="text-[var(--danger)]" />
+                    <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">GASTOS</p>
+                  </div>
+                  <p className="lumus-heading mt-2 text-xl font-bold text-[var(--danger)]">
+                    {fmt(gastosDelMes)}
+                  </p>
+                  <p className="mt-0.5 text-[0.6rem] text-[var(--text-muted)]">Este mes</p>
+                </div>
+
+                {/* Resto — diferencia del mes */}
+                <div className="lumus-glass rounded-xl p-4">
+                  <div className="flex items-center gap-2">
+                    <Minus size={14} style={{ color: restoColor }} />
+                    <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">RESTO</p>
+                  </div>
+                  <p className="lumus-heading mt-2 text-xl font-bold" style={{ color: restoColor }}>
+                    {resto >= 0 ? '+' : ''}{fmt(resto)}
+                  </p>
+                  <p className="mt-0.5 text-[0.6rem]" style={{ color: restoColor }}>
+                    {restoLabel}
+                  </p>
+                </div>
+
               </div>
-              <p className="lumus-heading mt-2 text-2xl font-bold text-[var(--accent-lumus)]">
-                {wallets.length}
-              </p>
-            </div>
-            <div className="lumus-glass rounded-xl p-4">
-              <div className="flex items-center gap-2 text-[var(--success)]">
-                <TrendingUp size={16} />
-                <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">INGRESOS</p>
-              </div>
-              <p className="lumus-heading mt-2 text-2xl font-bold text-[var(--success)]">
-                {fmt(ingresosDelMes)}
-              </p>
-            </div>
-            <div className="lumus-glass rounded-xl p-4">
-              <div className="flex items-center gap-2 text-[var(--danger)]">
-                <TrendingDown size={16} />
-                <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">GASTOS</p>
-              </div>
-              <p className="lumus-heading mt-2 text-2xl font-bold text-[var(--danger)]">
-                {fmt(gastosDelMes)}
-              </p>
-            </div>
-          </div>
+            )
+          })()}
         </header>
 
         {/* Tabs */}
@@ -274,9 +403,15 @@ export function FinanzasDashboard({
               Movimientos del mes
             </h2>
             <TransactionList
-              initialTransactions={initialTransactions}
+              transactions={transactions}
+              monthGastos={monthGastos}
+              monthIngresos={monthIngresos}
+              loading={txLoading}
               wallets={wallets}
               categories={initialCategories}
+              onCreate={handleTransactionCreate}
+              onUpdate={handleTransactionUpdate}
+              onDelete={handleTransactionDelete}
             />
           </section>
         )}
@@ -314,6 +449,7 @@ export function FinanzasDashboard({
                     key={wallet.id}
                     wallet={wallet}
                     onEdit={handleEditWallet}
+                    onAdjust={handleAdjustWallet}
                     onDelete={handleDeleteWallet}
                   />
                 ))}
@@ -370,6 +506,13 @@ export function FinanzasDashboard({
               </button>
             </div>
 
+            {autoCopied && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-[var(--accent-lumus)]/20 bg-[var(--accent-muted)] px-4 py-2.5 text-xs text-[var(--accent-lumus)]">
+                <span>✦</span>
+                <span>Presupuestos copiados del mes anterior. Podés editarlos o eliminarlos para este mes.</span>
+              </div>
+            )}
+
             {budgetsLoading ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {[1, 2, 3].map(i => (
@@ -406,7 +549,7 @@ export function FinanzasDashboard({
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <h2 className="lumus-heading text-xl font-semibold text-[var(--text-primary)]">
-                  Suscripciones
+                  Vencimientos
                 </h2>
                 {subscriptions.some(s => s.active) && (
                   <p className="mt-1 text-xs text-[var(--text-muted)]">
@@ -423,7 +566,7 @@ export function FinanzasDashboard({
                 className="flex items-center gap-2 rounded-xl bg-[var(--accent-lumus)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
               >
                 <Plus size={16} />
-                Nueva suscripción
+                Nuevo vencimiento
               </button>
             </div>
 
@@ -435,12 +578,12 @@ export function FinanzasDashboard({
               </div>
             ) : subscriptions.length === 0 ? (
               <div className="lumus-glass rounded-2xl py-20 text-center">
-                <p className="text-[var(--text-muted)]">No tenés suscripciones registradas.</p>
+                <p className="text-[var(--text-muted)]">No tenés vencimientos registrados.</p>
                 <button
                   onClick={() => setShowSubForm(true)}
                   className="mt-4 text-sm text-[var(--accent-lumus)] hover:underline"
                 >
-                  Agregar la primera
+                  Agregar el primero
                 </button>
               </div>
             ) : (
@@ -452,6 +595,7 @@ export function FinanzasDashboard({
                     onEdit={handleEditSub}
                     onDelete={handleDeleteSub}
                     onToggleActive={toggleActive}
+                    onPay={setPayingSub}
                   />
                 ))}
               </div>
@@ -498,9 +642,10 @@ export function FinanzasDashboard({
                   <SavingGoalCard
                     key={goal.id}
                     goal={goal}
+                    wallets={wallets}
                     onEdit={handleEditGoal}
                     onDelete={handleDeleteGoal}
-                    onContribute={async (id, amount) => { await contribute(id, amount) }}
+                    onContribute={async (id, amount, walletId) => { await contribute(id, amount, walletId) }}
                     onMarkAchieved={async (id) => { await markAchieved(id) }}
                   />
                 ))}
@@ -515,6 +660,14 @@ export function FinanzasDashboard({
           onSave={handleSaveWallet}
           onClose={() => { setShowWalletForm(false); setEditingWallet(null) }}
           initial={editingWallet ?? undefined}
+        />
+      )}
+
+      {adjustingWallet && (
+        <WalletAdjustForm
+          wallet={adjustingWallet}
+          onAdjust={handleAdjustBalance}
+          onClose={() => setAdjustingWallet(null)}
         />
       )}
 
@@ -536,6 +689,16 @@ export function FinanzasDashboard({
         />
       )}
 
+      {payingSub && (
+        <PaySubscriptionForm
+          subscription={payingSub}
+          categories={initialCategories}
+          wallets={wallets}
+          onPay={handlePaySub}
+          onClose={() => setPayingSub(null)}
+        />
+      )}
+
       {showGoalForm && (
         <SavingGoalForm
           wallets={wallets}
@@ -545,14 +708,25 @@ export function FinanzasDashboard({
         />
       )}
 
+      {reportOpen && (
+        <MonthlyReportModal
+          report={report ?? null}
+          generating={generating}
+          error={reportError}
+          monthLabel={prevMonthLabel}
+          onGenerate={generate}
+          onClose={() => setReportOpen(false)}
+        />
+      )}
+
       {/* Botón flotante — Lumus */}
       {!chatOpen && (
         <button
           onClick={() => setChatOpen(true)}
-          className="fixed bottom-6 right-6 z-30 flex items-center gap-2.5 rounded-full bg-[var(--accent-lumus)] py-3 pl-4 pr-5 text-sm font-semibold text-white shadow-xl hover:bg-[var(--accent-hover)] transition-colors"
+          className="fixed bottom-6 right-6 z-30 transition-transform hover:scale-110 active:scale-95"
+          aria-label="Abrir Lumus"
         >
-          <Sparkles size={15} />
-          <span className="hidden sm:inline">Lumus</span>
+          <LumusOrb state="idle" size={80} />
         </button>
       )}
 

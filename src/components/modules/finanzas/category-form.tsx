@@ -5,18 +5,12 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { X } from 'lucide-react'
 import { createCategorySchema, type CreateCategoryInput } from '@/lib/validations/finance'
 import type { FinanceCategory } from '@/types/finance.types'
+import { CATEGORY_ICON_MAP, ICON_KEYS, CategoryIcon } from '@/lib/utils/category-icons'
 
 const PRESET_COLORS = [
   '#f97316', '#3b82f6', '#a855f7', '#ef4444',
   '#22c55e', '#ec4899', '#06b6d4', '#eab308',
   '#6366f1', '#84cc16', '#14b8a6', '#64748b',
-]
-
-const PRESET_ICONS = [
-  'utensils', 'car', 'home', 'heart-pulse',
-  'graduation-cap', 'shirt', 'laptop', 'repeat',
-  'banknote', 'briefcase', 'trending-up', 'wallet',
-  'gamepad-2', 'plane', 'shopping-cart', 'gift',
 ]
 
 interface CategoryFormProps {
@@ -36,19 +30,20 @@ export function CategoryForm({ onSave, onClose, initial, defaultType = 'gasto' }
   } = useForm<CreateCategoryInput>({
     resolver: zodResolver(createCategorySchema),
     defaultValues: {
-      name: initial?.name ?? '',
-      type: initial?.type ?? defaultType,
+      name:  initial?.name  ?? '',
+      type:  initial?.type  ?? defaultType,
       color: initial?.color ?? '#6366f1',
-      icon: initial?.icon ?? null,
+      icon:  initial?.icon  ?? null,
     },
   })
 
   const selectedColor = watch('color')
-  const selectedIcon = watch('icon')
+  const selectedIcon  = watch('icon')
+  const selectedType  = watch('type')
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="lumus-glass w-full max-w-md rounded-2xl p-6">
+      <div className="lumus-glass w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="lumus-heading text-xl font-semibold text-[var(--text-primary)]">
             {initial ? 'Editar categoría' : 'Nueva categoría'}
@@ -61,7 +56,7 @@ export function CategoryForm({ onSave, onClose, initial, defaultType = 'gasto' }
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSave)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSave)} className="space-y-5">
           <div>
             <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
               NOMBRE
@@ -87,7 +82,7 @@ export function CategoryForm({ onSave, onClose, initial, defaultType = 'gasto' }
                   type="button"
                   onClick={() => setValue('type', t)}
                   className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium capitalize transition-colors ${
-                    watch('type') === t
+                    selectedType === t
                       ? t === 'gasto'
                         ? 'border-[var(--danger)] bg-[var(--danger)]/10 text-[var(--danger)]'
                         : 'border-[var(--success)] bg-[var(--success-muted)] text-[var(--success)]'
@@ -122,27 +117,47 @@ export function CategoryForm({ onSave, onClose, initial, defaultType = 'gasto' }
 
           <div>
             <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-              ÍCONO (nombre de Lucide)
+              ÍCONO
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {PRESET_ICONS.map(icon => (
-                <button
-                  key={icon}
-                  type="button"
-                  onClick={() => setValue('icon', selectedIcon === icon ? null : icon)}
-                  className={`rounded-md border px-2 py-1 text-[0.65rem] transition-colors ${
-                    selectedIcon === icon
-                      ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
-                      : 'border-white/10 text-[var(--text-muted)] hover:border-white/20 hover:text-[var(--text-secondary)]'
-                  }`}
-                >
-                  {icon}
-                </button>
-              ))}
+            <div className="grid grid-cols-6 gap-1.5">
+              {ICON_KEYS.map(key => {
+                const isSelected = selectedIcon === key
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    title={key}
+                    onClick={() => setValue('icon', isSelected ? null : key)}
+                    className={`flex items-center justify-center rounded-lg border p-2.5 transition-all hover:scale-105 ${
+                      isSelected
+                        ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)]'
+                        : 'border-white/10 bg-white/5 hover:border-white/20'
+                    }`}
+                  >
+                    <CategoryIcon
+                      icon={key}
+                      size={16}
+                      style={{ color: isSelected ? 'var(--accent-lumus)' : selectedColor }}
+                    />
+                  </button>
+                )
+              })}
             </div>
+            {selectedIcon && (
+              <p className="mt-1.5 text-[0.65rem] text-[var(--text-muted)]">
+                Seleccionado: <span className="text-[var(--text-secondary)]">{selectedIcon}</span>
+                <button
+                  type="button"
+                  onClick={() => setValue('icon', null)}
+                  className="ml-2 text-[var(--danger)] hover:underline"
+                >
+                  quitar
+                </button>
+              </p>
+            )}
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-1">
             <button
               type="button"
               onClick={onClose}
