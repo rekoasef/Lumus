@@ -4,7 +4,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Plus, TrendingUp, TrendingDown, Wallet as WalletIcon, ChevronLeft, ChevronRight, BarChart2, Minus } from 'lucide-react'
 import { LumusChat } from '@/components/lumus/lumus-chat'
-import { LumusOrb } from '@/components/lumus/lumus-orb'
 import type { Wallet, FinanceCategory, Transaction, Budget, Subscription, SavingGoal } from '@/types/finance.types'
 import { WalletCard } from './wallet-card'
 import { WalletForm } from './wallet-form'
@@ -719,16 +718,6 @@ export function FinanzasDashboard({
         />
       )}
 
-      {/* Botón flotante — Lumus */}
-      {!chatOpen && (
-        <button
-          onClick={() => setChatOpen(true)}
-          className="fixed bottom-6 right-6 z-30 transition-transform hover:scale-110 active:scale-95"
-          aria-label="Abrir Lumus"
-        >
-          <LumusOrb state="idle" size={80} />
-        </button>
-      )}
 
       {/* Chat panel */}
       {chatOpen && (
