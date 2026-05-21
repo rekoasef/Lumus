@@ -62,6 +62,7 @@ export async function POST(
   const tx_sum = (txRows ?? []).reduce<number>((sum, t) => {
     if (t.type === 'ingreso') return sum + Number(t.amount)
     if (t.type === 'gasto')   return sum - Number(t.amount)
+    if (t.type === 'ajuste')  return sum + Number(t.amount)
     return sum
   }, 0)
 
@@ -72,8 +73,8 @@ export async function POST(
     await supabase.from('transactions').insert({
       user_id:         user.id,
       wallet_id:       id,
-      type:            implicit > 0 ? 'ingreso' : 'gasto',
-      amount:          Math.abs(implicit),
+      type:            'ajuste',
+      amount:          implicit,
       description:     'Balance inicial',
       date:            (wallet.created_at ?? today).slice(0, 10),
       category_id:     null,
@@ -89,8 +90,8 @@ export async function POST(
   const { error: txError } = await supabase.from('transactions').insert({
     user_id:         user.id,
     wallet_id:       id,
-    type:            diff > 0 ? 'ingreso' : 'gasto',
-    amount:          Math.abs(diff),
+    type:            'ajuste',
+    amount:          diff,
     description,
     date:            today,
     category_id:     null,

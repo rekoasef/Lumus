@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
-import { Plus, X, ChevronRight, ArrowLeft, CalendarDays, ChevronLeft } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus, ChevronLeft, ChevronRight, ArrowLeft, CalendarDays } from 'lucide-react'
 import type { Transaction, Wallet, FinanceCategory } from '@/types/finance.types'
 import { TransactionItem } from './transaction-item'
 import { TransactionForm } from './transaction-form'
@@ -10,102 +10,112 @@ import { CategoryIcon } from '@/lib/utils/category-icons'
 
 // ——— tipos ———
 
-type QuickFilter = 'hoy' | 'semana' | 'mes' | 'año'
-type PeriodMode = 'mes' | 'semana' | 'año'
+type ViewType = 'gastos' | 'ingresos'
+type FilterMode = 'dia' | 'semana' | 'mes' | 'año' | 'periodo'
 
-type CategoryGroup = {
+interface CategoryGroup {
+  key: string
   categoryId: string | null
   category: Pick<FinanceCategory, 'id' | 'name' | 'color' | 'icon'> | null
-  totalGasto: number
-  totalIngreso: number
+  total: number
   count: number
   transactions: Transaction[]
 }
 
-// ——— helpers ———
+// ——— helpers SVG donut ———
 
-function getQuickFilterDates(qf: QuickFilter): { date_from: string; date_to: string } {
+function polarToCartesian(cx: number, cy: number, r: number, deg: number) {
+  const rad = ((deg - 90) * Math.PI) / 180
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
+}
+
+function arcPath(cx: number, cy: number, outerR: number, innerR: number, start: number, end: number): string {
+  const sweep = Math.min(end - start, 359.99)
+  const endAngle = start + sweep
+  const so = polarToCartesian(cx, cy, outerR, start)
+  const eo = polarToCartesian(cx, cy, outerR, endAngle)
+  const ei = polarToCartesian(cx, cy, innerR, endAngle)
+  const si = polarToCartesian(cx, cy, innerR, start)
+  const large = sweep > 180 ? 1 : 0
+  return [
+    `M ${so.x.toFixed(2)} ${so.y.toFixed(2)}`,
+    `A ${outerR} ${outerR} 0 ${large} 1 ${eo.x.toFixed(2)} ${eo.y.toFixed(2)}`,
+    `L ${ei.x.toFixed(2)} ${ei.y.toFixed(2)}`,
+    `A ${innerR} ${innerR} 0 ${large} 0 ${si.x.toFixed(2)} ${si.y.toFixed(2)}`,
+    'Z',
+  ].join(' ')
+}
+
+// ——— helpers de fechas ———
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + 'T12:00:00')
+  d.setDate(d.getDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+function getDiaLabel(dateStr: string): string {
+  const today = todayStr()
+  if (dateStr === today) return 'Hoy'
+  if (dateStr === addDays(today, -1)) return 'Ayer'
+  if (dateStr === addDays(today, 1)) return 'Mañana'
+  const d = new Date(dateStr + 'T12:00:00')
+  const raw = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+  return raw.charAt(0).toUpperCase() + raw.slice(1)
+}
+
+function getSemanaDates(offset: number): { from: string; to: string; label: string } {
   const today = new Date()
-  const todayStr = today.toISOString().slice(0, 10)
-
-  if (qf === 'hoy') return { date_from: todayStr, date_to: todayStr }
-
-  if (qf === 'semana') {
-    const day = today.getDay()
-    const diff = day === 0 ? 6 : day - 1
-    const monday = new Date(today)
-    monday.setDate(today.getDate() - diff)
-    return { date_from: monday.toISOString().slice(0, 10), date_to: todayStr }
+  const day = today.getDay()
+  const diff = day === 0 ? 6 : day - 1
+  const monday = new Date(today)
+  monday.setDate(today.getDate() - diff + offset * 7)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  const from = monday.toISOString().slice(0, 10)
+  const to = sunday.toISOString().slice(0, 10)
+  let label: string
+  if (offset === 0) label = 'Esta semana'
+  else if (offset === -1) label = 'Semana pasada'
+  else {
+    const mo = monday.toLocaleString('es-AR', { month: 'short' })
+    const so2 = sunday.toLocaleString('es-AR', { month: 'short', year: 'numeric' })
+    label = `${monday.getDate()} ${mo} – ${sunday.getDate()} ${so2}`
   }
-
-  if (qf === 'mes') {
-    const first = new Date(today.getFullYear(), today.getMonth(), 1)
-    return { date_from: first.toISOString().slice(0, 10), date_to: todayStr }
-  }
-
-  // año
-  const first = new Date(today.getFullYear(), 0, 1)
-  return { date_from: first.toISOString().slice(0, 10), date_to: todayStr }
+  return { from, to, label }
 }
 
-function getPeriodDates(mode: PeriodMode, offset: number): { date_from: string; date_to: string; label: string } {
-  if (mode === 'mes') {
-    const d = new Date()
-    const target = new Date(d.getFullYear(), d.getMonth() + offset, 1)
-    const start = target.toISOString().slice(0, 10)
-    const end = new Date(target.getFullYear(), target.getMonth() + 1, 0).toISOString().slice(0, 10)
-    const label = target.toLocaleString('es-AR', { month: 'long', year: 'numeric' })
-    return { date_from: start, date_to: end, label }
-  }
-  if (mode === 'semana') {
-    const today = new Date()
-    const day = today.getDay()
-    const diff = day === 0 ? 6 : day - 1
-    const monday = new Date(today)
-    monday.setDate(today.getDate() - diff + offset * 7)
-    const sunday = new Date(monday)
-    sunday.setDate(monday.getDate() + 6)
-    const start = monday.toISOString().slice(0, 10)
-    const end = sunday.toISOString().slice(0, 10)
-    const label = `${monday.getDate()} ${monday.toLocaleString('es-AR', { month: 'short' })} – ${sunday.getDate()} ${sunday.toLocaleString('es-AR', { month: 'short', year: 'numeric' })}`
-    return { date_from: start, date_to: end, label }
-  }
-  // año
+function getMesDates(offset: number): { from: string; to: string; label: string } {
+  const d = new Date()
+  const target = new Date(d.getFullYear(), d.getMonth() + offset, 1)
+  const from = target.toISOString().slice(0, 10)
+  const to = new Date(target.getFullYear(), target.getMonth() + 1, 0).toISOString().slice(0, 10)
+  const raw = target.toLocaleString('es-AR', { month: 'long', year: 'numeric' })
+  return { from, to, label: raw.charAt(0).toUpperCase() + raw.slice(1) }
+}
+
+function getAñoDates(offset: number): { from: string; to: string; label: string } {
   const year = new Date().getFullYear() + offset
-  return { date_from: `${year}-01-01`, date_to: `${year}-12-31`, label: String(year) }
+  return { from: `${year}-01-01`, to: `${year}-12-31`, label: String(year) }
 }
 
-function groupByCategory(transactions: Transaction[]): CategoryGroup[] {
-  const map = new Map<string, CategoryGroup>()
-
-  for (const t of transactions) {
-    const key = t.category_id ?? '__sin_categoria__'
-    if (!map.has(key)) {
-      map.set(key, {
-        categoryId: t.category_id,
-        category: t.category ?? null,
-        totalGasto: 0,
-        totalIngreso: 0,
-        count: 0,
-        transactions: [],
-      })
-    }
-    const g = map.get(key)!
-    if (t.type === 'gasto') g.totalGasto += t.amount
-    if (t.type === 'ingreso') g.totalIngreso += t.amount
-    g.count++
-    g.transactions.push(t)
+function fmtShort(n: number): string {
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000
+    return `${m % 1 === 0 ? m : m.toFixed(1).replace('.', ',')} M$`
   }
-
-  return Array.from(map.values()).sort((a, b) => b.totalGasto - a.totalGasto)
+  if (n >= 1_000) return `${Math.round(n / 1_000).toLocaleString('es-AR')} K$`
+  return `$${n}`
 }
 
 // ——— props ———
 
 interface TransactionListProps {
   transactions: Transaction[]
-  monthGastos: number
-  monthIngresos: number
   loading: boolean
   wallets: Wallet[]
   categories: FinanceCategory[]
@@ -114,19 +124,18 @@ interface TransactionListProps {
   onDelete: (id: string) => Promise<boolean>
 }
 
-const QUICK_FILTERS: { id: QuickFilter; label: string }[] = [
-  { id: 'hoy',    label: 'Hoy' },
-  { id: 'semana', label: 'Semana' },
-  { id: 'mes',    label: 'Mes' },
-  { id: 'año',    label: 'Año' },
+const FILTER_TABS: { id: FilterMode; label: string }[] = [
+  { id: 'dia',     label: 'Día' },
+  { id: 'semana',  label: 'Semana' },
+  { id: 'mes',     label: 'Mes' },
+  { id: 'año',     label: 'Año' },
+  { id: 'periodo', label: 'Período' },
 ]
 
 // ——— componente ———
 
 export function TransactionList({
   transactions,
-  monthGastos,
-  monthIngresos,
   loading,
   wallets,
   categories,
@@ -134,157 +143,118 @@ export function TransactionList({
   onUpdate,
   onDelete,
 }: TransactionListProps) {
-  const [quickFilter, setQuickFilter] = useState<QuickFilter | null>(null)
-  const [yearTransactions, setYearTransactions] = useState<Transaction[]>([])
-  const [yearLoading, setYearLoading] = useState(false)
-  const [selectedGroup, setSelectedGroup] = useState<CategoryGroup | null>(null)
+  const [viewType, setViewType]   = useState<ViewType>('gastos')
+  const [filterMode, setFilterMode] = useState<FilterMode>('periodo')
 
-  const [showDateFilter, setShowDateFilter] = useState(false)
-  const [pickedDate, setPickedDate] = useState('')
-  const [customTransactions, setCustomTransactions] = useState<Transaction[] | null>(null)
-  const [customLoading, setCustomLoading] = useState(false)
+  // Estado por modo de filtro
+  const [diaDate, setDiaDate]   = useState<string>(todayStr())
+  const [offset, setOffset]     = useState(0)   // semana / mes / año
+  const [rangeFrom, setRangeFrom] = useState('')
+  const [rangeTo, setRangeTo]   = useState('')
 
-  const [periodMode, setPeriodMode] = useState<PeriodMode | null>(null)
-  const [periodOffset, setPeriodOffset] = useState(0)
-  const [periodTransactions, setPeriodTransactions] = useState<Transaction[] | null>(null)
-  const [periodLoading, setPeriodLoading] = useState(false)
-  const [showPeriodPanel, setShowPeriodPanel] = useState(false)
-
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
-  const [editing, setEditing] = useState<Transaction | null>(null)
+  const [editing, setEditing]   = useState<Transaction | null>(null)
 
   const fmt = (n: number) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(n)
 
-  // Filtrado local por quick filter (sin llamada API — usa las transactions del mes ya cargadas)
-  const quickFiltered = useMemo(() => {
-    if (!quickFilter || quickFilter === 'año') return transactions
-    const { date_from, date_to } = getQuickFilterDates(quickFilter)
-    return transactions.filter(t => t.date >= date_from && t.date <= date_to)
-  }, [quickFilter, transactions])
+  // ——— rangos pre-calculados ———
 
-  // ——— quick filter ———
+  const semanaData = useMemo(() => getSemanaDates(offset), [offset])
+  const mesData    = useMemo(() => getMesDates(offset), [offset])
+  const añoData    = useMemo(() => getAñoDates(offset), [offset])
 
-  const applyQuickFilter = useCallback(async (qf: QuickFilter) => {
-    setQuickFilter(qf)
-    setSelectedGroup(null)
-    setCustomTransactions(null)
-    setPickedDate('')
-    setPeriodMode(null)
-    setPeriodOffset(0)
-    setPeriodTransactions(null)
-    setShowPeriodPanel(false)
+  // ——— filtrado por fecha ———
 
-    if (qf === 'año') {
-      const { date_from, date_to } = getQuickFilterDates('año')
-      setYearLoading(true)
-      try {
-        const res = await fetch(`/api/finance/transactions?date_from=${date_from}&date_to=${date_to}&limit=500`)
-        if (res.ok) {
-          const data = await res.json() as { transactions: Transaction[] }
-          setYearTransactions(data.transactions)
-        }
-      } finally {
-        setYearLoading(false)
+  const filteredByDate = useMemo(() => {
+    if (filterMode === 'dia') {
+      return transactions.filter(t => t.date === diaDate)
+    }
+    if (filterMode === 'semana') {
+      return transactions.filter(t => t.date >= semanaData.from && t.date <= semanaData.to)
+    }
+    if (filterMode === 'mes') {
+      return transactions.filter(t => t.date >= mesData.from && t.date <= mesData.to)
+    }
+    if (filterMode === 'año') {
+      return transactions.filter(t => t.date >= añoData.from && t.date <= añoData.to)
+    }
+    // periodo
+    if (rangeFrom && rangeTo) return transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo)
+    if (rangeFrom)            return transactions.filter(t => t.date >= rangeFrom)
+    if (rangeTo)              return transactions.filter(t => t.date <= rangeTo)
+    return transactions
+  }, [transactions, filterMode, diaDate, semanaData, mesData, añoData, rangeFrom, rangeTo])
+
+  // ——— totales ———
+
+  const totalGastos   = useMemo(() => filteredByDate.filter(t => t.type === 'gasto').reduce((s, t) => s + t.amount, 0), [filteredByDate])
+  const totalIngresos = useMemo(() => filteredByDate.filter(t => t.type === 'ingreso').reduce((s, t) => s + t.amount, 0), [filteredByDate])
+  const currentTotal  = viewType === 'gastos' ? totalGastos : totalIngresos
+
+  // ——— grupos de categoría ———
+
+  const categoryGroups = useMemo((): CategoryGroup[] => {
+    const relevant = filteredByDate.filter(t =>
+      viewType === 'gastos' ? t.type === 'gasto' : t.type === 'ingreso',
+    )
+    const map = new Map<string, CategoryGroup>()
+    for (const t of relevant) {
+      const key = t.category_id ?? '__none__'
+      const g = map.get(key)
+      if (!g) {
+        map.set(key, { key, categoryId: t.category_id, category: t.category ?? null, total: t.amount, count: 1, transactions: [t] })
+      } else {
+        g.total += t.amount
+        g.count++
+        g.transactions.push(t)
       }
     }
-  }, [])
+    return Array.from(map.values()).sort((a, b) => b.total - a.total)
+  }, [filteredByDate, viewType])
 
-  const clearQuickFilter = useCallback(() => {
-    setQuickFilter(null)
-    setSelectedGroup(null)
-    setYearTransactions([])
-    setCustomTransactions(null)
-    setPeriodMode(null)
-    setPeriodOffset(0)
-    setPeriodTransactions(null)
-    setShowPeriodPanel(false)
-  }, [])
+  const selectedGroup = selectedCategoryKey
+    ? (categoryGroups.find(g => g.key === selectedCategoryKey) ?? null)
+    : null
 
-  // ——— date filter ———
+  // ——— segmentos del donut ———
 
-  const applyDateFilter = useCallback(async (date: string) => {
-    if (!date) return
-    setSelectedGroup(null)
-    setQuickFilter(null)
-    setPeriodMode(null)
-    setPeriodOffset(0)
-    setPeriodTransactions(null)
-    setShowPeriodPanel(false)
-    setCustomLoading(true)
-    try {
-      const res = await fetch(`/api/finance/transactions?date_from=${date}&date_to=${date}&limit=500`)
-      if (res.ok) {
-        const data = await res.json() as { transactions: Transaction[] }
-        setCustomTransactions(data.transactions)
-      }
-    } finally {
-      setCustomLoading(false)
-    }
-  }, [])
+  const chartSegments = useMemo(() => {
+    if (currentTotal === 0) return []
+    const cx = 100, cy = 100, outerR = 82, innerR = 54, gap = 1.5
+    let angle = 0
+    return categoryGroups
+      .filter(g => g.total > 0)
+      .map(g => {
+        const sweep = (g.total / currentTotal) * 360
+        if (sweep < 2) return null
+        const start = angle + gap / 2
+        const end   = angle + sweep - gap / 2
+        angle += sweep
+        return { key: g.key, d: arcPath(cx, cy, outerR, innerR, start, end), color: g.category?.color ?? '#475569' }
+      })
+      .filter(Boolean)
+  }, [categoryGroups, currentTotal])
 
-  const clearDateFilter = useCallback(() => {
-    setCustomTransactions(null)
-    setPickedDate('')
-    setShowDateFilter(false)
-  }, [])
+  // ——— handlers ———
 
-  const fetchPeriod = useCallback(async (mode: PeriodMode, offset: number) => {
-    const { date_from, date_to } = getPeriodDates(mode, offset)
-    setPeriodLoading(true)
-    setSelectedGroup(null)
-    try {
-      const res = await fetch(`/api/finance/transactions?date_from=${date_from}&date_to=${date_to}&limit=500`)
-      if (res.ok) {
-        const data = await res.json() as { transactions: Transaction[] }
-        setPeriodTransactions(data.transactions)
-      }
-    } finally {
-      setPeriodLoading(false)
-    }
-  }, [])
+  function handleFilterMode(mode: FilterMode) {
+    setFilterMode(mode)
+    setOffset(0)
+    if (mode === 'dia') setDiaDate(todayStr())
+    setSelectedCategoryKey(null)
+  }
 
-  const openPeriodMode = useCallback((mode: PeriodMode) => {
-    setPeriodMode(mode)
-    setPeriodOffset(0)
-    setQuickFilter(null)
-    setCustomTransactions(null)
-    setPickedDate('')
-    setShowDateFilter(false)
-    setSelectedGroup(null)
-    fetchPeriod(mode, 0)
-  }, [fetchPeriod])
+  function navigateDia(delta: number) {
+    setDiaDate(d => addDays(d, delta))
+    setSelectedCategoryKey(null)
+  }
 
-  const navigatePeriod = useCallback((delta: number) => {
-    if (!periodMode) return
-    const newOffset = periodOffset + delta
-    setPeriodOffset(newOffset)
-    fetchPeriod(periodMode, newOffset)
-  }, [periodMode, periodOffset, fetchPeriod])
-
-  const clearPeriodMode = useCallback(() => {
-    setPeriodMode(null)
-    setPeriodOffset(0)
-    setPeriodTransactions(null)
-    setShowPeriodPanel(false)
-  }, [])
-
-  // ——— display ———
-
-  const isCustomDateActive = customTransactions !== null
-  const isPeriodActive = periodMode !== null
-  const isFilterActive = quickFilter !== null || isCustomDateActive || isPeriodActive
-
-  const displayTransactions = customTransactions ?? periodTransactions ?? (quickFilter === 'año' ? yearTransactions : quickFiltered)
-
-  const periodGastos   = displayTransactions.filter(t => t.type === 'gasto').reduce((s, t) => s + t.amount, 0)
-  const periodIngresos = displayTransactions.filter(t => t.type === 'ingreso').reduce((s, t) => s + t.amount, 0)
-
-  const groups = groupByCategory(displayTransactions)
-
-  const isLoading = loading || yearLoading || customLoading || periodLoading
-
-  // ——— acciones ———
+  function navigateOffset(delta: number) {
+    setOffset(o => o + delta)
+    setSelectedCategoryKey(null)
+  }
 
   async function handleSave(data: CreateTransactionInput) {
     if (editing) {
@@ -306,254 +276,158 @@ export function TransactionList({
     setShowForm(true)
   }
 
+  const subNavLabel =
+    filterMode === 'semana' ? semanaData.label :
+    filterMode === 'mes'    ? mesData.label :
+    filterMode === 'año'    ? añoData.label : ''
+
+  const isPeriodoAll = filterMode === 'periodo' && !rangeFrom && !rangeTo
+
   // ——— render ———
 
   return (
     <div>
-      {/* Chips de filtro rápido */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            onClick={() => { clearQuickFilter(); clearDateFilter() }}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-              !isFilterActive && !showPeriodPanel
-                ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
-                : 'border-white/10 text-[var(--text-muted)] hover:border-white/20 hover:text-[var(--text-secondary)]'
-            }`}
-          >
-            Todos
-          </button>
-          {QUICK_FILTERS.map(qf => (
+
+      {/* ——— Tabs de filtro ——— */}
+      <div className="flex items-center justify-between border-b border-white/[0.06]">
+        <div className="flex">
+          {FILTER_TABS.map(tab => (
             <button
-              key={qf.id}
-              onClick={() => {
-                clearDateFilter()
-                quickFilter === qf.id ? clearQuickFilter() : applyQuickFilter(qf.id)
-              }}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                quickFilter === qf.id
-                  ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
-                  : 'border-white/10 text-[var(--text-muted)] hover:border-white/20 hover:text-[var(--text-secondary)]'
+              key={tab.id}
+              onClick={() => handleFilterMode(tab.id)}
+              className={`relative px-3.5 pb-3 pt-1 text-xs font-medium transition-colors ${
+                filterMode === tab.id
+                  ? 'text-[var(--text-primary)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
               }`}
             >
-              {qf.label}
+              {tab.label}
+              {filterMode === tab.id && (
+                <span className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-[var(--accent-lumus)]" />
+              )}
             </button>
           ))}
-
-          <button
-            onClick={() => {
-              clearQuickFilter()
-              setShowDateFilter(d => !d)
-              if (isCustomDateActive) clearDateFilter()
-            }}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-              isCustomDateActive || showDateFilter
-                ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
-                : 'border-white/10 text-[var(--text-muted)] hover:border-white/20 hover:text-[var(--text-secondary)]'
-            }`}
-          >
-            <CalendarDays size={12} />
-            Fecha
-          </button>
-
-          <button
-            onClick={() => {
-              if (showPeriodPanel) {
-                clearPeriodMode()
-              } else {
-                clearQuickFilter()
-                clearDateFilter()
-                setShowDateFilter(false)
-                setShowPeriodPanel(true)
-              }
-            }}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-              showPeriodPanel || isPeriodActive
-                ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
-                : 'border-white/10 text-[var(--text-muted)] hover:border-white/20 hover:text-[var(--text-secondary)]'
-            }`}
-          >
-            Período
-          </button>
         </div>
 
         <button
           onClick={() => { setEditing(null); setShowForm(true) }}
-          disabled={isLoading || wallets.length === 0}
-          className="flex items-center gap-2 rounded-xl bg-[var(--accent-lumus)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
+          disabled={loading || wallets.length === 0}
+          className="mb-1 flex items-center gap-1.5 rounded-xl bg-[var(--accent-lumus)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
         >
-          <Plus size={14} />
-          Nuevo movimiento
+          <Plus size={13} />
+          Nuevo
         </button>
       </div>
 
-      {/* Panel de fecha específica */}
-      {showDateFilter && (
-        <div className="mb-5 flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
-          <div className="flex-1">
-            <label className="lumus-label mb-1.5 block text-[0.6rem] text-[var(--text-muted)]">DÍA</label>
-            <input
-              type="date"
-              value={pickedDate}
-              onChange={e => {
-                setPickedDate(e.target.value)
-                applyDateFilter(e.target.value)
-              }}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none [color-scheme:dark]"
-            />
-          </div>
-          {isCustomDateActive && (
+      {/* ——— Sub-nav por modo ——— */}
+      <div className="border-b border-white/[0.06] px-1 py-2.5 mb-4">
+
+        {/* Día: ← Hoy → + ícono calendario */}
+        {filterMode === 'dia' && (
+          <div className="flex items-center justify-between">
             <button
-              onClick={clearDateFilter}
-              className="mt-5 flex items-center gap-1 rounded-lg border border-white/10 px-3 py-2 text-xs text-[var(--text-muted)] hover:bg-white/5"
+              onClick={() => navigateDia(-1)}
+              className="rounded-lg border border-white/10 p-1.5 text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-secondary)] transition-colors"
             >
-              <X size={12} />
-              Limpiar
+              <ChevronLeft size={15} />
             </button>
-          )}
-        </div>
-      )}
 
-      {/* Panel de período navegable */}
-      {showPeriodPanel && (
-        <div className="mb-5 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
-          {/* Tabs Mes / Semana / Año */}
-          <div className="mb-4 flex gap-1.5">
-            {(['mes', 'semana', 'año'] as PeriodMode[]).map(m => (
-              <button
-                key={m}
-                onClick={() => openPeriodMode(m)}
-                className={`flex-1 rounded-lg py-2 text-xs font-medium capitalize transition-colors ${
-                  periodMode === m
-                    ? 'bg-[var(--accent-lumus)] text-white'
-                    : 'border border-white/10 text-[var(--text-muted)] hover:border-white/20 hover:text-[var(--text-secondary)]'
-                }`}
-              >
-                {m.charAt(0).toUpperCase() + m.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          {/* Navegación ← label → */}
-          {periodMode ? (
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => navigatePeriod(-1)}
-                className="rounded-lg border border-white/10 p-1.5 text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-secondary)]"
-              >
-                <ChevronLeft size={16} />
-              </button>
+            <div className="flex items-center gap-2">
               <span className="lumus-heading text-sm font-semibold capitalize text-[var(--text-primary)]">
-                {getPeriodDates(periodMode, periodOffset).label}
+                {getDiaLabel(diaDate)}
               </span>
-              <button
-                onClick={() => navigatePeriod(1)}
-                className="rounded-lg border border-white/10 p-1.5 text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-secondary)]"
-              >
-                <ChevronRight size={16} />
-              </button>
+              {/* El label envuelve el input invisible para abrir el picker nativo */}
+              <label className="relative cursor-pointer text-[var(--text-muted)] hover:text-[var(--accent-lumus)] transition-colors" title="Elegir fecha">
+                <CalendarDays size={14} />
+                <input
+                  type="date"
+                  value={diaDate}
+                  onChange={e => {
+                    if (e.target.value) {
+                      setDiaDate(e.target.value)
+                      setSelectedCategoryKey(null)
+                    }
+                  }}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0 [color-scheme:dark]"
+                />
+              </label>
             </div>
-          ) : (
-            <p className="text-center text-xs text-[var(--text-muted)]">Seleccioná un período para navegar</p>
-          )}
-        </div>
-      )}
 
-      {/* Resumen del período */}
-      <div className="mb-5 grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-[var(--success)]/20 bg-[var(--success-muted)] px-4 py-3">
-          <p className="lumus-label text-[0.6rem] text-[var(--success)]">INGRESOS</p>
-          <p className="lumus-heading mt-1 text-xl font-bold text-[var(--success)]">
-            {fmt(isFilterActive ? periodIngresos : monthIngresos)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-[var(--danger)]/20 bg-[var(--danger)]/[0.08] px-4 py-3">
-          <p className="lumus-label text-[0.6rem] text-[var(--danger)]">GASTOS</p>
-          <p className="lumus-heading mt-1 text-xl font-bold text-[var(--danger)]">
-            {fmt(isFilterActive ? periodGastos : monthGastos)}
-          </p>
-        </div>
+            <button
+              onClick={() => navigateDia(1)}
+              className="rounded-lg border border-white/10 p-1.5 text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-secondary)] transition-colors"
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        )}
+
+        {/* Semana / Mes / Año: ← label → */}
+        {(filterMode === 'semana' || filterMode === 'mes' || filterMode === 'año') && (
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => navigateOffset(-1)}
+              className="rounded-lg border border-white/10 p-1.5 text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-secondary)] transition-colors"
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <span className="lumus-heading text-sm font-semibold capitalize text-[var(--text-primary)]">
+              {subNavLabel}
+            </span>
+            <button
+              onClick={() => navigateOffset(1)}
+              className="rounded-lg border border-white/10 p-1.5 text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-secondary)] transition-colors"
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        )}
+
+        {/* Período: Todos | Desde — Hasta */}
+        {filterMode === 'periodo' && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => { setRangeFrom(''); setRangeTo(''); setSelectedCategoryKey(null) }}
+              className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                isPeriodoAll
+                  ? 'text-[var(--accent-lumus)] underline underline-offset-2'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+              }`}
+            >
+              Todos
+            </button>
+
+            <div className="flex flex-1 items-end gap-2 min-w-0">
+              <div className="flex flex-1 flex-col min-w-0">
+                <label className="lumus-label mb-1 block text-[0.55rem] text-[var(--text-muted)]">DESDE</label>
+                <input
+                  type="date"
+                  value={rangeFrom}
+                  onChange={e => { setRangeFrom(e.target.value); setSelectedCategoryKey(null) }}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none [color-scheme:dark]"
+                />
+              </div>
+              <span className="mb-2 text-sm text-[var(--text-muted)]">–</span>
+              <div className="flex flex-1 flex-col min-w-0">
+                <label className="lumus-label mb-1 block text-[0.55rem] text-[var(--text-muted)]">HASTA</label>
+                <input
+                  type="date"
+                  value={rangeTo}
+                  onChange={e => { setRangeTo(e.target.value); setSelectedCategoryKey(null) }}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none [color-scheme:dark]"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Estado vacío */}
-      {wallets.length === 0 && (
-        <div className="rounded-xl border border-dashed border-white/10 py-10 text-center">
-          <p className="text-sm text-[var(--text-muted)]">Primero creá una billetera para registrar movimientos.</p>
-        </div>
-      )}
-
-      {isLoading && (
-        <div className="space-y-2">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-14 animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.025]" />
-          ))}
-        </div>
-      )}
-
-      {/* ——— VISTA AGRUPADA (con filtro activo) ——— */}
-      {!isLoading && isFilterActive && !selectedGroup && (
-        <div>
-          {displayTransactions.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-white/10 py-10 text-center">
-              <p className="text-sm text-[var(--text-muted)]">Sin movimientos en este período.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {groups.map((group, i) => {
-                const color   = group.category?.color ?? '#64748b'
-                const net     = group.totalIngreso - group.totalGasto
-                const isGasto = group.totalGasto > group.totalIngreso
-
-                return (
-                  <button
-                    key={group.categoryId ?? i}
-                    onClick={() => setSelectedGroup(group)}
-                    className="flex w-full items-center gap-4 rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-3 text-left transition-colors hover:bg-white/[0.05]"
-                  >
-                    <div
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                      style={{ backgroundColor: `${color}22` }}
-                    >
-                      {group.category?.icon ? (
-                        <CategoryIcon icon={group.category.icon} size={16} style={{ color }} />
-                      ) : (
-                        <span className="text-xs font-bold" style={{ color }}>
-                          {group.category?.name?.[0]?.toUpperCase() ?? '?'}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-[var(--text-primary)]">
-                        {group.category?.name ?? 'Sin categoría'}
-                      </p>
-                      <p className="text-[0.65rem] text-[var(--text-muted)]">
-                        {group.count} {group.count === 1 ? 'movimiento' : 'movimientos'}
-                      </p>
-                    </div>
-
-                    <p
-                      className="lumus-heading shrink-0 text-base font-bold"
-                      style={{ color: isGasto ? 'var(--danger)' : 'var(--success)' }}
-                    >
-                      {isGasto ? '−' : '+'}{fmt(Math.abs(net))}
-                    </p>
-
-                    <ChevronRight size={14} className="shrink-0 text-[var(--text-muted)]" />
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ——— DETALLE DE CATEGORÍA ——— */}
-      {!isLoading && isFilterActive && selectedGroup && (
+      {/* ——— Drill-down de categoría ——— */}
+      {selectedGroup ? (
         <div>
           <div className="mb-4 flex items-center gap-3">
             <button
-              onClick={() => setSelectedGroup(null)}
+              onClick={() => setSelectedCategoryKey(null)}
               className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-secondary)]"
             >
               <ArrowLeft size={13} />
@@ -563,15 +437,15 @@ export function TransactionList({
               {selectedGroup.category?.icon && (
                 <CategoryIcon
                   icon={selectedGroup.category.icon}
-                  size={15}
-                  style={{ color: selectedGroup.category?.color ?? '#64748b' }}
+                  size={14}
+                  style={{ color: selectedGroup.category.color ?? '#64748b' }}
                 />
               )}
               <h3 className="lumus-heading text-sm font-semibold text-[var(--text-primary)]">
                 {selectedGroup.category?.name ?? 'Sin categoría'}
               </h3>
               <span className="text-xs text-[var(--text-muted)]">
-                — {selectedGroup.count} {selectedGroup.count === 1 ? 'movimiento' : 'movimientos'}
+                · {selectedGroup.count} {selectedGroup.count === 1 ? 'movimiento' : 'movimientos'}
               </span>
             </div>
           </div>
@@ -581,43 +455,153 @@ export function TransactionList({
               .slice()
               .sort((a, b) => b.date.localeCompare(a.date))
               .map(t => (
-                <TransactionItem
-                  key={t.id}
-                  transaction={t}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                />
+                <TransactionItem key={t.id} transaction={t} onEdit={handleEdit} onDelete={handleDelete} />
               ))}
           </div>
 
           <div className="mt-4 flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
-            <span className="text-xs text-[var(--text-muted)]">Total gastos</span>
-            <span className="lumus-heading font-bold text-[var(--danger)]">
-              −{fmt(selectedGroup.totalGasto)}
+            <span className="text-xs text-[var(--text-muted)]">Total {viewType}</span>
+            <span
+              className="lumus-heading font-bold"
+              style={{ color: viewType === 'gastos' ? 'var(--danger)' : 'var(--success)' }}
+            >
+              {viewType === 'gastos' ? '−' : '+'}{fmt(selectedGroup.total)}
             </span>
           </div>
         </div>
-      )}
 
-      {/* ——— VISTA LISTA NORMAL (sin filtro activo) ——— */}
-      {!isLoading && !isFilterActive && (
+      ) : (
         <>
-          {wallets.length > 0 && transactions.length === 0 && (
-            <div className="rounded-xl border border-dashed border-white/10 py-10 text-center">
-              <p className="text-sm text-[var(--text-muted)]">Todavía no hay movimientos.</p>
-            </div>
-          )}
-          {transactions.length > 0 && (
+          {/* Skeleton */}
+          {loading && (
             <div className="space-y-2">
-              {transactions.map(t => (
-                <TransactionItem
-                  key={t.id}
-                  transaction={t}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                />
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-14 animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.025]" />
               ))}
             </div>
+          )}
+
+          {!loading && wallets.length === 0 && (
+            <div className="rounded-xl border border-dashed border-white/10 py-10 text-center">
+              <p className="text-sm text-[var(--text-muted)]">Primero creá una billetera para registrar movimientos.</p>
+            </div>
+          )}
+
+          {!loading && wallets.length > 0 && (
+            <>
+              {/* ——— Toggle GASTOS | INGRESOS ——— */}
+              <div className="mb-5 flex gap-8 border-b border-white/[0.06]">
+                <button
+                  onClick={() => setViewType('gastos')}
+                  className={`relative pb-3 text-sm font-bold tracking-widest transition-colors ${
+                    viewType === 'gastos'
+                      ? 'text-[var(--danger)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                  }`}
+                >
+                  GASTOS
+                  {viewType === 'gastos' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[var(--danger)]" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setViewType('ingresos')}
+                  className={`relative pb-3 text-sm font-bold tracking-widest transition-colors ${
+                    viewType === 'ingresos'
+                      ? 'text-[var(--success)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                  }`}
+                >
+                  INGRESOS
+                  {viewType === 'ingresos' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[var(--success)]" />
+                  )}
+                </button>
+              </div>
+
+              {/* ——— Donut chart ——— */}
+              <div className="mb-6 flex justify-center">
+                <div className="w-full max-w-[200px]">
+                  <svg viewBox="0 0 200 200" className="w-full">
+                    {chartSegments.length > 0 ? (
+                      <>
+                        {chartSegments.map(seg => seg && <path key={seg.key} d={seg.d} fill={seg.color} />)}
+                        <circle
+                          cx="100" cy="100" r="54"
+                          fill="none"
+                          stroke="rgba(255,255,255,0.07)"
+                          strokeWidth="1"
+                          strokeDasharray="3 3"
+                        />
+                      </>
+                    ) : (
+                      <circle
+                        cx="100" cy="100" r="82"
+                        fill="rgba(255,255,255,0.03)"
+                        stroke="rgba(255,255,255,0.06)"
+                        strokeWidth="1"
+                      />
+                    )}
+                    <circle cx="100" cy="100" r="52" fill="#111118" />
+                    <text x="100" y="95" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="8.5" letterSpacing="1.5" fontFamily="inherit">
+                      {viewType === 'gastos' ? 'GASTOS' : 'INGRESOS'}
+                    </text>
+                    <text x="100" y="114" textAnchor="middle" fill="white" fontSize="15" fontWeight="700" fontFamily="inherit">
+                      {fmtShort(currentTotal)}
+                    </text>
+                  </svg>
+                </div>
+              </div>
+
+              {/* ——— Lista de categorías ——— */}
+              {categoryGroups.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-white/10 py-8 text-center">
+                  <p className="text-sm text-[var(--text-muted)]">Sin {viewType} en este período.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {categoryGroups.map(group => {
+                    const color = group.category?.color ?? '#475569'
+                    const pct = currentTotal > 0 ? Math.round((group.total / currentTotal) * 100) : 0
+                    return (
+                      <button
+                        key={group.key}
+                        onClick={() => setSelectedCategoryKey(group.key)}
+                        className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3.5 text-left transition-colors hover:bg-white/[0.05]"
+                      >
+                        <div
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                          style={{ backgroundColor: color }}
+                        >
+                          {group.category?.icon ? (
+                            <CategoryIcon icon={group.category.icon} size={18} style={{ color: 'white' }} />
+                          ) : (
+                            <span className="text-sm font-bold text-white">
+                              {group.category?.name?.[0]?.toUpperCase() ?? '?'}
+                            </span>
+                          )}
+                        </div>
+
+                        <span className="flex-1 truncate text-sm font-medium text-[var(--text-primary)]">
+                          {group.category?.name ?? 'Sin categoría'}
+                        </span>
+
+                        <span className="lumus-label w-10 text-right text-xs text-[var(--text-muted)]">
+                          {pct} %
+                        </span>
+
+                        <span
+                          className="lumus-heading w-28 text-right text-sm font-semibold"
+                          style={{ color: viewType === 'gastos' ? 'var(--danger)' : 'var(--success)' }}
+                        >
+                          {fmt(group.total)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </>
           )}
         </>
       )}
@@ -631,16 +615,6 @@ export function TransactionList({
           onClose={() => { setShowForm(false); setEditing(null) }}
           initial={editing ?? undefined}
         />
-      )}
-
-      {/* Limpiar filtro */}
-      {(quickFilter || isPeriodActive) && (
-        <button
-          onClick={clearQuickFilter}
-          className="mt-4 flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--danger)]"
-        >
-          <X size={12} /> Limpiar filtro
-        </button>
       )}
     </div>
   )

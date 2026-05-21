@@ -7,7 +7,7 @@ import { z } from 'zod'
 
 const bodySchema = z.object({
   message: z.string().min(1).max(2000),
-  currentVoice: z.enum(['alloy', 'echo', 'fable', 'nova', 'onyx', 'shimmer']).optional().default('nova'),
+  currentVoice: z.enum(['alloy', 'echo', 'fable', 'nova', 'onyx', 'shimmer']).optional().default('shimmer'),
 })
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -27,15 +27,18 @@ export async function POST(req: NextRequest) {
   const basePrompt = getModulePrompt('general', snapshot)
   const systemPrompt = `${basePrompt}
 
-IMPORTANTE — modo voz:
-- Respondé en máximo 2-3 oraciones cortas y naturales
-- Sin markdown, sin listas, sin asteriscos
-- Lenguaje natural conversacional, como si hablaras en voz alta
-- Tu voz actual: ${currentVoice}
+MODO VOZ — reglas estrictas:
+- Respondé en 1 a 3 oraciones. Nunca más.
+- Escribí exactamente como hablarías en voz alta: natural, fluido, sin pausas raras.
+- PROHIBIDO: markdown, asteriscos, guiones como lista, números como lista, paréntesis explicativos, corchetes (salvo [VOZ:x]).
+- PROHIBIDO: abreviaturas ("ej.", "etc.", "aprox.") — escribilas completas o no las uses.
+- Usá puntuación natural: comas para pausas suaves, punto para terminar. Sin puntos suspensivos.
+- No empieces con "¡Claro!", "Por supuesto", "Entendido" — respondé directo al tema.
+- Tono: cercano, cálido, conciso. Como un amigo que sabe mucho, no un asistente corporativo.
+- Voz actual: ${currentVoice}
 - Voces disponibles: alloy (neutral), echo (nítida), fable (expresiva), nova (cálida), onyx (grave), shimmer (suave)
-- Si el usuario pregunta qué voces tenés, listá todas con sus descripciones
-- Si el usuario pide cambiar de voz, al FINAL agregá exactamente: [VOZ:nombre_en_minuscula]
-  Ejemplo: "¡Listo! Ahora hablo con voz Onyx. [VOZ:onyx]"
+- Si te piden cambiar de voz: confirmalo en una oración natural y agregá al final: [VOZ:nombre]
+  Ejemplo: "Listo, ahora te hablo con voz Onyx. [VOZ:onyx]"
   Nombres válidos: alloy, echo, fable, nova, onyx, shimmer`
 
   const encoder = new TextEncoder()

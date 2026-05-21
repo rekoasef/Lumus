@@ -64,9 +64,12 @@ export function CurrencyWidget() {
   }, [])
 
   useEffect(() => {
-    load()
-    const id = setInterval(load, 60 * 60 * 1000)
-    return () => clearInterval(id)
+    const timeoutId = window.setTimeout(load, 0)
+    const intervalId = window.setInterval(load, 60 * 60 * 1000)
+    return () => {
+      window.clearTimeout(timeoutId)
+      window.clearInterval(intervalId)
+    }
   }, [load])
 
   if (!currencies) {

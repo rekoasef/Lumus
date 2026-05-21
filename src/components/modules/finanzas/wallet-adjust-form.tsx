@@ -82,17 +82,22 @@ export function WalletAdjustForm({ wallet, onAdjust, onClose }: WalletAdjustForm
 
           {/* Diferencia */}
           {changed && isValid && (
-            <div className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-sm ${
+            <div className={`rounded-lg px-3 py-2.5 text-sm ${
               diff > 0
                 ? 'bg-[var(--success)]/10 text-[var(--success)]'
                 : 'bg-[var(--danger)]/10 text-[var(--danger)]'
             }`}>
-              <span className="text-xs">
-                {diff > 0 ? 'Se sumará al historial' : 'Se restará del historial'}
-              </span>
-              <span className="lumus-heading font-bold">
-                {diff > 0 ? '+' : ''}{fmt(diff)}
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs">
+                  {diff > 0 ? 'Ajuste positivo de saldo' : 'Ajuste negativo de saldo'}
+                </span>
+                <span className="lumus-heading font-bold">
+                  {diff > 0 ? '+' : ''}{fmt(diff)}
+                </span>
+              </div>
+              <p className="mt-1 text-[0.65rem] opacity-80">
+                Queda en el historial y no impacta ingresos ni gastos.
+              </p>
             </div>
           )}
 

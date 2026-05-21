@@ -1,5 +1,5 @@
 export type WalletType = 'efectivo' | 'banco' | 'virtual'
-export type TransactionType = 'gasto' | 'ingreso' | 'transferencia'
+export type TransactionType = 'gasto' | 'ingreso' | 'transferencia' | 'ajuste'
 export type CategoryType = 'gasto' | 'ingreso'
 export type BillingCycle = 'mensual' | 'anual' | 'semanal'
 

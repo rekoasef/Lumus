@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (type === 'gasto' || type === 'ingreso' || type === 'transferencia') {
+  if (type === 'gasto' || type === 'ingreso' || type === 'transferencia' || type === 'ajuste') {
     query = query.eq('type', type)
   }
   if (category_id) query = query.eq('category_id', category_id)

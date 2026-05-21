@@ -39,14 +39,20 @@ type WindowWithSpeech = Window & {
 
 const VOZ_REGEX = /\[VOZ:([a-z]+)\]/
 
+// Abreviaturas comunes en español que no deben cortar la oración
+const ABBR = /(?:Dr|Dra|Sr|Sra|Srta|Prof|Lic|Ing|Arq|etc|vs|núm|pág|aprox|ej|fig)\.\s*$/i
+
 function extractSentences(text: string): { sentences: string[]; remaining: string } {
   const sentences: string[] = []
-  const regex = /[^.!?]*[.!?]+(?:\s|$)/g
+  // Busca fin de oración: punto/signo seguido de espacio y mayúscula, o fin de string
+  const regex = /[^.!?]*[.!?]+(?=\s+[A-ZÁÉÍÓÚÑ¿¡]|\s*$)/g
   let lastIndex = 0
   let match: RegExpExecArray | null
   while ((match = regex.exec(text)) !== null) {
     const s = match[0].trim()
-    if (s.length >= 4) sentences.push(s)
+    // Ignorar si es una abreviatura conocida o si es muy corta
+    if (s.length < 12 || ABBR.test(s)) continue
+    sentences.push(s)
     lastIndex = match.index + match[0].length
   }
   return { sentences, remaining: text.slice(lastIndex) }
@@ -61,9 +67,9 @@ function cleanForTTS(text: string): { clean: string; voiceChange: VoiceOption | 
 }
 
 function getSavedVoice(): VoiceOption {
-  if (typeof window === 'undefined') return 'nova'
+  if (typeof window === 'undefined') return 'shimmer'
   const saved = localStorage.getItem('lumus-voice')
-  return (VALID_VOICES as readonly string[]).includes(saved ?? '') ? (saved as VoiceOption) : 'nova'
+  return (VALID_VOICES as readonly string[]).includes(saved ?? '') ? (saved as VoiceOption) : 'shimmer'
 }
 
 interface DrainSignal { resolve: (() => void) | null }

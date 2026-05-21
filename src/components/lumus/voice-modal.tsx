@@ -152,7 +152,7 @@ export function VoiceModal({ onClose }: VoiceModalProps) {
                 className="w-full rounded-2xl px-4 py-3 text-center"
                 style={{ background: 'rgba(124,109,250,0.08)', border: '1px solid rgba(124,109,250,0.18)' }}
               >
-                <p className="text-sm text-[#bdb4ff] italic">"{transcript}"</p>
+                <p className="text-sm text-[#bdb4ff] italic">&quot;{transcript}&quot;</p>
               </motion.div>
             )}
           </AnimatePresence>

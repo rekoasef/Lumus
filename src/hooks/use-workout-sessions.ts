@@ -31,7 +31,9 @@ export function useWorkoutSessions(initialSessions: WorkoutSession[]) {
   }
 
   const totalSessionsThisWeek = (() => {
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const weekAgoDate = new Date()
+    weekAgoDate.setDate(weekAgoDate.getDate() - 7)
+    const weekAgo = weekAgoDate.toISOString().split('T')[0]
     return sessions.filter(s => s.date >= weekAgo && s.completed).length
   })()
 

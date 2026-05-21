@@ -45,6 +45,13 @@ interface FinanzasDashboardProps {
 
 type Section = 'transacciones' | 'billeteras' | 'categorias' | 'presupuestos' | 'suscripciones' | 'metas'
 
+function getWalletBalanceDelta(tx: Transaction) {
+  if (tx.type === 'gasto') return -tx.amount
+  if (tx.type === 'ingreso') return tx.amount
+  if (tx.type === 'ajuste') return tx.amount
+  return 0
+}
+
 export function FinanzasDashboard({
   initialWallets,
   initialCategories,
@@ -104,7 +111,7 @@ export function FinanzasDashboard({
   async function handleTransactionCreate(data: CreateTransactionInput) {
     const tx = await createTransaction(data)
     if (tx) {
-      const delta = tx.type === 'gasto' ? -tx.amount : tx.type === 'ingreso' ? tx.amount : 0
+      const delta = getWalletBalanceDelta(tx)
       if (delta !== 0) localUpdateBalance(tx.wallet_id, delta)
     }
     return tx
@@ -115,10 +122,10 @@ export function FinanzasDashboard({
     const tx = await updateTransaction(id, data)
     if (tx && old) {
       // Revertir efecto anterior
-      const oldDelta = old.type === 'gasto' ? old.amount : old.type === 'ingreso' ? -old.amount : 0
+      const oldDelta = -getWalletBalanceDelta(old)
       if (oldDelta !== 0) localUpdateBalance(old.wallet_id, oldDelta)
       // Aplicar nuevo efecto
-      const newDelta = tx.type === 'gasto' ? -tx.amount : tx.type === 'ingreso' ? tx.amount : 0
+      const newDelta = getWalletBalanceDelta(tx)
       if (newDelta !== 0) localUpdateBalance(tx.wallet_id, newDelta)
     }
     return tx
@@ -128,7 +135,7 @@ export function FinanzasDashboard({
     const tx = transactions.find(t => t.id === id)
     const ok = await deleteTransaction(id)
     if (ok && tx) {
-      const delta = tx.type === 'gasto' ? tx.amount : tx.type === 'ingreso' ? -tx.amount : 0
+      const delta = -getWalletBalanceDelta(tx)
       if (delta !== 0) localUpdateBalance(tx.wallet_id, delta)
     }
     return ok
@@ -399,12 +406,10 @@ export function FinanzasDashboard({
         {activeSection === 'transacciones' && (
           <section className="lumus-glass rounded-2xl p-6">
             <h2 className="lumus-heading mb-5 text-xl font-semibold text-[var(--text-primary)]">
-              Movimientos del mes
+              Movimientos
             </h2>
             <TransactionList
               transactions={transactions}
-              monthGastos={monthGastos}
-              monthIngresos={monthIngresos}
               loading={txLoading}
               wallets={wallets}
               categories={initialCategories}

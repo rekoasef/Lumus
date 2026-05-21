@@ -2,7 +2,6 @@
 
 import { Plus, Trash2, Flame } from 'lucide-react'
 import type { MealLog, MealType, Recipe } from '@/types/food.types'
-import type { CreateMealLogInput } from '@/lib/validations/food'
 
 const MEAL_CONFIG: Record<MealType, { label: string; emoji: string }> = {
   desayuno: { label: 'Desayuno', emoji: '☀️' },
@@ -30,8 +29,12 @@ export function MealLogSection({
   onDeleteLog,
 }: MealLogSectionProps) {
   const dateLabel = (() => {
-    const today = new Date().toISOString().split('T')[0]
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    const todayDate = new Date()
+    const yesterdayDate = new Date(todayDate)
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+
+    const today = todayDate.toISOString().split('T')[0]
+    const yesterday = yesterdayDate.toISOString().split('T')[0]
     if (date === today) return 'Hoy'
     if (date === yesterday) return 'Ayer'
     return new Date(date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })

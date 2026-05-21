@@ -157,9 +157,9 @@ export function LumusFullscreen({ onClose }: LumusFullscreenProps) {
                 transition={{ duration: 0.22 }}
               >
                 <p className="text-4xl font-semibold leading-snug text-white">
-                  <span style={{ color: 'rgba(255,255,255,0.25)' }}>"</span>
+                  <span style={{ color: 'rgba(255,255,255,0.25)' }}>&quot;</span>
                   {transcript}
-                  <span style={{ color: 'rgba(255,255,255,0.25)' }}>"</span>
+                  <span style={{ color: 'rgba(255,255,255,0.25)' }}>&quot;</span>
                 </p>
               </motion.div>
 

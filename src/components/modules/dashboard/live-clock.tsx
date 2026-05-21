@@ -6,9 +6,13 @@ export function LiveClock() {
   const [time, setTime] = useState<Date | null>(null)
 
   useEffect(() => {
-    setTime(new Date())
-    const id = setInterval(() => setTime(new Date()), 1000)
-    return () => clearInterval(id)
+    const update = () => setTime(new Date())
+    const timeoutId = window.setTimeout(update, 0)
+    const intervalId = window.setInterval(update, 1000)
+    return () => {
+      window.clearTimeout(timeoutId)
+      window.clearInterval(intervalId)
+    }
   }, [])
 
   if (!time) {

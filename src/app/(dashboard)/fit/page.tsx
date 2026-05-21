@@ -8,8 +8,12 @@ export default async function FitPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const today = new Date().toISOString().split('T')[0]
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const todayDate = new Date()
+  const thirtyDaysAgoDate = new Date(todayDate)
+  thirtyDaysAgoDate.setDate(thirtyDaysAgoDate.getDate() - 30)
+
+  const today = todayDate.toISOString().split('T')[0]
+  const thirtyDaysAgo = thirtyDaysAgoDate.toISOString().split('T')[0]
 
   const [healthLogRes, bodyRecordsRes, routinesRes, exercisesRes, sessionsRes] = await Promise.all([
     supabase

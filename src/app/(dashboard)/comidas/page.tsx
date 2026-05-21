@@ -8,8 +8,12 @@ export default async function ComidasPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const today = new Date().toISOString().split('T')[0]
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const todayDate = new Date()
+  const sevenDaysAgoDate = new Date(todayDate)
+  sevenDaysAgoDate.setDate(sevenDaysAgoDate.getDate() - 7)
+
+  const today = todayDate.toISOString().split('T')[0]
+  const sevenDaysAgo = sevenDaysAgoDate.toISOString().split('T')[0]
 
   const [recipesRes, mealLogsRes, shoppingRes] = await Promise.all([
     supabase

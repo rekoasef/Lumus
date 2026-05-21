@@ -20,6 +20,7 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
   const [orbState, setOrbState] = useState<OrbState>('idle')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const speakingTimeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     setModule(module)
@@ -27,29 +28,41 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
   }, [module, setModule])
 
   useEffect(() => {
-    if (isLoading) {
-      setOrbState('thinking')
-      return
+    return () => {
+      if (speakingTimeoutRef.current) {
+        window.clearTimeout(speakingTimeoutRef.current)
+      }
     }
-    const last = messages[messages.length - 1]
-    if (last?.role === 'assistant') {
-      setOrbState('speaking')
-      const t = setTimeout(() => setOrbState('idle'), 2500)
-      return () => clearTimeout(t)
-    }
-    setOrbState('idle')
-  }, [isLoading, messages])
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
 
+  function clearSpeakingTimeout() {
+    if (speakingTimeoutRef.current) {
+      window.clearTimeout(speakingTimeoutRef.current)
+      speakingTimeoutRef.current = null
+    }
+  }
+
+  function showSpeakingState() {
+    clearSpeakingTimeout()
+    setOrbState('speaking')
+    speakingTimeoutRef.current = window.setTimeout(() => {
+      setOrbState('idle')
+      speakingTimeoutRef.current = null
+    }, 2500)
+  }
+
   async function sendMessage(text: string) {
     const trimmed = text.trim()
     if (!trimmed || isLoading) return
 
+    clearSpeakingTimeout()
     addMessage({ role: 'user', content: trimmed })
     setInput('')
+    setOrbState('thinking')
     setLoading(true)
 
     try {
@@ -67,8 +80,10 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
       if (!res.ok) throw new Error()
       const data = await res.json() as { response: string }
       addMessage({ role: 'assistant', content: data.response })
+      showSpeakingState()
     } catch {
       addMessage({ role: 'assistant', content: 'Hubo un error al procesar tu mensaje. Intentá de nuevo.' })
+      showSpeakingState()
     } finally {
       setLoading(false)
     }
@@ -118,7 +133,11 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
           <div className="flex items-center gap-1">
             {messages.length > 0 && (
               <button
-                onClick={clearMessages}
+                onClick={() => {
+                  clearSpeakingTimeout()
+                  clearMessages()
+                  setOrbState('idle')
+                }}
                 className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-white/10 hover:text-[var(--text-secondary)]"
                 aria-label="Limpiar conversación"
                 title="Limpiar"

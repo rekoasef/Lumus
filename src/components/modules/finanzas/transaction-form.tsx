@@ -23,6 +23,11 @@ export function TransactionForm({
   onClose,
   initial,
 }: TransactionFormProps) {
+  const initialType =
+    initial?.type === 'gasto' || initial?.type === 'ingreso' || initial?.type === 'transferencia'
+      ? initial.type
+      : 'gasto'
+
   const {
     register,
     handleSubmit,
@@ -34,7 +39,7 @@ export function TransactionForm({
     defaultValues: {
       wallet_id:   initial?.wallet_id   ?? wallets[0]?.id ?? '',
       category_id: initial?.category_id ?? null,
-      type:        initial?.type        ?? 'gasto',
+      type:        initialType,
       amount:      initial?.amount      ?? undefined,
       description: initial?.description ?? '',
       date:        initial?.date        ?? new Date().toISOString().slice(0, 10),

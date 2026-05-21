@@ -36,11 +36,9 @@ export default async function FinanzasPage() {
       `)
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .gte('date', monthStart)
-      .lte('date', monthEnd)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(100),
+      .limit(500),
     supabase
       .from('budgets')
       .select('id, amount, month, year, created_at, category_id, category:finance_categories(id, name, color, icon)')

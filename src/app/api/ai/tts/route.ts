@@ -5,7 +5,7 @@ import { z } from 'zod'
 
 const bodySchema = z.object({
   text: z.string().min(1).max(1000),
-  voice: z.enum(['alloy', 'echo', 'fable', 'nova', 'onyx', 'shimmer']).optional().default('nova'),
+  voice: z.enum(['alloy', 'echo', 'fable', 'nova', 'onyx', 'shimmer']).optional().default('shimmer'),
 })
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -24,10 +24,10 @@ export async function POST(req: NextRequest) {
   const { text, voice } = parsed.data
 
   const mp3 = await openai.audio.speech.create({
-    model: 'tts-1',
+    model: 'tts-1-hd',
     voice,
     input: text,
-    speed: 1.15,
+    speed: 1.0,
   })
 
   const buffer = Buffer.from(await mp3.arrayBuffer())
