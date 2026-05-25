@@ -53,6 +53,7 @@ export interface UserSnapshot {
 export interface AIMessage {
   role: 'user' | 'assistant'
   content: string
+  searchedWeb?: boolean
 }
 
 export type AIModule =
@@ -83,4 +84,5 @@ export interface ChatRequest {
 export interface ChatResponse {
   response: string
   cached: boolean
+  searchedWeb: boolean
 }

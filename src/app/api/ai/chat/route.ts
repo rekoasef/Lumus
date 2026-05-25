@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { buildUserSnapshot } from '@/lib/ai/context-builder'
 import { getModulePrompt } from '@/lib/ai/prompts'
 import { generateCacheKey, getCachedResponse, setCachedResponse } from '@/lib/ai/cache'
+import { getWebContext } from '@/lib/ai/web-search'
 import { z } from 'zod'
 import type { AIModule } from '@/types'
 
@@ -35,15 +36,22 @@ export async function POST(req: NextRequest) {
 
   const { message, module, conversationHistory, isVoice, currentVoice } = parsed.data
 
+  // Detectar y ejecutar búsqueda web antes de verificar caché
+  const webContext = await getWebContext(message)
+
+  // Solo usar caché para consultas sin búsqueda web (los datos en tiempo real no se cachean)
   const cacheKey = generateCacheKey(user.id, module, message)
-  const cached = await getCachedResponse(supabase, user.id, cacheKey)
-  if (cached) {
-    return NextResponse.json({ response: cached, cached: true })
+  if (!webContext.searched) {
+    const cached = await getCachedResponse(supabase, user.id, cacheKey)
+    if (cached) {
+      return NextResponse.json({ response: cached, cached: true, searchedWeb: false })
+    }
   }
 
   const snapshot = await buildUserSnapshot(supabase, user.id)
   const basePrompt = getModulePrompt(module as AIModule, snapshot)
-  const systemPrompt = isVoice
+
+  let systemPrompt = isVoice
     ? `${basePrompt}
 
 IMPORTANTE — modo voz:
@@ -57,6 +65,11 @@ IMPORTANTE — modo voz:
   Ejemplo: "¡Listo! Ahora hablo con voz Onyx. [VOZ:onyx]"
   Nombres válidos: alloy, echo, fable, nova, onyx, shimmer`
     : basePrompt
+
+  // Inyectar información web si está disponible
+  if (webContext.searched && webContext.content) {
+    systemPrompt += `\n\nINFORMACIÓN EN TIEMPO REAL (obtenida ahora mismo de internet):\n${webContext.content}\n\nUsá esta información para responder con datos precisos y actuales. Si es sobre clima, usá los datos exactos sin inventar nada adicional.`
+  }
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -74,13 +87,23 @@ IMPORTANTE — modo voz:
     ? response.content[0].text
     : ''
 
-  await Promise.all([
-    setCachedResponse(supabase, user.id, cacheKey, module, assistantMessage, 'claude-sonnet-4-5', 1),
-    supabase.from('ai_conversations').insert([
-      { user_id: user.id, module, role: 'user', content: message, model_used: 'claude-sonnet-4-5' },
-      { user_id: user.id, module, role: 'assistant', content: assistantMessage, tokens_used: response.usage.output_tokens, model_used: 'claude-sonnet-4-5' },
-    ]),
-  ])
+  // Guardar en caché solo si no fue una búsqueda web (datos estáticos)
+  const saveOps = webContext.searched
+    ? [
+        supabase.from('ai_conversations').insert([
+          { user_id: user.id, module, role: 'user', content: message, model_used: 'claude-sonnet-4-5' },
+          { user_id: user.id, module, role: 'assistant', content: assistantMessage, tokens_used: response.usage.output_tokens, model_used: 'claude-sonnet-4-5' },
+        ]),
+      ]
+    : [
+        setCachedResponse(supabase, user.id, cacheKey, module, assistantMessage, 'claude-sonnet-4-5', 1),
+        supabase.from('ai_conversations').insert([
+          { user_id: user.id, module, role: 'user', content: message, model_used: 'claude-sonnet-4-5' },
+          { user_id: user.id, module, role: 'assistant', content: assistantMessage, tokens_used: response.usage.output_tokens, model_used: 'claude-sonnet-4-5' },
+        ]),
+      ]
 
-  return NextResponse.json({ response: assistantMessage, cached: false })
+  await Promise.all(saveOps)
+
+  return NextResponse.json({ response: assistantMessage, cached: false, searchedWeb: webContext.searched })
 }
