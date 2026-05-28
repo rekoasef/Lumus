@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, Send, RotateCcw } from 'lucide-react'
+import { X, Send, RotateCcw, Globe } from 'lucide-react'
 import { useAIStore } from '@/stores/ai-store'
 import type { AIModule } from '@/types'
 import { LumusOrb, LumusOrbIcon } from './lumus-orb'
@@ -14,8 +14,24 @@ interface LumusChatProps {
   onClose: () => void
 }
 
+const WEB_QUERY_KEYWORDS = [
+  'clima', 'tiempo', 'temperatura', 'lluvia', 'pronóstico', 'pronostico',
+  'calor', 'frío', 'frio', 'viento', 'nublado', 'tormenta', 'humedad',
+  'noticias', 'noticia', 'cotización', 'cotizacion', 'dólar', 'dollar',
+  'tipo de cambio', 'última hora', 'ultima hora', 'busca en internet',
+  'buscame en internet', 'buscar en internet', 'qué dice internet',
+]
+
+function isWebQuery(text: string): boolean {
+  const lower = text.toLowerCase()
+  return WEB_QUERY_KEYWORDS.some(k => lower.includes(k))
+}
+
 export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusChatProps) {
-  const { messages, isLoading, addMessage, setLoading, setModule, clearMessages } = useAIStore()
+  const {
+    messages, isLoading, isSearchingWeb,
+    addMessage, setLoading, setSearchingWeb, setModule, clearMessages,
+  } = useAIStore()
   const [input, setInput] = useState('')
   const [orbState, setOrbState] = useState<OrbState>('idle')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -37,7 +53,7 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isLoading])
+  }, [messages, isLoading, isSearchingWeb])
 
   function clearSpeakingTimeout() {
     if (speakingTimeoutRef.current) {
@@ -65,6 +81,10 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
     setOrbState('thinking')
     setLoading(true)
 
+    if (isWebQuery(trimmed)) {
+      setSearchingWeb(true)
+    }
+
     try {
       const history = messages.slice(-10)
       const res = await fetch('/api/ai/chat', {
@@ -78,14 +98,15 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
       })
 
       if (!res.ok) throw new Error()
-      const data = await res.json() as { response: string }
-      addMessage({ role: 'assistant', content: data.response })
+      const data = await res.json() as { response: string; searchedWeb: boolean }
+      addMessage({ role: 'assistant', content: data.response, searchedWeb: data.searchedWeb })
       showSpeakingState()
     } catch {
       addMessage({ role: 'assistant', content: 'Hubo un error al procesar tu mensaje. Intentá de nuevo.' })
       showSpeakingState()
     } finally {
       setLoading(false)
+      setSearchingWeb(false)
     }
   }
 
@@ -179,19 +200,29 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
                   <LumusOrbIcon size={26} state="idle" />
                 </div>
               )}
-              <div
-                className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                  msg.role === 'user'
-                    ? 'rounded-tr-sm bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
-                    : 'rounded-tl-sm text-[var(--text-secondary)]'
-                }`}
-                style={
-                  msg.role === 'assistant'
-                    ? { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }
-                    : undefined
-                }
-              >
-                {msg.content}
+              <div className={`flex flex-col gap-1 max-w-[82%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                <div
+                  className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                    msg.role === 'user'
+                      ? 'rounded-tr-sm bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
+                      : 'rounded-tl-sm text-[var(--text-secondary)]'
+                  }`}
+                  style={
+                    msg.role === 'assistant'
+                      ? { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }
+                      : undefined
+                  }
+                >
+                  {msg.content}
+                </div>
+                {msg.role === 'assistant' && msg.searchedWeb && (
+                  <div className="flex items-center gap-1 px-1">
+                    <Globe size={9} className="text-[var(--accent-lumus)] opacity-60" />
+                    <span className="text-[0.55rem] uppercase tracking-wider text-[var(--text-muted)]">
+                      Tiempo real
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -205,15 +236,25 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
                 className="rounded-2xl rounded-tl-sm px-4 py-3"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
               >
-                <div className="flex items-center gap-1.5">
-                  {[0, 150, 300].map(delay => (
-                    <div
-                      key={delay}
-                      className="h-1.5 w-1.5 rounded-full bg-[var(--text-muted)] animate-bounce"
-                      style={{ animationDelay: `${delay}ms` }}
+                {isSearchingWeb ? (
+                  <div className="flex items-center gap-2">
+                    <Globe
+                      size={12}
+                      className="text-[var(--accent-lumus)] animate-spin"
                     />
-                  ))}
-                </div>
+                    <span className="text-xs text-[var(--text-muted)]">Analizando internet...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    {[0, 150, 300].map(delay => (
+                      <div
+                        key={delay}
+                        className="h-1.5 w-1.5 rounded-full bg-[var(--text-muted)] animate-bounce"
+                        style={{ animationDelay: `${delay}ms` }}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
