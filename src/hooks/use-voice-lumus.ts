@@ -102,6 +102,11 @@ export function useVoiceLumus(): UseVoiceLumusReturn {
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const transcriptRef = useRef('')
   const currentVoiceRef = useRef<VoiceOption>(getSavedVoice())
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // true mientras el usuario quiere seguir escuchando; false = parar de verdad
+  const listeningActiveRef = useRef(false)
+
+  const SILENCE_TIMEOUT_MS = 5000
 
   const audioQueueRef = useRef<AudioQueueItem[]>([])
   const drainActiveRef = useRef(false)
@@ -204,6 +209,11 @@ export function useVoiceLumus(): UseVoiceLumusReturn {
   )
 
   const stop = useCallback(() => {
+    listeningActiveRef.current = false
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current)
+      silenceTimerRef.current = null
+    }
     recognitionRef.current?.abort()
     recognitionRef.current = null
     try { currentSourceRef.current?.stop() } catch { /* ya terminó */ }
@@ -296,16 +306,33 @@ export function useVoiceLumus(): UseVoiceLumusReturn {
 
     const recognition = new Impl()
     recognitionRef.current = recognition
+    listeningActiveRef.current = true
+    transcriptRef.current = ''
+    setVoiceState('listening')
+    setTranscript('')
+    setSpokenText('')
     recognition.lang = 'es-AR'
-    recognition.continuous = false
+    recognition.continuous = true
     recognition.interimResults = true
     recognition.maxAlternatives = 1
 
+    const resetSilenceTimer = () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
+      silenceTimerRef.current = setTimeout(() => {
+        silenceTimerRef.current = null
+        listeningActiveRef.current = false
+        recognition.stop()
+      }, SILENCE_TIMEOUT_MS)
+    }
+
     recognition.onstart = () => {
-      setVoiceState('listening')
-      setTranscript('')
-      setSpokenText('')
-      transcriptRef.current = ''
+      // Solo limpiar UI en el primer arranque, no en reinicios automáticos
+      if (!transcriptRef.current) {
+        setVoiceState('listening')
+        setTranscript('')
+        setSpokenText('')
+      }
+      resetSilenceTimer()
     }
     recognition.onresult = (event: SpeechRecognitionEvt) => {
       const text = Array.from({ length: event.results.length })
@@ -313,12 +340,30 @@ export function useVoiceLumus(): UseVoiceLumusReturn {
         .join('')
       setTranscript(text)
       transcriptRef.current = text
+      resetSilenceTimer()
     }
     recognition.onend = () => {
+      if (listeningActiveRef.current) {
+        // El browser cortó antes del timer — reiniciar para seguir escuchando
+        try { recognition.start() } catch { /* ignorar si ya está corriendo */ }
+        return
+      }
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current)
+        silenceTimerRef.current = null
+      }
       recognitionRef.current = null
       void processTranscript(transcriptRef.current)
     }
-    recognition.onerror = () => {
+    recognition.onerror = (ev: Event) => {
+      const errorEv = ev as Event & { error?: string }
+      // 'aborted' no es un error real, lo maneja onend
+      if (errorEv.error === 'aborted') return
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current)
+        silenceTimerRef.current = null
+      }
+      listeningActiveRef.current = false
       recognitionRef.current = null
       setVoiceState('idle')
     }
