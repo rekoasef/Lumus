@@ -163,28 +163,63 @@ export function LumusFullscreen({ onClose }: LumusFullscreenProps) {
                 </p>
               </motion.div>
 
-            ) : (
+            ) : voiceState === 'processing' ? (
               <motion.div
-                key="default"
+                key="processing"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22 }}
+              >
+                <p className="mb-3 text-[0.6rem] uppercase tracking-[0.22em]" style={{ color: 'rgba(167,139,250,0.5)' }}>
+                  Pensando
+                </p>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-5xl font-semibold leading-[1.18]" style={{ color: 'rgba(196,181,253,0.9)' }}>
+                    Un momento...
+                  </h1>
+                  <div className="flex items-end gap-1.5 pb-1">
+                    {[0, 1, 2].map(i => (
+                      <motion.div
+                        key={i}
+                        className="w-1.5 rounded-full"
+                        style={{ background: 'rgba(167,139,250,0.6)' }}
+                        animate={{ height: ['6px', '18px', '6px'] }}
+                        transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.18, ease: 'easeInOut' }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+
+            ) : voiceState === 'listening' ? (
+              <motion.div
+                key="listening"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.22 }}
               >
                 <h1 className="text-5xl font-semibold leading-[1.18] text-white">
-                  {voiceState === 'processing'
-                    ? 'Procesando...'
-                    : voiceState === 'listening'
-                    ? 'Te escucho...'
-                    : <>Estoy escuchando,<br />¿qué necesitas hoy?</>
-                  }
+                  Te escucho...
                 </h1>
-                {voiceState === 'idle' && (
-                  <p className="mt-4 text-[1.05rem] leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    Puedes hablar conmigo sobre cualquier<br />
-                    área de tu vida. Estoy aquí para ayudarte.
-                  </p>
-                )}
+              </motion.div>
+
+            ) : (
+              <motion.div
+                key="idle"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22 }}
+              >
+                <h1 className="text-5xl font-semibold leading-[1.18] text-white">
+                  Estoy aquí,<br />¿qué necesitás?
+                </h1>
+                <p className="mt-4 text-[1.05rem] leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  Podés hablar conmigo sobre cualquier<br />
+                  área de tu vida. Estoy aquí para ayudarte.
+                </p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -320,10 +355,10 @@ export function LumusFullscreen({ onClose }: LumusFullscreenProps) {
           className="text-xs"
           style={{ color: 'rgba(255,255,255,0.25)' }}
         >
-          {voiceState === 'listening'  ? 'Lumus está escuchando...'  :
-           voiceState === 'processing' ? 'Procesando tu mensaje...'  :
-           voiceState === 'speaking'   ? 'Lumus está hablando...'    :
-           'Lumus está escuchando...'}
+          {voiceState === 'listening'  ? 'Lumus está escuchando...'    :
+           voiceState === 'processing' ? 'Analizando tu mensaje...'   :
+           voiceState === 'speaking'   ? 'Lumus está hablando...'     :
+           'Presioná el micrófono para hablar'}
         </motion.p>
 
         {/* Línea punteada */}

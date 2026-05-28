@@ -10,6 +10,12 @@ const SEARCH_KEYWORDS = [
   'tipo de cambio', 'última hora', 'ultima hora', 'qué pasó hoy', 'que paso hoy',
   'resultado del partido', 'resultados de hoy', 'busca en internet', 'búscame en internet',
   'buscame en internet', 'buscar en internet', 'qué dice internet', 'que dice internet',
+  'precio de', 'cuánto cuesta', 'cuanto cuesta', 'cuánto vale', 'cuanto vale',
+  'qué es', 'que es', 'quién es', 'quien es', 'dónde queda', 'donde queda',
+  'cómo se hace', 'como se hace', 'cómo funciona', 'como funciona',
+  'receta de', 'qué significa', 'que significa',
+  'hoy en', 'esta semana', 'este mes',
+  'infobae', 'lanacion', 'clarin', 'ambito',
 ]
 
 export type SearchType = 'weather' | 'search' | 'none'
@@ -92,42 +98,57 @@ async function fetchWeather(city: string): Promise<string> {
   return lines.join('\n')
 }
 
-interface BraveResult {
+interface TavilyResult {
   title: string
-  description: string
   url: string
+  content: string
+  score: number
 }
 
-interface BraveResponse {
-  web?: { results: BraveResult[] }
+interface TavilyResponse {
+  answer?: string
+  results: TavilyResult[]
 }
 
-async function fetchBraveSearch(query: string): Promise<string> {
-  const apiKey = process.env.BRAVE_SEARCH_API_KEY
+async function fetchTavilySearch(query: string): Promise<string> {
+  const apiKey = process.env.TAVILY_API_KEY
   if (!apiKey) return ''
 
-  const res = await fetch(
-    `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=3&country=ar&lang=es`,
-    {
-      headers: {
-        'Accept': 'application/json',
-        'Accept-Encoding': 'gzip',
-        'X-Subscription-Token': apiKey,
-      },
-      signal: AbortSignal.timeout(7000),
-      next: { revalidate: 0 },
-    }
-  )
+  const res = await fetch('https://api.tavily.com/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      api_key: apiKey,
+      query,
+      search_depth: 'basic',
+      include_answer: true,
+      max_results: 4,
+      include_raw_content: false,
+    }),
+    signal: AbortSignal.timeout(8000),
+    next: { revalidate: 0 },
+  })
 
-  if (!res.ok) throw new Error(`Brave Search error: ${res.status}`)
+  if (!res.ok) throw new Error(`Tavily error: ${res.status}`)
 
-  const data = await res.json() as BraveResponse
-  const results = data.web?.results ?? []
+  const data = await res.json() as TavilyResponse
 
-  return results
+  const parts: string[] = []
+
+  if (data.answer) {
+    parts.push(`Resumen: ${data.answer}`)
+  }
+
+  const topResults = (data.results ?? [])
+    .filter(r => r.score > 0.3)
     .slice(0, 3)
-    .map(r => `[${r.title}]\n${r.description}`)
-    .join('\n\n')
+    .map(r => `[${r.title}]\n${r.content}`)
+
+  if (topResults.length) {
+    parts.push(...topResults)
+  }
+
+  return parts.join('\n\n')
 }
 
 export async function getWebContext(
@@ -147,7 +168,7 @@ export async function getWebContext(
       return { type: 'weather', content, searched: true }
     }
 
-    const content = await fetchBraveSearch(query)
+    const content = await fetchTavilySearch(query)
     if (!content) return { type: 'search', content: '', searched: false }
     return { type: 'search', content, searched: true }
   } catch {

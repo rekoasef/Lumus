@@ -2,24 +2,24 @@ import { BrainCircuit, CalendarCheck, Flame, PlusCircle, Sparkles } from 'lucide
 
 export default function HabitosPage() {
   return (
-    <div className="min-h-screen px-5 py-8 lg:px-12 lg:py-12">
+    <div className="min-h-screen px-3 py-5 sm:px-5 sm:py-8 lg:px-12 lg:py-12">
       <div className="mx-auto max-w-[1120px]">
-        <header className="mb-9 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+        <header className="mb-6 flex items-center justify-between gap-4 sm:mb-9">
           <div>
             <p className="lumus-label text-[#cfc6ff]">Hábitos</p>
-            <h1 className="lumus-heading mt-4 text-4xl font-bold text-[var(--text-primary)] md:text-5xl">
+            <h1 className="lumus-heading mt-2 text-3xl font-bold text-[var(--text-primary)] sm:mt-4 sm:text-4xl md:text-5xl">
               Seguimiento y rachas
             </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--text-secondary)]">
-              Este módulo va a concentrar rutinas, rachas, recuperación y pequeñas métricas diarias.
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--text-secondary)] sm:mt-4 sm:text-base sm:leading-7">
+              Rutinas, rachas, recuperación y métricas diarias.
             </p>
           </div>
-          <div className="grid size-14 place-items-center rounded-2xl border border-[#bdb4ff]/20 bg-[#bdb4ff]/12 text-[#d8d1ff]">
+          <div className="hidden grid size-14 place-items-center rounded-2xl border border-[#bdb4ff]/20 bg-[#bdb4ff]/12 text-[#d8d1ff] sm:grid">
             <BrainCircuit size={28} />
           </div>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-3">
+        <section className="grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
           {[
             { label: 'Rachas', value: 'Pronto', icon: Flame, color: '#ffb86e' },
             { label: 'Hábitos activos', value: 'Pronto', icon: CalendarCheck, color: '#bdb4ff' },

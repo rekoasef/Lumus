@@ -54,15 +54,15 @@ export function DashboardHero({ firstName, date }: DashboardHeroProps) {
           />
         </div>
 
-        <div className="relative px-6 py-6 md:px-10 md:py-8">
-          <div className="grid gap-8 md:grid-cols-[440px_1fr]">
+        <div className="relative px-4 py-5 sm:px-6 sm:py-6 md:px-10 md:py-8">
+          <div className="grid gap-6 md:grid-cols-[380px_1fr] md:gap-8">
 
             {/* IZQUIERDA — Orbe (clicable) */}
             <div className="relative flex flex-col items-center justify-center gap-3">
               <div
                 className="pointer-events-none absolute rounded-full"
                 style={{
-                  width: '480px', height: '480px',
+                  width: '320px', height: '320px',
                   background: 'radial-gradient(circle, rgba(124,109,250,0.22) 0%, rgba(124,109,250,0.08) 45%, transparent 70%)',
                 }}
               />
@@ -76,7 +76,6 @@ export function DashboardHero({ firstName, date }: DashboardHeroProps) {
                 transition={{ type: 'spring', stiffness: 300, damping: 22 }}
                 title="Hablar con Lumus"
               >
-                {/* Hint ring en hover */}
                 <motion.div
                   className="pointer-events-none absolute inset-0 rounded-full"
                   initial={{ opacity: 0 }}
@@ -86,7 +85,10 @@ export function DashboardHero({ firstName, date }: DashboardHeroProps) {
                     boxShadow: '0 0 40px rgba(124,109,250,0.18)',
                   }}
                 />
-                <LumusOrb state="idle" size={400} />
+                {/* Tamaño responsivo: 200px mobile, 280px sm, 360px md+ */}
+                <span className="block md:hidden"><LumusOrb state="idle" size={200} /></span>
+                <span className="hidden sm:block md:hidden"><LumusOrb state="idle" size={260} /></span>
+                <span className="hidden md:block"><LumusOrb state="idle" size={360} /></span>
               </motion.button>
 
               <div className="text-center">
@@ -101,7 +103,7 @@ export function DashboardHero({ firstName, date }: DashboardHeroProps) {
             </div>
 
             {/* DERECHA — info */}
-            <div className="flex flex-col justify-between gap-6">
+            <div className="flex flex-col justify-between gap-5 md:gap-6">
               <div>
                 <p className="text-[0.6rem] uppercase tracking-[0.18em] text-[var(--text-muted)]">
                   {date}

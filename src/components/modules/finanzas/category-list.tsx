@@ -7,6 +7,8 @@ import { CategoryForm } from './category-form'
 import { useFinanceCategories } from '@/hooks/use-finance-categories'
 import type { CreateCategoryInput } from '@/lib/validations/finance'
 import { CategoryIcon } from '@/lib/utils/category-icons'
+import { confirm } from '@/components/shared/confirm-dialog'
+import { toast } from 'sonner'
 
 interface CategoryListProps {
   initialCategories: FinanceCategory[]
@@ -22,8 +24,10 @@ export function CategoryList({ initialCategories }: CategoryListProps) {
   async function handleSave(data: CreateCategoryInput) {
     if (editing) {
       await updateCategory(editing.id, data)
+      toast.success('Categoría actualizada')
     } else {
       await createCategory(data)
+      toast.success('Categoría creada')
     }
     setShowForm(false)
     setEditing(null)
@@ -35,8 +39,10 @@ export function CategoryList({ initialCategories }: CategoryListProps) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('¿Eliminar esta categoría?')) return
+    const ok = await confirm({ description: '¿Eliminar esta categoría?' })
+    if (!ok) return
     await deleteCategory(id)
+    toast.success('Categoría eliminada')
   }
 
   const visibleCategories = byType(activeTab)

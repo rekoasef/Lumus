@@ -106,7 +106,7 @@ export function useVoiceLumus(): UseVoiceLumusReturn {
   // true mientras el usuario quiere seguir escuchando; false = parar de verdad
   const listeningActiveRef = useRef(false)
 
-  const SILENCE_TIMEOUT_MS = 5000
+  const SILENCE_TIMEOUT_MS = 3000
 
   const audioQueueRef = useRef<AudioQueueItem[]>([])
   const drainActiveRef = useRef(false)

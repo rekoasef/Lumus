@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { DashboardHero } from '@/components/modules/dashboard/dashboard-hero'
+import { DailyGreeting } from '@/components/modules/dashboard/daily-greeting'
 
 async function getDashboardData(userId: string) {
   const supabase = await createClient()
@@ -150,14 +151,17 @@ export default async function DashboardPage() {
     : DEFAULT_TRAJECTORY
 
   return (
-    <div className="relative min-h-screen px-5 py-8 lg:px-12 lg:py-12 space-y-6">
+    <div className="relative min-h-screen px-3 py-5 sm:px-5 sm:py-8 lg:px-12 lg:py-12 space-y-4 sm:space-y-6">
+
+      {/* Saludo diario — solo aparece una vez por día */}
+      <DailyGreeting firstName={firstName} />
 
       {/* Hero — Lumus + clock + weather + currencies */}
       <DashboardHero firstName={firstName} date={date} />
 
       {/* Stats bar */}
       <div className="mx-auto max-w-[1120px] rounded-2xl border border-white/[0.05] bg-white/[0.025] px-5 py-4">
-        <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 text-sm sm:gap-4 lg:grid-cols-4">
           {[
             { label: 'Completadas hoy', value: completedToday.toString(), icon: Zap, color: '#bdb4ff' },
             { label: 'Hábitos activos', value: `${habits.length}`, icon: Activity, color: '#22c55e' },
@@ -176,7 +180,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Main grid — tasks + trajectory */}
-      <div className="mx-auto grid max-w-[1120px] gap-6 xl:grid-cols-[360px_1fr]">
+      <div className="mx-auto grid max-w-[1120px] gap-4 sm:gap-6 xl:grid-cols-[360px_1fr]">
 
         {/* Tareas activas */}
         <div className="lumus-glass rounded-3xl p-7">
@@ -247,40 +251,42 @@ export default async function DashboardPage() {
             </Link>
           </div>
 
-          <div className="relative mt-16 pb-6">
-            <svg
-              className="absolute inset-x-0 top-0 h-16 w-full overflow-visible"
-              viewBox="0 0 640 70"
-              preserveAspectRatio="none"
-              aria-hidden
-            >
-              <path
-                d="M0 48 C120 18 220 28 316 20 C430 12 512 46 640 56"
-                fill="none"
-                stroke="rgba(189,180,255,0.3)"
-                strokeWidth="1.5"
-                strokeDasharray="10 8"
-              />
-              <path d="M0 56 L640 56" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-            </svg>
+          <div className="relative mt-12 pb-4 overflow-x-auto sm:mt-16 sm:pb-6">
+            <div className="min-w-[360px]">
+              <svg
+                className="absolute inset-x-0 top-0 h-16 w-full overflow-visible"
+                viewBox="0 0 640 70"
+                preserveAspectRatio="none"
+                aria-hidden
+              >
+                <path
+                  d="M0 48 C120 18 220 28 316 20 C430 12 512 46 640 56"
+                  fill="none"
+                  stroke="rgba(189,180,255,0.3)"
+                  strokeWidth="1.5"
+                  strokeDasharray="10 8"
+                />
+                <path d="M0 56 L640 56" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+              </svg>
 
-            <div className="relative grid grid-cols-5">
-              {trajectory.map((point, index) => (
-                <div key={`${point.time}-${index}`} className="flex flex-col items-center">
-                  <span
-                    className="size-3.5 rounded-full border-2"
-                    style={{
-                      borderColor: point.active ? '#d7d0ff' : 'rgba(189,180,255,0.4)',
-                      backgroundColor: point.active ? '#d7d0ff' : '#0f0f18',
-                      boxShadow: point.active ? '0 0 18px rgba(215,208,255,0.9)' : 'none',
-                    }}
-                  />
-                  <span className="mt-5 text-sm font-semibold text-[#c9c2ee]">{point.time}</span>
-                  <span className="mt-0.5 max-w-20 truncate text-center text-xs text-[var(--text-muted)]">
-                    {point.label}
-                  </span>
-                </div>
-              ))}
+              <div className="relative grid grid-cols-5">
+                {trajectory.map((point, index) => (
+                  <div key={`${point.time}-${index}`} className="flex flex-col items-center">
+                    <span
+                      className="size-3.5 rounded-full border-2"
+                      style={{
+                        borderColor: point.active ? '#d7d0ff' : 'rgba(189,180,255,0.4)',
+                        backgroundColor: point.active ? '#d7d0ff' : '#0f0f18',
+                        boxShadow: point.active ? '0 0 18px rgba(215,208,255,0.9)' : 'none',
+                      }}
+                    />
+                    <span className="mt-5 text-xs font-semibold text-[#c9c2ee] sm:text-sm">{point.time}</span>
+                    <span className="mt-0.5 max-w-[4.5rem] truncate text-center text-[0.65rem] text-[var(--text-muted)] sm:text-xs">
+                      {point.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

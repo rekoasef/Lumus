@@ -14,38 +14,37 @@ interface LumusOrbProps {
 }
 
 function getMove(state: OrbState) {
-  if (state === 'thinking') return { y: [0, -5, 5, -5, 0], scale: [1, 1.07, 0.95, 1.07, 1] }
-  if (state === 'speaking') return { y: [0, -7, 0], scale: [1, 1.09, 1.02, 1] }
-  if (state === 'listening') return { y: [0, -4, 0, -4, 0], scale: [1, 1.1, 1, 1.1, 1] }
-  return { y: [0, -10, 0], scale: [1, 1.03, 1] }
+  if (state === 'thinking')  return { y: [0, -4, 0], scale: [1, 1.03, 1] }
+  if (state === 'speaking')  return { y: [0, -5, 0], scale: [1, 1.03, 1] }
+  if (state === 'listening') return { y: [0, -3, 0], scale: [1, 1.03, 1] }
+  return { y: [0, -7, 0], scale: [1, 1.02, 1] }
 }
 
 function getGlow(state: OrbState): string[] {
   if (state === 'listening') return [
-    'drop-shadow(0 0 18px rgba(34,197,94,0.7)) drop-shadow(0 0 36px rgba(124,109,250,0.4))',
-    'drop-shadow(0 0 40px rgba(34,197,94,1.0)) drop-shadow(0 0 70px rgba(124,109,250,0.6))',
-    'drop-shadow(0 0 18px rgba(34,197,94,0.7)) drop-shadow(0 0 36px rgba(124,109,250,0.4))',
+    'drop-shadow(0 0 12px rgba(34,197,94,0.4)) drop-shadow(0 0 24px rgba(124,109,250,0.25))',
+    'drop-shadow(0 0 22px rgba(34,197,94,0.65)) drop-shadow(0 0 40px rgba(124,109,250,0.35))',
+    'drop-shadow(0 0 12px rgba(34,197,94,0.4)) drop-shadow(0 0 24px rgba(124,109,250,0.25))',
   ]
   if (state === 'thinking') return [
-    'drop-shadow(0 0 16px rgba(124,109,250,0.8)) drop-shadow(0 0 32px rgba(124,109,250,0.5))',
-    'drop-shadow(0 0 40px rgba(180,150,255,1.0)) drop-shadow(0 0 70px rgba(124,109,250,0.8))',
-    'drop-shadow(0 0 16px rgba(124,109,250,0.8)) drop-shadow(0 0 32px rgba(124,109,250,0.5))',
+    'drop-shadow(0 0 12px rgba(124,109,250,0.5)) drop-shadow(0 0 24px rgba(124,109,250,0.3))',
+    'drop-shadow(0 0 24px rgba(160,140,255,0.7)) drop-shadow(0 0 44px rgba(124,109,250,0.45))',
+    'drop-shadow(0 0 12px rgba(124,109,250,0.5)) drop-shadow(0 0 24px rgba(124,109,250,0.3))',
   ]
   if (state === 'speaking') return [
-    'drop-shadow(0 0 20px rgba(124,109,250,0.9)) drop-shadow(0 0 40px rgba(124,109,250,0.6))',
-    'drop-shadow(0 0 50px rgba(200,170,255,1.0)) drop-shadow(0 0 90px rgba(124,109,250,0.9))',
-    'drop-shadow(0 0 25px rgba(124,109,250,0.8)) drop-shadow(0 0 50px rgba(124,109,250,0.6))',
-    'drop-shadow(0 0 20px rgba(124,109,250,0.9)) drop-shadow(0 0 40px rgba(124,109,250,0.6))',
+    'drop-shadow(0 0 14px rgba(124,109,250,0.55)) drop-shadow(0 0 28px rgba(124,109,250,0.35))',
+    'drop-shadow(0 0 28px rgba(170,150,255,0.75)) drop-shadow(0 0 50px rgba(124,109,250,0.5))',
+    'drop-shadow(0 0 14px rgba(124,109,250,0.55)) drop-shadow(0 0 28px rgba(124,109,250,0.35))',
   ]
   return [
-    'drop-shadow(0 0 10px rgba(124,109,250,0.5)) drop-shadow(0 0 22px rgba(124,109,250,0.3))',
-    'drop-shadow(0 0 26px rgba(160,130,255,0.9)) drop-shadow(0 0 50px rgba(124,109,250,0.6))',
-    'drop-shadow(0 0 10px rgba(124,109,250,0.5)) drop-shadow(0 0 22px rgba(124,109,250,0.3))',
+    'drop-shadow(0 0 8px rgba(124,109,250,0.35)) drop-shadow(0 0 18px rgba(124,109,250,0.2))',
+    'drop-shadow(0 0 18px rgba(150,130,255,0.6)) drop-shadow(0 0 34px rgba(124,109,250,0.35))',
+    'drop-shadow(0 0 8px rgba(124,109,250,0.35)) drop-shadow(0 0 18px rgba(124,109,250,0.2))',
   ]
 }
 
 function getDuration(state: OrbState) {
-  return state === 'thinking' ? 0.65 : state === 'speaking' ? 1.1 : state === 'listening' ? 1.2 : 4
+  return state === 'thinking' ? 2.2 : state === 'speaking' ? 1.8 : state === 'listening' ? 2.0 : 4.5
 }
 
 export function LumusOrb({ state = 'idle', size = 140, className }: LumusOrbProps) {
@@ -114,21 +113,21 @@ interface LumusOrbIconProps {
 }
 
 export function LumusOrbIcon({ size = 22, state = 'idle' }: LumusOrbIconProps) {
-  const dur = state === 'thinking' ? 0.65 : 2.5
+  const dur = state === 'thinking' ? 2.2 : 3.5
 
   return (
     <motion.div
       style={{ width: size, height: size, flexShrink: 0, display: 'inline-flex' }}
-      animate={{ scale: state === 'thinking' ? [1, 1.12, 0.92, 1.12, 1] : [1, 1.06, 1] }}
+      animate={{ scale: state === 'thinking' ? [1, 1.05, 1] : [1, 1.04, 1] }}
       transition={{ duration: dur, repeat: Infinity, ease: 'easeInOut' }}
     >
       <motion.div
         style={{ width: size, height: size }}
         animate={{
           filter: [
-            'drop-shadow(0 0 5px rgba(124,109,250,0.7))',
-            'drop-shadow(0 0 14px rgba(180,150,255,1.0))',
-            'drop-shadow(0 0 5px rgba(124,109,250,0.7))',
+            'drop-shadow(0 0 4px rgba(124,109,250,0.5))',
+            'drop-shadow(0 0 10px rgba(160,140,255,0.75))',
+            'drop-shadow(0 0 4px rgba(124,109,250,0.5))',
           ],
         }}
         transition={{ duration: dur, repeat: Infinity, ease: 'easeInOut' }}

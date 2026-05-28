@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { BottomNav } from '@/components/shared/bottom-nav'
 import { TopNav } from '@/components/shared/top-nav'
+import { ConfirmDialogProvider } from '@/components/shared/confirm-dialog'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -26,10 +27,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
 
       <TopNav />
-      <main className="relative min-h-screen pt-16 pb-24 md:pb-0">
+      <main className="relative min-h-screen pt-16 pb-24 lg:pb-0">
         {children}
       </main>
       <BottomNav />
+      <ConfirmDialogProvider />
     </div>
   )
 }

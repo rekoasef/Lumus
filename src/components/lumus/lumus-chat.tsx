@@ -20,6 +20,10 @@ const WEB_QUERY_KEYWORDS = [
   'noticias', 'noticia', 'cotización', 'cotizacion', 'dólar', 'dollar',
   'tipo de cambio', 'última hora', 'ultima hora', 'busca en internet',
   'buscame en internet', 'buscar en internet', 'qué dice internet',
+  'precio de', 'cuánto cuesta', 'cuanto cuesta', 'cuánto vale', 'cuanto vale',
+  'qué es', 'que es', 'quién es', 'quien es', 'dónde queda', 'donde queda',
+  'cómo se hace', 'como se hace', 'cómo funciona', 'como funciona',
+  'receta de', 'qué significa', 'que significa',
 ]
 
 function isWebQuery(text: string): boolean {
@@ -129,7 +133,7 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
 
       {/* Panel */}
       <div
-        className="relative flex w-full max-w-[400px] flex-col"
+        className="relative flex w-full flex-col sm:max-w-[400px]"
         style={{
           background: '#0d0d14',
           borderLeft: '1px solid rgba(255,255,255,0.07)',

@@ -49,8 +49,8 @@ export function PaySubscriptionForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="lumus-glass w-full max-w-sm rounded-2xl p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 bg-black/60 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="lumus-glass w-full max-w-sm rounded-t-2xl rounded-b-none p-5 max-h-[92vh] overflow-y-auto sm:rounded-2xl sm:p-6">
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 size={16} className="text-[var(--success)]" />

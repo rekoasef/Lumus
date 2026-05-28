@@ -29,11 +29,11 @@ export function BodyRecordForm({ onSave, onClose }: BodyRecordFormProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={onClose} />
 
       <div
-        className="relative w-full max-w-sm rounded-2xl"
+        className="relative w-full max-w-sm rounded-t-2xl rounded-b-none max-h-[92vh] overflow-y-auto sm:rounded-2xl"
         style={{ background: '#111118', border: '1px solid rgba(255,255,255,0.09)' }}
       >
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>

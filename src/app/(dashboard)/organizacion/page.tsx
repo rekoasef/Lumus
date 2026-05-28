@@ -23,19 +23,19 @@ export default async function OrganizacionPage() {
   const tasks = await getTasks(user.id)
 
   return (
-    <div className="min-h-screen px-5 py-8 lg:px-12 lg:py-12">
+    <div className="min-h-screen px-3 py-5 sm:px-5 sm:py-8 lg:px-12 lg:py-12">
       <div className="mx-auto max-w-[1120px]">
-        <header className="mb-9 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+        <header className="mb-6 flex items-center justify-between gap-4 sm:mb-9">
           <div>
             <p className="lumus-label text-[#cfc6ff]">Organización</p>
-            <h1 className="lumus-heading mt-4 text-4xl font-bold text-[var(--text-primary)] md:text-5xl">
-              Tareas, objetivos y rutinas
+            <h1 className="lumus-heading mt-2 text-3xl font-bold text-[var(--text-primary)] sm:mt-4 sm:text-4xl md:text-5xl">
+              Tareas y rutinas
             </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--text-secondary)]">
-              Gestioná tus pendientes, planificá bloques de tiempo y mantené el día bajo control.
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--text-secondary)] sm:mt-4 sm:text-base sm:leading-7">
+              Gestioná tus pendientes y planificá bloques de tiempo.
             </p>
           </div>
-          <div className="grid size-14 place-items-center rounded-2xl border border-[#bdb4ff]/20 bg-[#bdb4ff]/12 text-[#d8d1ff]">
+          <div className="hidden grid size-14 place-items-center rounded-2xl border border-[#bdb4ff]/20 bg-[#bdb4ff]/12 text-[#d8d1ff] sm:grid">
             <TerminalSquare size={28} />
           </div>
         </header>

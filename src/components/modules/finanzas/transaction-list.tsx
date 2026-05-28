@@ -7,6 +7,8 @@ import { TransactionItem } from './transaction-item'
 import { TransactionForm } from './transaction-form'
 import type { CreateTransactionInput, UpdateTransactionInput } from '@/lib/validations/finance'
 import { CategoryIcon } from '@/lib/utils/category-icons'
+import { confirm } from '@/components/shared/confirm-dialog'
+import { toast } from 'sonner'
 
 // ——— tipos ———
 
@@ -256,19 +258,36 @@ export function TransactionList({
     setSelectedCategoryKey(null)
   }
 
+  function getDefaultDate(): string {
+    if (filterMode === 'dia') return diaDate
+    if (filterMode === 'semana') {
+      const today = todayStr()
+      return today >= semanaData.from && today <= semanaData.to ? today : semanaData.from
+    }
+    if (filterMode === 'mes') {
+      const today = todayStr()
+      return today >= mesData.from && today <= mesData.to ? today : mesData.from
+    }
+    return todayStr()
+  }
+
   async function handleSave(data: CreateTransactionInput) {
     if (editing) {
       await onUpdate(editing.id, data as UpdateTransactionInput)
+      toast.success('Movimiento actualizado')
     } else {
       await onCreate(data)
+      toast.success('Movimiento registrado')
     }
     setShowForm(false)
     setEditing(null)
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('¿Eliminar este movimiento?')) return
+    const ok = await confirm({ description: '¿Eliminar este movimiento?' })
+    if (!ok) return
     await onDelete(id)
+    toast.success('Movimiento eliminado')
   }
 
   function handleEdit(t: Transaction) {
@@ -289,13 +308,13 @@ export function TransactionList({
     <div>
 
       {/* ——— Tabs de filtro ——— */}
-      <div className="flex items-center justify-between border-b border-white/[0.06]">
-        <div className="flex">
+      <div className="flex items-center justify-between border-b border-white/[0.06] gap-2">
+        <div className="flex overflow-x-auto scrollbar-hide min-w-0">
           {FILTER_TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => handleFilterMode(tab.id)}
-              className={`relative px-3.5 pb-3 pt-1 text-xs font-medium transition-colors ${
+              className={`relative flex-shrink-0 px-3 pb-3 pt-1 text-xs font-medium transition-colors ${
                 filterMode === tab.id
                   ? 'text-[var(--text-primary)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
@@ -614,6 +633,7 @@ export function TransactionList({
           onSave={handleSave}
           onClose={() => { setShowForm(false); setEditing(null) }}
           initial={editing ?? undefined}
+          defaultDate={editing ? undefined : getDefaultDate()}
         />
       )}
     </div>

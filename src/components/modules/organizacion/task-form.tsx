@@ -100,10 +100,10 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="fixed inset-x-4 top-1/2 z-50 mx-auto max-w-md -translate-y-1/2"
+            className="fixed inset-x-3 bottom-0 z-50 mx-auto max-w-md sm:inset-x-4 sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2"
           >
             <div
-              className="lumus-glass rounded-3xl p-6"
+              className="lumus-glass rounded-t-3xl rounded-b-none p-5 max-h-[92vh] overflow-y-auto sm:rounded-3xl sm:p-6"
             >
               <div className="flex items-center justify-between mb-5">
                 <h2 className="lumus-heading text-xl font-semibold text-[var(--text-primary)]">

@@ -28,6 +28,8 @@ import { MonthlyReportBanner } from './monthly-report-banner'
 import { MonthlyReportModal } from './monthly-report-modal'
 import type { CreateWalletInput, UpdateWalletInput, CreateBudgetInput, CreateSubscriptionInput, CreateSavingGoalInput, UpdateTransactionInput } from '@/lib/validations/finance'
 import type { CreateTransactionInput } from '@/lib/validations/finance'
+import { confirm } from '@/components/shared/confirm-dialog'
+import { toast } from 'sonner'
 
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -125,8 +127,10 @@ export function FinanzasDashboard({
     if (editingWallet) {
       const { balance: _b, ...updateData } = data
       await updateWallet(editingWallet.id, updateData as UpdateWalletInput)
+      toast.success('Billetera actualizada')
     } else {
       await createWallet(data)
+      toast.success('Billetera creada')
     }
     setShowWalletForm(false)
     setEditingWallet(null)
@@ -136,11 +140,18 @@ export function FinanzasDashboard({
     if (!adjustingWallet) return
     await adjustBalance(adjustingWallet.id, newBalance, note)
     setAdjustingWallet(null)
+    toast.success('Balance actualizado')
   }
 
   async function handleDeleteWallet(id: string) {
-    if (!confirm('¿Eliminar esta billetera? Las transacciones asociadas quedarán sin billetera.')) return
+    const ok = await confirm({
+      title: 'Eliminar billetera',
+      description: 'Las transacciones asociadas quedarán sin billetera asignada. Esta acción no se puede deshacer.',
+      confirmLabel: 'Eliminar',
+    })
+    if (!ok) return
     await deleteWallet(id)
+    toast.success('Billetera eliminada')
   }
 
   function handleEditWallet(wallet: Wallet) {
@@ -155,8 +166,10 @@ export function FinanzasDashboard({
   async function handleSaveBudget(data: CreateBudgetInput) {
     if (editingBudget) {
       await updateBudget(editingBudget.id, { amount: data.amount })
+      toast.success('Presupuesto actualizado')
     } else {
       await createBudget(data)
+      toast.success('Presupuesto creado')
     }
     setShowBudgetForm(false)
     setEditingBudget(null)
@@ -168,8 +181,10 @@ export function FinanzasDashboard({
   }
 
   async function handleDeleteBudget(id: string) {
-    if (!confirm('¿Eliminar este presupuesto?')) return
+    const ok = await confirm({ description: '¿Eliminar este presupuesto?' })
+    if (!ok) return
     await deleteBudget(id)
+    toast.success('Presupuesto eliminado')
   }
 
   function navigateMonth(delta: number) {
@@ -183,8 +198,10 @@ export function FinanzasDashboard({
   async function handleSaveSub(data: CreateSubscriptionInput) {
     if (editingSub) {
       await updateSubscription(editingSub.id, data)
+      toast.success('Vencimiento actualizado')
     } else {
       await createSubscription(data)
+      toast.success('Vencimiento creado')
     }
     setShowSubForm(false)
     setEditingSub(null)
@@ -196,21 +213,26 @@ export function FinanzasDashboard({
   }
 
   async function handleDeleteSub(id: string) {
-    if (!confirm('¿Eliminar este vencimiento?')) return
+    const ok = await confirm({ description: '¿Eliminar este vencimiento?' })
+    if (!ok) return
     await deleteSubscription(id)
+    toast.success('Vencimiento eliminado')
   }
 
   async function handlePaySub(amount: number, categoryId: string | null, walletId: string | null, date: string) {
     if (!payingSub) return
     await paySubscription(payingSub.id, amount, categoryId, walletId, date)
     setPayingSub(null)
+    toast.success('Pago registrado')
   }
 
   async function handleSaveGoal(data: CreateSavingGoalInput) {
     if (editingGoal) {
       await updateGoal(editingGoal.id, data)
+      toast.success('Meta actualizada')
     } else {
       await createGoal(data)
+      toast.success('Meta creada')
     }
     setShowGoalForm(false)
     setEditingGoal(null)
@@ -222,8 +244,10 @@ export function FinanzasDashboard({
   }
 
   async function handleDeleteGoal(id: string) {
-    if (!confirm('¿Eliminar esta meta de ahorro?')) return
+    const ok = await confirm({ description: '¿Eliminar esta meta de ahorro?' })
+    if (!ok) return
     await deleteGoal(id)
+    toast.success('Meta eliminada')
   }
 
   const SECTIONS: { id: Section; label: string }[] = [
@@ -236,7 +260,7 @@ export function FinanzasDashboard({
   ]
 
   return (
-    <div className="min-h-screen px-5 py-8 lg:px-12 lg:py-12">
+    <div className="min-h-screen px-3 py-5 sm:px-5 sm:py-8 lg:px-12 lg:py-12">
       <div className="mx-auto max-w-[1120px]">
 
         {/* Banner de informe mensual — aparece cuando no hay informe del mes anterior */}
@@ -281,7 +305,7 @@ export function FinanzasDashboard({
             const hasForeignCurrency = Object.keys(balanceByCurrency).some(c => c !== 'ARS')
 
             return (
-              <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4 lg:grid-cols-4">
 
                 {/* Billeteras — breakdown por moneda + total ARS equivalente */}
                 <div className="lumus-glass rounded-xl p-4">
@@ -363,12 +387,12 @@ export function FinanzasDashboard({
         </header>
 
         {/* Tabs */}
-        <div className="mb-6 flex gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1 w-fit">
+        <div className="mb-4 flex gap-1 overflow-x-auto rounded-xl border border-white/[0.08] bg-white/[0.02] p-1 sm:mb-6 sm:w-fit scrollbar-hide">
           {SECTIONS.map(s => (
             <button
               key={s.id}
               onClick={() => setActiveSection(s.id)}
-              className={`rounded-lg px-5 py-2 text-sm font-medium transition-colors ${
+              className={`flex-shrink-0 rounded-lg px-4 py-2 text-xs font-medium transition-colors sm:px-5 sm:text-sm ${
                 activeSection === s.id
                   ? 'bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
