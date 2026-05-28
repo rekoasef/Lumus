@@ -33,8 +33,9 @@ export function MealLogSection({
     const yesterdayDate = new Date(todayDate)
     yesterdayDate.setDate(yesterdayDate.getDate() - 1)
 
-    const today = todayDate.toISOString().split('T')[0]
-    const yesterday = yesterdayDate.toISOString().split('T')[0]
+    const ls = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    const today = ls(todayDate)
+    const yesterday = ls(yesterdayDate)
     if (date === today) return 'Hoy'
     if (date === yesterday) return 'Ayer'
     return new Date(date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })

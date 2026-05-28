@@ -1,5 +1,6 @@
 export type TaskPriority = 'alta' | 'media' | 'baja'
 export type TaskStatus = 'pendiente' | 'en_progreso' | 'completada'
+export type RepeatType = 'daily' | 'weekly' | 'weekdays' | 'monthly'
 
 export interface Task {
   id: string
@@ -13,6 +14,9 @@ export interface Task {
   duration_minutes: number | null
   parent_id: string | null
   routine_id: string | null
+  repeat_type: RepeatType | null
+  repeat_days: number[] | null
+  repeat_end_date: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null

@@ -45,7 +45,7 @@ export function ComidasDashboard({
   const [showMealLogForm, setShowMealLogForm] = useState(false)
   const [activeMealType, setActiveMealType] = useState<MealType>('almuerzo')
   const [showLumus, setShowLumus] = useState(false)
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })
   const [recipeFilter, setRecipeFilter] = useState<'all' | 'favorites' | 'ai'>('all')
 
   const { recipes, isGenerating, createRecipe, updateRecipe, deleteRecipe, toggleFavorite, generateRecipe } = useRecipes(initialRecipes)
@@ -58,10 +58,10 @@ export function ComidasDashboard({
   function changeDate(delta: number) {
     const d = new Date(selectedDate + 'T12:00:00')
     d.setDate(d.getDate() + delta)
-    setSelectedDate(d.toISOString().split('T')[0])
+    setSelectedDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()
   const isToday = selectedDate === today
 
   const filteredRecipes = recipes.filter(r => {

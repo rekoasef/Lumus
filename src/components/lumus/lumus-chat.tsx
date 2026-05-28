@@ -102,8 +102,8 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
       })
 
       if (!res.ok) throw new Error()
-      const data = await res.json() as { response: string; searchedWeb: boolean }
-      addMessage({ role: 'assistant', content: data.response, searchedWeb: data.searchedWeb })
+      const data = await res.json() as { response: string; searchedWeb: boolean; actions?: import('@/types').AIAction[] }
+      addMessage({ role: 'assistant', content: data.response, searchedWeb: data.searchedWeb, actions: data.actions })
       showSpeakingState()
     } catch {
       addMessage({ role: 'assistant', content: 'Hubo un error al procesar tu mensaje. Intentá de nuevo.' })
@@ -225,6 +225,36 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
                     <span className="text-[0.55rem] uppercase tracking-wider text-[var(--text-muted)]">
                       Tiempo real
                     </span>
+                  </div>
+                )}
+                {msg.role === 'assistant' && msg.actions && msg.actions.length > 0 && (
+                  <div className="mt-1 flex flex-col gap-1.5">
+                    {msg.actions.map((action, ai) => (
+                      <div
+                        key={ai}
+                        className="flex items-start gap-2 rounded-xl px-3 py-2"
+                        style={{
+                          background: action.type === 'task_created'
+                            ? 'rgba(124,109,250,0.1)'
+                            : 'rgba(34,197,94,0.08)',
+                          border: action.type === 'task_created'
+                            ? '1px solid rgba(124,109,250,0.2)'
+                            : '1px solid rgba(34,197,94,0.15)',
+                        }}
+                      >
+                        <span className="mt-0.5 text-[11px]">
+                          {action.type === 'task_created' ? '📅' : '💰'}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold" style={{ color: action.type === 'task_created' ? '#bdb4ff' : '#4ade80' }}>
+                            {action.title}
+                          </p>
+                          {action.details && (
+                            <p className="text-[10px] text-[var(--text-muted)]">{action.details}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

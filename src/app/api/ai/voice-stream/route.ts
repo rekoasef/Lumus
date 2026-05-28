@@ -27,6 +27,37 @@ const WEB_SEARCH_TOOL: Anthropic.Tool = {
   },
 }
 
+const AGENDAR_TAREA_TOOL: Anthropic.Tool = {
+  name: 'agendar_tarea',
+  description: 'Crea una nueva tarea, reunión o evento en la agenda del usuario. Úsalo cuando el usuario pida agendar, crear o recordar cualquier tarea o compromiso.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      titulo: { type: 'string' },
+      fecha: { type: 'string', description: 'Formato YYYY-MM-DD. Calculá la fecha real.' },
+      hora_inicio: { type: 'string', description: 'Formato HH:MM, opcional' },
+      duracion_minutos: { type: 'number', description: 'Duración en minutos, opcional' },
+      prioridad: { type: 'string', enum: ['alta', 'media', 'baja'] },
+    },
+    required: ['titulo'],
+  },
+}
+
+const REGISTRAR_GASTO_TOOL: Anthropic.Tool = {
+  name: 'registrar_gasto',
+  description: 'Registra un gasto o ingreso en las finanzas del usuario.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      descripcion: { type: 'string' },
+      monto: { type: 'number' },
+      tipo: { type: 'string', enum: ['gasto', 'ingreso'] },
+      fecha: { type: 'string', description: 'Formato YYYY-MM-DD, opcional' },
+    },
+    required: ['descripcion', 'monto', 'tipo'],
+  },
+}
+
 async function tavilySearch(query: string): Promise<string> {
   const apiKey = process.env.TAVILY_API_KEY
   if (!apiKey) return 'No tengo acceso a búsqueda web en este momento.'
@@ -71,6 +102,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: 'Inválido' }, { status: 400 })
 
   const { message, currentVoice } = parsed.data
+  const today = new Date().toISOString().slice(0, 10)
 
   const snapshot = await buildUserSnapshot(supabase, user.id)
   const basePrompt = getModulePrompt('general', snapshot)
@@ -90,7 +122,9 @@ MODO VOZ — reglas estrictas:
   Ejemplo: "Listo, ahora te hablo con voz Onyx. [VOZ:onyx]"
   Nombres válidos: alloy, echo, fable, nova, onyx, shimmer
 - CRÍTICO: respondé SIEMPRE en español rioplatense. Jamás en inglés ni otro idioma.
-- CRÍTICO: si no sabés algo con certeza (clima, partidos, noticias, precios), usá la herramienta buscar_web. NUNCA inventes datos reales — es preferible buscar que dar información falsa.`
+- CRÍTICO: si no sabés algo con certeza (clima, partidos, noticias, precios), usá la herramienta buscar_web. NUNCA inventes datos reales — es preferible buscar que dar información falsa.
+- FECHA DE HOY: ${today}
+- SOS UN AGENTE ACTIVO: si el usuario pide agendar algo o registrar un gasto, usá las herramientas agendar_tarea o registrar_gasto. Actuá directamente y confirmá en una oración corta.`
 
   const encoder = new TextEncoder()
 
@@ -106,31 +140,55 @@ MODO VOZ — reglas estrictas:
           { role: 'user', content: message },
         ]
 
-        // Primera llamada: detectar si necesita búsqueda web
+        // Primera llamada: detectar si necesita herramientas
         const firstResponse = await anthropic.messages.create({
           model: 'claude-sonnet-4-5',
           max_tokens: 300,
-          tools: [WEB_SEARCH_TOOL],
+          tools: [WEB_SEARCH_TOOL, AGENDAR_TAREA_TOOL, REGISTRAR_GASTO_TOOL],
           tool_choice: { type: 'auto' },
           system: systemPrompt,
           messages,
         })
 
         if (firstResponse.stop_reason === 'tool_use') {
-          // Ejecutar todas las búsquedas
           const toolUseBlocks = firstResponse.content.filter(
             (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
           )
 
           const toolResults = await Promise.all(
             toolUseBlocks.map(async (b) => {
-              const input = b.input as { query: string }
-              const searchResult = await tavilySearch(input.query)
-              return {
-                type: 'tool_result' as const,
-                tool_use_id: b.id,
-                content: searchResult,
+              let content: string
+
+              if (b.name === 'buscar_web') {
+                const input = b.input as { query: string }
+                content = await tavilySearch(input.query)
+              } else if (b.name === 'agendar_tarea') {
+                const input = b.input as { titulo: string; fecha?: string; hora_inicio?: string; duracion_minutos?: number; prioridad?: string }
+                const { data, error } = await supabase.from('tasks').insert({
+                  user_id: user.id,
+                  title: input.titulo,
+                  priority: (input.prioridad as 'alta' | 'media' | 'baja') ?? 'media',
+                  due_date: input.fecha ?? today,
+                  start_time: input.hora_inicio ?? null,
+                  duration_minutes: input.duracion_minutos ?? null,
+                  deleted_at: null,
+                }).select('title, due_date, start_time').single()
+                content = error ? `Error: ${error.message}` : `Tarea "${data.title}" agendada${data.due_date ? ` para ${data.due_date}` : ''}${data.start_time ? ` a las ${data.start_time}` : ''}.`
+              } else if (b.name === 'registrar_gasto') {
+                const input = b.input as { descripcion: string; monto: number; tipo: 'gasto' | 'ingreso'; fecha?: string }
+                const { data: wallet } = await supabase.from('wallets').select('id, name').eq('user_id', user.id).is('deleted_at', null).order('created_at', { ascending: true }).limit(1).single()
+                if (!wallet) { content = 'No hay billeteras configuradas.'; }
+                else {
+                  const { data: cat } = await supabase.from('finance_categories').select('id').eq('user_id', user.id).eq('type', input.tipo).limit(1).single()
+                  const { error } = await supabase.from('transactions').insert({ user_id: user.id, wallet_id: wallet.id, category_id: cat?.id ?? null, type: input.tipo, amount: Math.abs(input.monto), description: input.descripcion, date: input.fecha ?? today })
+                  content = error ? `Error: ${error.message}` : `${input.tipo === 'gasto' ? 'Gasto' : 'Ingreso'} de $${input.monto} registrado en ${wallet.name}.`
+                  if (!error) await (supabase.rpc as unknown as (fn: string, args: Record<string, string>) => Promise<unknown>)('recompute_wallet_balance', { p_wallet_id: wallet.id })
+                }
+              } else {
+                content = 'Herramienta no disponible'
               }
+
+              return { type: 'tool_result' as const, tool_use_id: b.id, content }
             })
           )
 

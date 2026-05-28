@@ -50,10 +50,17 @@ export interface UserSnapshot {
   objetivos_activos: string[]
 }
 
+export interface AIAction {
+  type: 'task_created' | 'transaction_created'
+  title: string
+  details: string
+}
+
 export interface AIMessage {
   role: 'user' | 'assistant'
   content: string
   searchedWeb?: boolean
+  actions?: AIAction[]
 }
 
 export type AIModule =

@@ -3,16 +3,30 @@ import { createClient } from '@/lib/supabase/server'
 import { TaskList } from '@/components/modules/organizacion/task-list'
 import type { Task } from '@/types/tasks.types'
 
-async function getTasks(userId: string): Promise<Task[]> {
+async function getPageData(userId: string) {
   const supabase = await createClient()
-  const { data } = await supabase
-    .from('tasks')
-    .select('id, title, description, priority, status, due_date, start_time, duration_minutes, parent_id, routine_id, created_at, updated_at, deleted_at')
-    .eq('user_id', userId)
-    .is('deleted_at', null)
-    .is('parent_id', null)
-    .order('created_at', { ascending: false })
-  return (data ?? []) as Task[]
+  const today = new Date().toISOString().slice(0, 10)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any
+
+  const [{ data: tasks }, { data: completions }] = await Promise.all([
+    sb
+      .from('tasks')
+      .select('id, title, description, priority, status, due_date, start_time, duration_minutes, parent_id, routine_id, repeat_type, repeat_days, repeat_end_date, created_at, updated_at, deleted_at')
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .is('parent_id', null)
+      .order('created_at', { ascending: false }),
+    sb
+      .from('task_completions')
+      .select('task_id')
+      .eq('user_id', userId)
+      .eq('date', today),
+  ])
+
+  const completedIds = new Set(((completions ?? []) as { task_id: string }[]).map(c => c.task_id))
+  return { tasks: (tasks ?? []) as Task[], completedIds }
 }
 
 export default async function OrganizacionPage() {
@@ -20,7 +34,7 @@ export default async function OrganizacionPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const tasks = await getTasks(user.id)
+  const { tasks, completedIds } = await getPageData(user.id)
 
   return (
     <div className="min-h-screen px-3 py-5 sm:px-5 sm:py-8 lg:px-12 lg:py-12">
@@ -40,7 +54,7 @@ export default async function OrganizacionPage() {
           </div>
         </header>
 
-        <TaskList initialTasks={tasks} />
+        <TaskList initialTasks={tasks} initialCompletions={completedIds} />
       </div>
     </div>
   )

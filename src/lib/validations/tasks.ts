@@ -8,6 +8,9 @@ export const createTaskSchema = z.object({
   start_time: z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM').nullable().optional(),
   duration_minutes: z.number().int().min(5).max(480).nullable().optional(),
   parent_id: z.string().uuid().nullable().optional(),
+  repeat_type: z.enum(['daily', 'weekly', 'weekdays', 'monthly']).nullable().optional(),
+  repeat_days: z.array(z.number().int().min(0).max(6)).nullable().optional(),
+  repeat_end_date: z.string().nullable().optional(),
 })
 
 export const updateTaskSchema = z.object({
@@ -18,6 +21,9 @@ export const updateTaskSchema = z.object({
   due_date: z.string().nullable().optional(),
   start_time: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
   duration_minutes: z.number().int().min(5).max(480).nullable().optional(),
+  repeat_type: z.enum(['daily', 'weekly', 'weekdays', 'monthly']).nullable().optional(),
+  repeat_days: z.array(z.number().int().min(0).max(6)).nullable().optional(),
+  repeat_end_date: z.string().nullable().optional(),
 })
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>

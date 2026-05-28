@@ -1,35 +1,37 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Task, TaskPriority } from '@/types/tasks.types'
+import { localDateStr } from '@/lib/utils/format-date'
 
-// Rango visible: 06:00 a 22:00 (16 horas = 960 minutos)
-const START_HOUR = 6
+const START_HOUR = 7
 const END_HOUR = 22
 const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60
-const PX_PER_MINUTE = 1.5
+const PX_PER_MINUTE = 1.6
 const COLUMN_HEIGHT = TOTAL_MINUTES * PX_PER_MINUTE
 
-const PRIORITY_COLORS: Record<TaskPriority, { bg: string; border: string; text: string }> = {
-  alta:  { bg: 'rgba(239,68,68,0.15)',  border: 'rgb(239,68,68)',  text: 'rgb(239,68,68)' },
-  media: { bg: 'rgba(124,109,250,0.15)', border: 'var(--accent-lumus)', text: 'var(--accent-lumus)' },
-  baja:  { bg: 'rgba(34,197,94,0.12)',  border: 'rgb(34,197,94)',  text: 'rgb(34,197,94)' },
+const PRIORITY: Record<TaskPriority, { bg: string; border: string; text: string }> = {
+  alta:  { bg: 'rgba(239,68,68,0.15)',  border: '#ef4444',  text: '#f87171' },
+  media: { bg: 'rgba(124,109,250,0.15)', border: '#7c6dfa', text: '#a78bfa' },
+  baja:  { bg: 'rgba(34,197,94,0.12)',  border: '#22c55e',  text: '#4ade80' },
 }
+
+const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+const MONTH_NAMES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
 function getWeekStart(date: Date): Date {
   const d = new Date(date)
   const day = d.getDay()
-  // Lunes como primer día de la semana
-  const diff = (day === 0 ? -6 : 1 - day)
+  const diff = day === 0 ? -6 : 1 - day
   d.setDate(d.getDate() + diff)
   d.setHours(0, 0, 0, 0)
   return d
 }
 
 function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0]
+  return localDateStr(date)
 }
 
 function timeToMinutes(time: string): number {
@@ -43,9 +45,6 @@ function minutesToTime(minutes: number): string {
   return `${h}:${m}`
 }
 
-const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-const MONTH_NAMES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-
 interface WeekCalendarProps {
   tasks: Task[]
   onCreateTask: (defaultDate: string, defaultTime: string) => void
@@ -54,6 +53,8 @@ interface WeekCalendarProps {
 
 export function WeekCalendar({ tasks, onCreateTask, onEditTask }: WeekCalendarProps) {
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
+  const scrollRef = useRef<HTMLDivElement>(null)
+
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart)
     d.setDate(weekStart.getDate() + i)
@@ -61,6 +62,16 @@ export function WeekCalendar({ tasks, onCreateTask, onEditTask }: WeekCalendarPr
   })
 
   const today = formatDate(new Date())
+
+  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i)
+
+  const weekLabel = (() => {
+    const end = weekDays[6]
+    if (weekStart.getMonth() === end.getMonth()) {
+      return `${weekStart.getDate()}–${end.getDate()} ${MONTH_NAMES[weekStart.getMonth()]} ${weekStart.getFullYear()}`
+    }
+    return `${weekStart.getDate()} ${MONTH_NAMES[weekStart.getMonth()]} – ${end.getDate()} ${MONTH_NAMES[end.getMonth()]} ${weekStart.getFullYear()}`
+  })()
 
   function prevWeek() {
     setWeekStart(prev => {
@@ -80,6 +91,14 @@ export function WeekCalendar({ tasks, onCreateTask, onEditTask }: WeekCalendarPr
 
   function goToToday() {
     setWeekStart(getWeekStart(new Date()))
+    // Scroll vertical al bloque de hora actual
+    if (scrollRef.current) {
+      const now = new Date()
+      const nowMins = now.getHours() * 60 + now.getMinutes() - START_HOUR * 60
+      if (nowMins > 0) {
+        scrollRef.current.scrollTop = Math.max(0, nowMins * PX_PER_MINUTE - 80)
+      }
+    }
   }
 
   function handleColumnClick(e: React.MouseEvent<HTMLDivElement>, dayDate: Date) {
@@ -90,96 +109,168 @@ export function WeekCalendar({ tasks, onCreateTask, onEditTask }: WeekCalendarPr
     onCreateTask(formatDate(dayDate), minutesToTime(totalMins))
   }
 
-  // Agrupa tareas por día (con start_time asignado)
-  function getTasksForDay(dayDate: Date): Task[] {
-    const dateStr = formatDate(dayDate)
-    return tasks.filter(t =>
-      t.due_date &&
-      t.due_date.startsWith(dateStr) &&
-      t.start_time !== null &&
-      t.start_time !== undefined
-    )
+  function doesRecurOnDate(task: Task, date: Date): boolean {
+    if (!task.repeat_type) return false
+    const dateStr = formatDate(date)
+    // No empezó todavía
+    if (task.due_date && dateStr < task.due_date) return false
+    // Ya terminó
+    if (task.repeat_end_date && dateStr > task.repeat_end_date) return false
+
+    const dow = date.getDay() // 0=Dom…6=Sáb
+    const dowMon = dow === 0 ? 6 : dow - 1 // Lun=0…Dom=6
+
+    switch (task.repeat_type) {
+      case 'daily': return true
+      case 'weekdays': return dow >= 1 && dow <= 5
+      case 'weekly': return task.repeat_days?.includes(dowMon) ?? false
+      case 'monthly': {
+        if (!task.due_date) return false
+        return date.getDate() === new Date(task.due_date + 'T00:00:00').getDate()
+      }
+      default: return false
+    }
   }
 
-  // Posición y altura del bloque
+  function getTasksForDay(dayDate: Date): Task[] {
+    const dateStr = formatDate(dayDate)
+
+    const scheduled = tasks.filter(t =>
+      !t.repeat_type &&
+      t.due_date?.startsWith(dateStr) &&
+      t.start_time != null
+    )
+
+    const recurring = tasks.filter(t =>
+      t.repeat_type != null &&
+      t.start_time != null &&
+      doesRecurOnDate(t, dayDate)
+    )
+
+    return [...scheduled, ...recurring]
+  }
+
   function getBlockStyle(task: Task): React.CSSProperties {
     const startMins = timeToMinutes(task.start_time!) - START_HOUR * 60
     const top = Math.max(0, startMins) * PX_PER_MINUTE
-    const height = Math.max((task.duration_minutes ?? 30) * PX_PER_MINUTE, 24)
-    const colors = PRIORITY_COLORS[task.priority]
+    const height = Math.max((task.duration_minutes ?? 30) * PX_PER_MINUTE, 28)
+    const colors = PRIORITY[task.priority]
     return {
       position: 'absolute',
       top,
-      left: 2,
-      right: 2,
+      left: 3,
+      right: 3,
       height,
       backgroundColor: colors.bg,
-      borderLeft: `2px solid ${colors.border}`,
-      borderRadius: 6,
+      borderLeft: `2.5px solid ${colors.border}`,
+      borderRadius: 8,
       overflow: 'hidden',
       cursor: 'pointer',
       zIndex: 1,
     }
   }
 
-  const weekLabel = (() => {
-    const end = weekDays[6]
-    const s = weekStart
-    if (s.getMonth() === end.getMonth()) {
-      return `${s.getDate()}–${end.getDate()} de ${MONTH_NAMES[s.getMonth()]} ${s.getFullYear()}`
-    }
-    return `${s.getDate()} ${MONTH_NAMES[s.getMonth()]} – ${end.getDate()} ${MONTH_NAMES[end.getMonth()]} ${end.getFullYear()}`
-  })()
-
-  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i)
-
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{
+        background: 'rgba(255,255,255,0.025)',
+        border: '1px solid rgba(255,255,255,0.06)',
+      }}
+    >
       {/* Navegación */}
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+      <div
+        className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+      >
         <div className="flex items-center gap-2">
           <button
             onClick={prevWeek}
-            className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)] text-[var(--text-muted)] transition-colors"
+            className="flex size-7 items-center justify-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--text-primary)]"
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={15} />
           </button>
-          <span className="text-sm font-medium text-[var(--text-primary)] min-w-[200px] text-center">
+          <span className="min-w-[180px] text-center text-sm font-medium text-[var(--text-primary)]">
             {weekLabel}
           </span>
           <button
             onClick={nextWeek}
-            className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)] text-[var(--text-muted)] transition-colors"
+            className="flex size-7 items-center justify-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--text-primary)]"
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={15} />
           </button>
         </div>
         <button
           onClick={goToToday}
-          className="px-3 py-1 text-xs font-medium rounded-lg transition-colors"
+          className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
           style={{
-            backgroundColor: 'var(--bg-surface)',
-            border: '1px solid var(--border)',
-            color: 'var(--text-secondary)',
+            background: 'rgba(124,109,250,0.1)',
+            border: '1px solid rgba(124,109,250,0.2)',
+            color: '#a78bfa',
           }}
         >
           Hoy
         </button>
       </div>
 
-      {/* Grid */}
-      <div className="flex overflow-auto flex-1 min-h-0" style={{ maxHeight: '65vh' }}>
+      {/* Cabecera días */}
+      <div className="flex overflow-x-auto">
+        {/* Offset columna de horas */}
+        <div className="flex-shrink-0 w-12 sm:w-14" />
+
+        <div className="flex flex-1 min-w-0" style={{ minWidth: 'max(100%, 560px)' }}>
+          {weekDays.map((day, i) => {
+            const dateStr = formatDate(day)
+            const isToday = dateStr === today
+            return (
+              <div
+                key={dateStr}
+                className="flex flex-1 flex-col items-center py-2.5"
+                style={{ borderLeft: '1px solid rgba(255,255,255,0.05)' }}
+              >
+                <p
+                  className="text-[10px] font-bold uppercase tracking-wider"
+                  style={{ color: isToday ? '#bdb4ff' : 'var(--text-muted)' }}
+                >
+                  {DAY_NAMES[i]}
+                </p>
+                <div
+                  className="mt-1 flex size-7 items-center justify-center rounded-full text-sm font-semibold"
+                  style={{
+                    background: isToday ? '#7c6dfa' : 'transparent',
+                    color: isToday ? '#fff' : 'var(--text-secondary)',
+                    boxShadow: isToday ? '0 0 12px rgba(124,109,250,0.5)' : 'none',
+                  }}
+                >
+                  {day.getDate()}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Grid de horas + columnas */}
+      <div
+        ref={scrollRef}
+        className="flex overflow-auto"
+        style={{
+          maxHeight: '62vh',
+          borderTop: '1px solid rgba(255,255,255,0.05)',
+        }}
+      >
         {/* Columna de horas */}
-        <div className="flex-shrink-0 w-12 relative" style={{ height: COLUMN_HEIGHT }}>
+        <div
+          className="relative flex-shrink-0 w-12 sm:w-14"
+          style={{ height: COLUMN_HEIGHT }}
+        >
           {hours.map(h => (
             <div
               key={h}
-              className="absolute text-[10px] text-right pr-2"
+              className="absolute right-2 text-[10px] text-right"
               style={{
-                top: (h - START_HOUR) * 60 * PX_PER_MINUTE - 6,
-                right: 0,
+                top: (h - START_HOUR) * 60 * PX_PER_MINUTE - 7,
                 color: 'var(--text-muted)',
-                width: '100%',
               }}
             >
               {h}:00
@@ -188,107 +279,91 @@ export function WeekCalendar({ tasks, onCreateTask, onEditTask }: WeekCalendarPr
         </div>
 
         {/* Columnas de días */}
-        <div className="flex flex-1 gap-1 min-w-0">
-          {weekDays.map((day, i) => {
+        <div
+          className="flex flex-1"
+          style={{ minWidth: 'max(100%, 560px)' }}
+        >
+          {weekDays.map((day) => {
             const dateStr = formatDate(day)
             const isToday = dateStr === today
             const dayTasks = getTasksForDay(day)
 
+            // Línea "ahora"
+            const nowTop = (() => {
+              if (!isToday) return null
+              const now = new Date()
+              const nowMins = now.getHours() * 60 + now.getMinutes() - START_HOUR * 60
+              if (nowMins < 0 || nowMins > TOTAL_MINUTES) return null
+              return nowMins * PX_PER_MINUTE
+            })()
+
             return (
-              <div key={dateStr} className="flex flex-col flex-1 min-w-0">
-                {/* Header del día */}
-                <div className="flex-shrink-0 text-center mb-1 pb-1" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <p className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                    {DAY_NAMES[i]}
-                  </p>
-                  <p
-                    className="text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full mx-auto"
-                    style={{
-                      backgroundColor: isToday ? 'var(--accent-lumus)' : 'transparent',
-                      color: isToday ? '#fff' : 'var(--text-primary)',
-                    }}
-                  >
-                    {day.getDate()}
-                  </p>
-                </div>
-
-                {/* Columna con slots */}
-                <div
-                  className="relative flex-1 cursor-pointer group"
-                  style={{ height: COLUMN_HEIGHT, flexShrink: 0 }}
-                  onClick={e => handleColumnClick(e, day)}
-                >
-                  {/* Líneas de hora */}
-                  {hours.map(h => (
-                    <div
-                      key={h}
-                      className="absolute w-full"
-                      style={{
-                        top: (h - START_HOUR) * 60 * PX_PER_MINUTE,
-                        borderTop: `1px solid var(--border-subtle)`,
-                        opacity: 0.5,
-                      }}
-                    />
-                  ))}
-
-                  {/* Línea actual */}
-                  {isToday && (() => {
-                    const now = new Date()
-                    const nowMins = now.getHours() * 60 + now.getMinutes() - START_HOUR * 60
-                    if (nowMins < 0 || nowMins > TOTAL_MINUTES) return null
-                    return (
-                      <div
-                        className="absolute w-full z-10 pointer-events-none"
-                        style={{ top: nowMins * PX_PER_MINUTE }}
-                      >
-                        <div className="w-2 h-2 rounded-full -ml-1 absolute" style={{ backgroundColor: 'var(--accent-lumus)', top: -4 }} />
-                        <div className="w-full h-px" style={{ backgroundColor: 'var(--accent-lumus)' }} />
-                      </div>
-                    )
-                  })()}
-
-                  {/* Hint de click */}
+              <div
+                key={dateStr}
+                className="relative flex-1 cursor-pointer"
+                style={{
+                  height: COLUMN_HEIGHT,
+                  borderLeft: '1px solid rgba(255,255,255,0.045)',
+                  background: isToday ? 'rgba(124,109,250,0.025)' : 'transparent',
+                }}
+                onClick={e => handleColumnClick(e, day)}
+              >
+                {/* Líneas de hora */}
+                {hours.map(h => (
                   <div
-                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-start justify-center pt-2 pointer-events-none"
-                    style={{ zIndex: 0 }}
+                    key={h}
+                    className="absolute w-full pointer-events-none"
+                    style={{
+                      top: (h - START_HOUR) * 60 * PX_PER_MINUTE,
+                      borderTop: '1px solid rgba(255,255,255,0.04)',
+                    }}
+                  />
+                ))}
+
+                {/* Línea actual */}
+                {nowTop !== null && (
+                  <div
+                    className="absolute w-full z-10 pointer-events-none flex items-center"
+                    style={{ top: nowTop }}
                   >
                     <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: 'var(--accent-muted)' }}
-                    >
-                      <Plus size={10} style={{ color: 'var(--accent-lumus)' }} />
-                    </div>
+                      className="size-2.5 rounded-full flex-shrink-0 -ml-1.5"
+                      style={{ background: '#7c6dfa', boxShadow: '0 0 8px rgba(124,109,250,0.8)' }}
+                    />
+                    <div className="flex-1 h-px" style={{ background: 'rgba(124,109,250,0.6)' }} />
                   </div>
+                )}
 
-                  {/* Bloques de tareas */}
-                  {dayTasks.map(task => (
-                    <motion.div
-                      key={task.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      style={getBlockStyle(task)}
-                      onClick={e => {
-                        e.stopPropagation()
-                        onEditTask(task)
-                      }}
-                    >
-                      <div className="px-1.5 py-1 h-full overflow-hidden">
-                        <p
-                          className="text-[10px] font-medium leading-tight truncate"
-                          style={{ color: PRIORITY_COLORS[task.priority].text }}
-                        >
-                          {task.title}
+                {/* Bloques de tareas */}
+                {dayTasks.map(task => (
+                  <motion.div
+                    key={task.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    style={getBlockStyle(task)}
+                    onClick={e => {
+                      e.stopPropagation()
+                      onEditTask(task)
+                    }}
+                    title={task.title}
+                  >
+                    <div className="px-2 py-1.5 h-full overflow-hidden">
+                      <p
+                        className="text-[11px] font-semibold leading-tight truncate"
+                        style={{ color: PRIORITY[task.priority].text }}
+                      >
+                        {task.title}
+                      </p>
+                      {(task.duration_minutes ?? 0) >= 45 && (
+                        <p className="text-[9px] mt-0.5 opacity-75" style={{ color: PRIORITY[task.priority].text }}>
+                          {task.start_time?.slice(0, 5)}
+                          {task.duration_minutes && ` · ${task.duration_minutes}min`}
                         </p>
-                        {task.duration_minutes && task.duration_minutes >= 30 && (
-                          <p className="text-[9px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                            {task.start_time} · {task.duration_minutes}min
-                          </p>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             )
           })}

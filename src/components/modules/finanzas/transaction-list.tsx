@@ -50,14 +50,18 @@ function arcPath(cx: number, cy: number, outerR: number, innerR: number, start: 
 
 // ——— helpers de fechas ———
 
+function toLocalStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function todayStr() {
-  return new Date().toISOString().slice(0, 10)
+  return toLocalStr(new Date())
 }
 
 function addDays(dateStr: string, n: number): string {
   const d = new Date(dateStr + 'T12:00:00')
   d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
+  return toLocalStr(d)
 }
 
 function getDiaLabel(dateStr: string): string {
@@ -78,8 +82,8 @@ function getSemanaDates(offset: number): { from: string; to: string; label: stri
   monday.setDate(today.getDate() - diff + offset * 7)
   const sunday = new Date(monday)
   sunday.setDate(monday.getDate() + 6)
-  const from = monday.toISOString().slice(0, 10)
-  const to = sunday.toISOString().slice(0, 10)
+  const from = toLocalStr(monday)
+  const to = toLocalStr(sunday)
   let label: string
   if (offset === 0) label = 'Esta semana'
   else if (offset === -1) label = 'Semana pasada'
@@ -94,8 +98,8 @@ function getSemanaDates(offset: number): { from: string; to: string; label: stri
 function getMesDates(offset: number): { from: string; to: string; label: string } {
   const d = new Date()
   const target = new Date(d.getFullYear(), d.getMonth() + offset, 1)
-  const from = target.toISOString().slice(0, 10)
-  const to = new Date(target.getFullYear(), target.getMonth() + 1, 0).toISOString().slice(0, 10)
+  const from = toLocalStr(target)
+  const to = toLocalStr(new Date(target.getFullYear(), target.getMonth() + 1, 0))
   const raw = target.toLocaleString('es-AR', { month: 'long', year: 'numeric' })
   return { from, to, label: raw.charAt(0).toUpperCase() + raw.slice(1) }
 }

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { updateTaskSchema } from '@/lib/validations/tasks'
+import { z } from 'zod'
 
-export async function PATCH(
+const bodySchema = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })
+
+export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -12,28 +14,20 @@ export async function PATCH(
 
   const { id } = await params
   const body = await req.json()
-  const result = updateTaskSchema.safeParse(body)
-  if (!result.success) {
-    return NextResponse.json({ error: result.error.flatten() }, { status: 400 })
-  }
+  const parsed = bodySchema.safeParse(body)
+  if (!parsed.success) return NextResponse.json({ error: 'Fecha inválida' }, { status: 400 })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
-    .from('tasks')
-    .update({ ...result.data, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .eq('user_id', user.id)
-    .is('deleted_at', null)
-    .select('id, title, description, priority, status, due_date, start_time, duration_minutes, parent_id, routine_id, repeat_type, repeat_days, repeat_end_date, created_at, updated_at, deleted_at')
-    .single()
+  const { error } = await (supabase as any)
+    .from('task_completions')
+    .upsert({ task_id: id, user_id: user.id, date: parsed.data.date }, { onConflict: 'task_id,date' })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  return NextResponse.json({ task: data })
+  return NextResponse.json({ ok: true })
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient()
@@ -41,14 +35,17 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
   const { id } = await params
+  const date = req.nextUrl.searchParams.get('date')
+  if (!date) return NextResponse.json({ error: 'Falta date' }, { status: 400 })
 
-  const { error } = await supabase
-    .from('tasks')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('task_completions')
+    .delete()
+    .eq('task_id', id)
     .eq('user_id', user.id)
+    .eq('date', date)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ ok: true })
 }

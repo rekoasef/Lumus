@@ -223,6 +223,12 @@
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Select — opciones con texto negro para garantizar legibilidad cross-platform */
+select option {
+  background-color: #ffffff;
+  color: #111118;
+}
+
 /* Scrollbar personalizado */
 ::-webkit-scrollbar {
   width: 6px;

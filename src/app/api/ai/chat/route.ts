@@ -6,7 +6,8 @@ import { getModulePrompt } from '@/lib/ai/prompts'
 import { generateCacheKey, getCachedResponse, setCachedResponse } from '@/lib/ai/cache'
 import { getWebContext } from '@/lib/ai/web-search'
 import { z } from 'zod'
-import type { AIModule } from '@/types'
+import type { AIModule, AIAction } from '@/types'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 const bodySchema = z.object({
   message: z.string().min(1).max(2000),
@@ -19,32 +20,157 @@ const bodySchema = z.object({
   currentVoice: z.enum(['alloy', 'echo', 'fable', 'nova', 'onyx', 'shimmer']).optional(),
 })
 
+// ── Tools disponibles ─────────────────────────────────────────────────────────
+
+const AGENDAR_TAREA_TOOL: Anthropic.Tool = {
+  name: 'agendar_tarea',
+  description: 'Crea una nueva tarea, reunión o evento en la agenda del usuario. Úsalo cuando el usuario pida agendar, crear, recordar o anotar cualquier tarea o compromiso.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      titulo: { type: 'string', description: 'Título de la tarea o evento' },
+      fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD. Calculá la fecha real: hoy es la fecha actual del sistema.' },
+      hora_inicio: { type: 'string', description: 'Hora de inicio en formato HH:MM, opcional' },
+      duracion_minutos: { type: 'number', description: 'Duración en minutos, opcional' },
+      prioridad: { type: 'string', enum: ['alta', 'media', 'baja'] },
+    },
+    required: ['titulo'],
+  },
+}
+
+const REGISTRAR_GASTO_TOOL: Anthropic.Tool = {
+  name: 'registrar_gasto',
+  description: 'Registra un gasto o ingreso en las finanzas del usuario. Úsalo cuando el usuario diga que gastó, pagó, compró algo, recibió dinero, o quiera anotar una transacción.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      descripcion: { type: 'string' },
+      monto: { type: 'number', description: 'Monto en la moneda local del usuario' },
+      tipo: { type: 'string', enum: ['gasto', 'ingreso'] },
+      fecha: { type: 'string', description: 'Formato YYYY-MM-DD, opcional (usa hoy si no se especifica)' },
+    },
+    required: ['descripcion', 'monto', 'tipo'],
+  },
+}
+
+const AGENT_TOOLS = [AGENDAR_TAREA_TOOL, REGISTRAR_GASTO_TOOL]
+
+// ── Ejecutores de tools ───────────────────────────────────────────────────────
+
+async function ejecutarAgendarTarea(
+  input: { titulo: string; fecha?: string; hora_inicio?: string; duracion_minutos?: number; prioridad?: string },
+  supabase: SupabaseClient,
+  userId: string
+): Promise<{ result: string; action?: AIAction }> {
+  const today = new Date().toISOString().slice(0, 10)
+
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert({
+      user_id: userId,
+      title: input.titulo,
+      priority: (input.prioridad as 'alta' | 'media' | 'baja') ?? 'media',
+      due_date: input.fecha ?? today,
+      start_time: input.hora_inicio ?? null,
+      duration_minutes: input.duracion_minutos ?? null,
+      deleted_at: null,
+    })
+    .select('id, title, due_date, start_time')
+    .single()
+
+  if (error) return { result: `Error al crear la tarea: ${error.message}` }
+
+  const details = [
+    data.due_date && `📅 ${data.due_date}`,
+    data.start_time && `🕐 ${data.start_time}`,
+  ].filter(Boolean).join(' · ')
+
+  return {
+    result: `Tarea "${data.title}" creada${details ? ` (${details})` : ''}.`,
+    action: { type: 'task_created', title: data.title, details: details || 'Sin fecha' },
+  }
+}
+
+async function ejecutarRegistrarGasto(
+  input: { descripcion: string; monto: number; tipo: 'gasto' | 'ingreso'; fecha?: string },
+  supabase: SupabaseClient,
+  userId: string
+): Promise<{ result: string; action?: AIAction }> {
+  const today = new Date().toISOString().slice(0, 10)
+
+  const { data: wallet } = await supabase
+    .from('wallets')
+    .select('id, name')
+    .eq('user_id', userId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .single()
+
+  if (!wallet) return { result: 'No hay billeteras configuradas. El usuario debe crear una primero.' }
+
+  const { data: category } = await supabase
+    .from('finance_categories')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('type', input.tipo)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .single()
+
+  const { data: transaction, error } = await supabase
+    .from('transactions')
+    .insert({
+      user_id: userId,
+      wallet_id: wallet.id,
+      category_id: category?.id ?? null,
+      type: input.tipo,
+      amount: Math.abs(input.monto),
+      description: input.descripcion,
+      date: input.fecha ?? today,
+    })
+    .select('id, description, amount, type')
+    .single()
+
+  if (error) return { result: `Error al registrar: ${error.message}` }
+
+  await (supabase.rpc as unknown as (fn: string, args: Record<string, string>) => Promise<unknown>)(
+    'recompute_wallet_balance', { p_wallet_id: wallet.id }
+  )
+
+  const sign = transaction.type === 'gasto' ? '-' : '+'
+  const details = `${sign}$${transaction.amount} en ${wallet.name}`
+
+  return {
+    result: `${input.tipo === 'gasto' ? 'Gasto' : 'Ingreso'} de $${transaction.amount} registrado en ${wallet.name}.`,
+    action: { type: 'transaction_created', title: transaction.description, details },
+  }
+}
+
+// ── Handler principal ─────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-  }
+  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
   const body = await req.json()
   const parsed = bodySchema.safeParse(body)
-
   if (!parsed.success) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 })
   }
 
   const { message, module, conversationHistory, isVoice, currentVoice } = parsed.data
+  const today = new Date().toISOString().slice(0, 10)
 
-  // Detectar y ejecutar búsqueda web antes de verificar caché
+  // Búsqueda web (sin caché)
   const webContext = await getWebContext(message)
 
-  // Solo usar caché para consultas sin búsqueda web (los datos en tiempo real no se cachean)
   const cacheKey = generateCacheKey(user.id, module, message)
   if (!webContext.searched) {
     const cached = await getCachedResponse(supabase, user.id, cacheKey)
     if (cached) {
-      return NextResponse.json({ response: cached, cached: true, searchedWeb: false })
+      return NextResponse.json({ response: cached, cached: true, searchedWeb: false, actions: [] })
     }
   }
 
@@ -66,44 +192,96 @@ IMPORTANTE — modo voz:
   Nombres válidos: alloy, echo, fable, nova, onyx, shimmer`
     : basePrompt
 
-  // Inyectar información web si está disponible
   if (webContext.searched && webContext.content) {
-    systemPrompt += `\n\nINFORMACIÓN EN TIEMPO REAL (obtenida ahora mismo de internet):\n${webContext.content}\n\nUsá esta información para responder con datos precisos y actuales. Si es sobre clima, usá los datos exactos sin inventar nada adicional.`
+    systemPrompt += `\n\nINFORMACIÓN EN TIEMPO REAL (obtenida ahora mismo de internet):\n${webContext.content}\n\nUsá esta información para responder con datos precisos y actuales.`
   }
+
+  systemPrompt += `\n\nFECHA DE HOY: ${today}\n\nSOS UN AGENTE ACTIVO: podés crear tareas y registrar gastos directamente. Si el usuario pide agendar algo o registrar un gasto/ingreso, usá las herramientas disponibles sin pedir confirmación — solo actuá y confirmá con una frase natural.`
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  const response = await anthropic.messages.create({
+  const allMessages: Anthropic.MessageParam[] = [
+    ...conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+    { role: 'user', content: message },
+  ]
+
+  const firstResponse = await anthropic.messages.create({
     model: 'claude-sonnet-4-5',
     max_tokens: 1024,
     system: systemPrompt,
-    messages: [
-      ...conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-      { role: 'user', content: message },
-    ],
+    tools: AGENT_TOOLS,
+    tool_choice: { type: 'auto' },
+    messages: allMessages,
   })
 
-  const assistantMessage = response.content[0].type === 'text'
-    ? response.content[0].text
-    : ''
+  const actions: AIAction[] = []
+  let assistantMessage = ''
 
-  // Guardar en caché solo si no fue una búsqueda web (datos estáticos)
-  const saveOps = webContext.searched
+  if (firstResponse.stop_reason === 'tool_use') {
+    const toolBlocks = firstResponse.content.filter(
+      (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
+    )
+
+    const toolResults: Anthropic.ToolResultBlockParam[] = await Promise.all(
+      toolBlocks.map(async (block) => {
+        let resultText: string
+
+        if (block.name === 'agendar_tarea') {
+          const { result, action } = await ejecutarAgendarTarea(
+            block.input as Parameters<typeof ejecutarAgendarTarea>[0],
+            supabase,
+            user.id
+          )
+          resultText = result
+          if (action) actions.push(action)
+        } else if (block.name === 'registrar_gasto') {
+          const { result, action } = await ejecutarRegistrarGasto(
+            block.input as Parameters<typeof ejecutarRegistrarGasto>[0],
+            supabase,
+            user.id
+          )
+          resultText = result
+          if (action) actions.push(action)
+        } else {
+          resultText = 'Herramienta no disponible'
+        }
+
+        return { type: 'tool_result' as const, tool_use_id: block.id, content: resultText }
+      })
+    )
+
+    const finalResponse = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: [
+        ...allMessages,
+        { role: 'assistant', content: firstResponse.content },
+        { role: 'user', content: toolResults },
+      ],
+    })
+
+    assistantMessage = finalResponse.content[0].type === 'text' ? finalResponse.content[0].text : ''
+  } else {
+    assistantMessage = firstResponse.content[0].type === 'text' ? firstResponse.content[0].text : ''
+  }
+
+  const saveOps = webContext.searched || actions.length > 0
     ? [
         supabase.from('ai_conversations').insert([
           { user_id: user.id, module, role: 'user', content: message, model_used: 'claude-sonnet-4-5' },
-          { user_id: user.id, module, role: 'assistant', content: assistantMessage, tokens_used: response.usage.output_tokens, model_used: 'claude-sonnet-4-5' },
+          { user_id: user.id, module, role: 'assistant', content: assistantMessage, model_used: 'claude-sonnet-4-5' },
         ]),
       ]
     : [
         setCachedResponse(supabase, user.id, cacheKey, module, assistantMessage, 'claude-sonnet-4-5', 1),
         supabase.from('ai_conversations').insert([
           { user_id: user.id, module, role: 'user', content: message, model_used: 'claude-sonnet-4-5' },
-          { user_id: user.id, module, role: 'assistant', content: assistantMessage, tokens_used: response.usage.output_tokens, model_used: 'claude-sonnet-4-5' },
+          { user_id: user.id, module, role: 'assistant', content: assistantMessage, model_used: 'claude-sonnet-4-5' },
         ]),
       ]
 
   await Promise.all(saveOps)
 
-  return NextResponse.json({ response: assistantMessage, cached: false, searchedWeb: webContext.searched })
+  return NextResponse.json({ response: assistantMessage, cached: false, searchedWeb: webContext.searched, actions })
 }

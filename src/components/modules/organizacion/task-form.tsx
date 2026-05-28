@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Clock } from 'lucide-react'
+import { X, Clock, Repeat } from 'lucide-react'
 import { createTaskSchema, type CreateTaskInput } from '@/lib/validations/tasks'
 import type { Task } from '@/types/tasks.types'
 
@@ -17,6 +17,23 @@ const DURATION_OPTIONS = [
   { value: 120, label: '2 horas' },
   { value: 180, label: '3 horas' },
   { value: 240, label: '4 horas' },
+]
+
+const REPEAT_OPTIONS = [
+  { value: 'daily', label: 'Todos los días' },
+  { value: 'weekdays', label: 'Días laborables (Lun–Vie)' },
+  { value: 'weekly', label: 'Semanalmente' },
+  { value: 'monthly', label: 'Mensualmente' },
+]
+
+const WEEK_DAYS = [
+  { value: 0, label: 'Lu' },
+  { value: 1, label: 'Ma' },
+  { value: 2, label: 'Mi' },
+  { value: 3, label: 'Ju' },
+  { value: 4, label: 'Vi' },
+  { value: 5, label: 'Sá' },
+  { value: 6, label: 'Do' },
 ]
 
 interface TaskFormProps {
@@ -35,6 +52,8 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
     handleSubmit,
     reset,
     control,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<CreateTaskInput>({
     resolver: zodResolver(createTaskSchema),
@@ -42,6 +61,8 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
   })
 
   const dueDate = useWatch({ control, name: 'due_date' })
+  const repeatType = useWatch({ control, name: 'repeat_type' })
+  const repeatDays = watch('repeat_days') ?? []
 
   useEffect(() => {
     if (!open) return
@@ -55,6 +76,9 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
           : undefined,
         start_time: editingTask.start_time ?? undefined,
         duration_minutes: editingTask.duration_minutes ?? undefined,
+        repeat_type: editingTask.repeat_type ?? undefined,
+        repeat_days: editingTask.repeat_days ?? undefined,
+        repeat_end_date: editingTask.repeat_end_date ?? undefined,
       })
     } else {
       reset({
@@ -66,11 +90,23 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
     }
   }, [editingTask, reset, open, defaultDate, defaultTime])
 
+  function toggleRepeatDay(day: number) {
+    const current = repeatDays ?? []
+    if (current.includes(day)) {
+      setValue('repeat_days', current.filter(d => d !== day))
+    } else {
+      setValue('repeat_days', [...current, day].sort())
+    }
+  }
+
   async function onFormSubmit(data: CreateTaskInput) {
     const payload: CreateTaskInput = {
       ...data,
       start_time: dueDate ? (data.start_time ?? null) : null,
       duration_minutes: dueDate ? (data.duration_minutes ?? null) : null,
+      repeat_type: data.repeat_type ?? null,
+      repeat_days: data.repeat_type === 'weekly' ? (data.repeat_days ?? null) : null,
+      repeat_end_date: data.repeat_type ? (data.repeat_end_date ?? null) : null,
     }
     const result = await onSubmit(payload)
     if (result) onClose()
@@ -80,6 +116,11 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
     backgroundColor: 'rgba(255,255,255,0.035)',
     border: '1px solid rgba(255,255,255,0.08)',
     color: 'var(--text-primary)',
+  }
+
+  const focusStyle = {
+    outline: 'none',
+    borderColor: 'var(--accent-lumus)',
   }
 
   return (
@@ -102,9 +143,7 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
             transition={{ duration: 0.2, ease: 'easeOut' }}
             className="fixed inset-x-3 bottom-0 z-50 mx-auto max-w-md sm:inset-x-4 sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2"
           >
-            <div
-              className="lumus-glass rounded-t-3xl rounded-b-none p-5 max-h-[92vh] overflow-y-auto sm:rounded-3xl sm:p-6"
-            >
+            <div className="lumus-glass rounded-t-3xl rounded-b-none p-5 max-h-[92vh] overflow-y-auto sm:rounded-3xl sm:p-6">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="lumus-heading text-xl font-semibold text-[var(--text-primary)]">
                   {editingTask ? 'Editar tarea' : 'Nueva tarea'}
@@ -128,13 +167,13 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
                     {...register('title')}
                     placeholder="¿Qué tenés que hacer?"
                     autoFocus
-                    className="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg transition-colors focus:outline-none"
+                    className="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg transition-colors"
                     style={{
                       ...inputStyle,
-                      borderColor: errors.title ? 'var(--danger)' : 'var(--border)',
+                      borderColor: errors.title ? 'var(--danger)' : 'rgba(255,255,255,0.08)',
                     }}
-                    onFocus={e => (e.target.style.borderColor = 'var(--accent-lumus)')}
-                    onBlur={e => (e.target.style.borderColor = errors.title ? 'var(--danger)' : 'var(--border)')}
+                    onFocus={e => Object.assign(e.target.style, focusStyle)}
+                    onBlur={e => (e.target.style.borderColor = errors.title ? 'var(--danger)' : 'rgba(255,255,255,0.08)')}
                   />
                   {errors.title && (
                     <p className="mt-1 text-xs text-[var(--danger)]">{errors.title.message}</p>
@@ -144,17 +183,16 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
                 {/* Descripción */}
                 <div>
                   <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">
-                    Descripción{' '}
-                    <span className="font-normal normal-case">(opcional)</span>
+                    Descripción <span className="font-normal normal-case">(opcional)</span>
                   </label>
                   <textarea
                     {...register('description')}
                     placeholder="Detalles adicionales..."
                     rows={2}
-                    className="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg transition-colors focus:outline-none resize-none"
+                    className="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg transition-colors resize-none"
                     style={inputStyle}
-                    onFocus={e => (e.target.style.borderColor = 'var(--accent-lumus)')}
-                    onBlur={e => (e.target.style.borderColor = 'var(--border)')}
+                    onFocus={e => Object.assign(e.target.style, focusStyle)}
+                    onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
                   />
                 </div>
 
@@ -166,8 +204,8 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
                     </label>
                     <select
                       {...register('priority')}
-                      className="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg transition-colors focus:outline-none appearance-none"
-                      style={inputStyle}
+                      className="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg transition-colors appearance-none"
+                      style={{ ...inputStyle, colorScheme: 'dark' }}
                     >
                       <option value="alta">Alta</option>
                       <option value="media">Media</option>
@@ -181,13 +219,13 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
                     <input
                       type="date"
                       {...register('due_date')}
-                      className="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg transition-colors focus:outline-none"
+                      className="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg transition-colors"
                       style={{ ...inputStyle, colorScheme: 'dark' }}
                     />
                   </div>
                 </div>
 
-                {/* Hora + Duración — solo si tiene fecha */}
+                {/* Hora + Duración */}
                 <AnimatePresence>
                   {dueDate && (
                     <motion.div
@@ -208,12 +246,9 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
                             {...register('start_time', {
                               setValueAs: (v: string) => (v === '' ? null : v),
                             })}
-                            className="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg transition-colors focus:outline-none"
+                            className="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg transition-colors"
                             style={{ ...inputStyle, colorScheme: 'dark' }}
                           />
-                          {errors.start_time && (
-                            <p className="mt-1 text-xs text-[var(--danger)]">{errors.start_time.message}</p>
-                          )}
                         </div>
                         <div>
                           <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">
@@ -223,14 +258,12 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
                             {...register('duration_minutes', {
                               setValueAs: (v: string) => (v === '' ? null : parseInt(v, 10) || null),
                             })}
-                            className="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg transition-colors focus:outline-none appearance-none"
-                            style={inputStyle}
+                            className="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg transition-colors appearance-none"
+                            style={{ ...inputStyle, colorScheme: 'dark' }}
                           >
                             <option value="">Sin duración</option>
                             {DURATION_OPTIONS.map(opt => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
                             ))}
                           </select>
                         </div>
@@ -238,6 +271,96 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                {/* Repetición */}
+                <div
+                  className="rounded-xl p-3"
+                  style={{
+                    background: 'rgba(124,109,250,0.06)',
+                    border: '1px solid rgba(124,109,250,0.15)',
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                      <Repeat size={12} style={{ color: '#a78bfa' }} />
+                      Repetir
+                    </label>
+                    <select
+                      {...register('repeat_type', {
+                        setValueAs: (v: string) => (v === '' ? null : v),
+                      })}
+                      className="rounded-lg px-3 py-1.5 text-xs appearance-none"
+                      style={{ ...inputStyle, colorScheme: 'dark' }}
+                    >
+                      <option value="">No repetir</option>
+                      {REPEAT_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Días de la semana para repetición semanal */}
+                  <AnimatePresence>
+                    {repeatType === 'weekly' && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-3 flex gap-1.5 flex-wrap">
+                          {WEEK_DAYS.map(day => (
+                            <button
+                              key={day.value}
+                              type="button"
+                              onClick={() => toggleRepeatDay(day.value)}
+                              className="flex size-8 items-center justify-center rounded-lg text-xs font-bold transition-all"
+                              style={{
+                                background: (repeatDays ?? []).includes(day.value)
+                                  ? '#7c6dfa'
+                                  : 'rgba(255,255,255,0.05)',
+                                color: (repeatDays ?? []).includes(day.value)
+                                  ? '#fff'
+                                  : 'var(--text-muted)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                              }}
+                            >
+                              {day.label}
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Fecha de fin opcional */}
+                  <AnimatePresence>
+                    {repeatType && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-3">
+                          <label className="text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+                            Termina el <span className="font-normal normal-case">(opcional)</span>
+                          </label>
+                          <input
+                            type="date"
+                            {...register('repeat_end_date', {
+                              setValueAs: (v: string) => (v === '' ? null : v),
+                            })}
+                            className="mt-1 w-full px-3 py-2 text-xs rounded-lg"
+                            style={{ ...inputStyle, colorScheme: 'dark' }}
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
 
                 {/* Botones */}
                 <div className="flex gap-2 pt-1">
@@ -259,11 +382,7 @@ export function TaskForm({ open, onClose, onSubmit, editingTask, loading, defaul
                     className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-colors disabled:opacity-50"
                     style={{ backgroundColor: 'var(--accent-lumus)', color: '#190f5d' }}
                   >
-                    {loading
-                      ? 'Guardando...'
-                      : editingTask
-                        ? 'Guardar cambios'
-                        : 'Crear tarea'}
+                    {loading ? 'Guardando...' : editingTask ? 'Guardar cambios' : 'Crear tarea'}
                   </button>
                 </div>
               </form>

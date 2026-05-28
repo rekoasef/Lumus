@@ -1,5 +1,5 @@
 export type { Database, Json } from './database.types'
-export type { UserSnapshot, AIMessage, AIModule, AITask, ChatRequest, ChatResponse } from './ai.types'
+export type { UserSnapshot, AIMessage, AIModule, AITask, ChatRequest, ChatResponse, AIAction } from './ai.types'
 export type { Task, TaskLabel, TaskFilter, TaskPriority, TaskStatus } from './tasks.types'
 export type {
   Wallet, WalletType,

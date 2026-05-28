@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from('tasks')
-    .select('id, title, description, priority, status, due_date, start_time, duration_minutes, parent_id, routine_id, created_at, updated_at')
+    .select('id, title, description, priority, status, due_date, start_time, duration_minutes, parent_id, routine_id, repeat_type, repeat_days, repeat_end_date, created_at, updated_at')
     .eq('user_id', user.id)
     .is('deleted_at', null)
     .is('parent_id', null)
@@ -43,7 +43,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: result.error.flatten() }, { status: 400 })
   }
 
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('tasks')
     .insert({
       user_id: user.id,
@@ -54,10 +55,13 @@ export async function POST(req: NextRequest) {
       start_time: result.data.start_time ?? null,
       duration_minutes: result.data.duration_minutes ?? null,
       parent_id: result.data.parent_id ?? null,
+      repeat_type: result.data.repeat_type ?? null,
+      repeat_days: result.data.repeat_days ?? null,
+      repeat_end_date: result.data.repeat_end_date ?? null,
       routine_id: null,
       deleted_at: null,
     })
-    .select('id, title, description, priority, status, due_date, start_time, duration_minutes, parent_id, routine_id, created_at, updated_at, deleted_at')
+    .select('id, title, description, priority, status, due_date, start_time, duration_minutes, parent_id, routine_id, repeat_type, repeat_days, repeat_end_date, created_at, updated_at, deleted_at')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
