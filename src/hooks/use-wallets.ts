@@ -101,6 +101,10 @@ export function useWallets(initialWallets: Wallet[]) {
     setWallets(prev => prev.map(w => w.id === id ? { ...w, balance: w.balance + delta } : w))
   }, [])
 
+  const setWalletBalance = useCallback((id: string, balance: number) => {
+    setWallets(prev => prev.map(w => w.id === id ? { ...w, balance } : w))
+  }, [])
+
   return {
     wallets,
     totalBalance,
@@ -112,5 +116,6 @@ export function useWallets(initialWallets: Wallet[]) {
     adjustBalance,
     deleteWallet,
     localUpdateBalance,
+    setWalletBalance,
   }
 }

@@ -75,5 +75,17 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ transaction: data }, { status: 201 })
+  // Actualizar balance de la billetera explícitamente (safety net además del trigger)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.rpc as any)('recompute_wallet_balance', { p_wallet_id: result.data.wallet_id })
+
+  const { data: wallet } = await supabase
+    .from('wallets')
+    .select('id, name, type, balance, currency, color, icon, created_at, updated_at')
+    .eq('id', result.data.wallet_id)
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .single()
+
+  return NextResponse.json({ transaction: data, wallet }, { status: 201 })
 }

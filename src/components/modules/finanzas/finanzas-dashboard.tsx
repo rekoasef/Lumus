@@ -45,12 +45,6 @@ interface FinanzasDashboardProps {
 
 type Section = 'transacciones' | 'billeteras' | 'categorias' | 'presupuestos' | 'suscripciones' | 'metas'
 
-function getWalletBalanceDelta(tx: Transaction) {
-  if (tx.type === 'gasto') return -tx.amount
-  if (tx.type === 'ingreso') return tx.amount
-  if (tx.type === 'ajuste') return tx.amount
-  return 0
-}
 
 export function FinanzasDashboard({
   initialWallets,
@@ -60,7 +54,7 @@ export function FinanzasDashboard({
   initialSubscriptions,
   initialGoals,
 }: FinanzasDashboardProps) {
-  const { wallets, totalBalance: _totalBalance, balanceByCurrency, loading, createWallet, updateWallet, adjustBalance, deleteWallet, localUpdateBalance } =
+  const { wallets, totalBalance: _totalBalance, balanceByCurrency, loading, createWallet, updateWallet, adjustBalance, deleteWallet, localUpdateBalance: _localUpdateBalance, setWalletBalance } =
     useWallets(initialWallets)
   const { rates: exchangeRates, toARS } = useExchangeRates()
   const {
@@ -71,7 +65,11 @@ export function FinanzasDashboard({
     createTransaction,
     updateTransaction,
     deleteTransaction,
-  } = useTransactions(initialTransactions)
+  } = useTransactions(initialTransactions, {
+    onWalletBalance: (updatedWallets) => {
+      for (const w of updatedWallets) setWalletBalance(w.id, w.balance)
+    },
+  })
   const [showWalletForm, setShowWalletForm] = useState(false)
   const [editingWallet, setEditingWallet] = useState<Wallet | null>(null)
   const [adjustingWallet, setAdjustingWallet] = useState<Wallet | null>(null)
@@ -109,36 +107,15 @@ export function FinanzasDashboard({
   const ingresosDelMes = monthIngresos
 
   async function handleTransactionCreate(data: CreateTransactionInput) {
-    const tx = await createTransaction(data)
-    if (tx) {
-      const delta = getWalletBalanceDelta(tx)
-      if (delta !== 0) localUpdateBalance(tx.wallet_id, delta)
-    }
-    return tx
+    return createTransaction(data)
   }
 
   async function handleTransactionUpdate(id: string, data: UpdateTransactionInput) {
-    const old = transactions.find(t => t.id === id)
-    const tx = await updateTransaction(id, data)
-    if (tx && old) {
-      // Revertir efecto anterior
-      const oldDelta = -getWalletBalanceDelta(old)
-      if (oldDelta !== 0) localUpdateBalance(old.wallet_id, oldDelta)
-      // Aplicar nuevo efecto
-      const newDelta = getWalletBalanceDelta(tx)
-      if (newDelta !== 0) localUpdateBalance(tx.wallet_id, newDelta)
-    }
-    return tx
+    return updateTransaction(id, data)
   }
 
   async function handleTransactionDelete(id: string) {
-    const tx = transactions.find(t => t.id === id)
-    const ok = await deleteTransaction(id)
-    if (ok && tx) {
-      const delta = -getWalletBalanceDelta(tx)
-      if (delta !== 0) localUpdateBalance(tx.wallet_id, delta)
-    }
-    return ok
+    return deleteTransaction(id)
   }
 
   const fmt = (n: number, currency = 'ARS') =>
