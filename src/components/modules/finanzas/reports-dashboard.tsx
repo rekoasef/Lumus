@@ -1,8 +1,9 @@
 'use client'
 
+import { useRouter, usePathname } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, TrendingDown, TrendingUp, Minus, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, TrendingDown, TrendingUp, Minus, Sparkles, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   PieChart, Pie, Cell, Tooltip,
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -31,7 +32,14 @@ interface ReportsDashboardProps {
   currentMonth: { gastos: number; ingresos: number; balance: number }
   monthLabel: string
   aiReports: FinanceReport[]
+  selectedMonth: number
+  selectedYear: number
 }
+
+const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+]
 
 const TOOLTIP_STYLE: React.CSSProperties = {
   background: 'rgba(17, 17, 24, 0.97)',
@@ -103,12 +111,103 @@ function AIReportCard({ report }: { report: FinanceReport }) {
   )
 }
 
+function MonthYearFilter({
+  selectedMonth,
+  selectedYear,
+}: {
+  selectedMonth: number
+  selectedYear: number
+}) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - i)
+
+  const navigate = (month: number, year: number) => {
+    router.push(`${pathname}?month=${month}&year=${year}`)
+  }
+
+  const prevMonth = () => {
+    if (selectedMonth === 1) {
+      navigate(12, selectedYear - 1)
+    } else {
+      navigate(selectedMonth - 1, selectedYear)
+    }
+  }
+
+  const nextMonth = () => {
+    if (selectedMonth === currentMonth && selectedYear === currentYear) return
+    if (selectedMonth === 12) {
+      navigate(1, selectedYear + 1)
+    } else {
+      navigate(selectedMonth + 1, selectedYear)
+    }
+  }
+
+  const isAtCurrentMonth = selectedMonth === currentMonth && selectedYear === currentYear
+  const isAtMinYear = selectedYear <= 2020 && selectedMonth === 1
+
+  const selectClass =
+    'cursor-pointer rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-sm text-[var(--text-secondary)] outline-none transition-colors hover:border-white/[0.14] hover:bg-white/[0.07] focus:border-[var(--accent-lumus)]/40'
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={prevMonth}
+        disabled={isAtMinYear}
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.04] text-[var(--text-muted)] transition-colors hover:border-white/[0.14] hover:bg-white/[0.07] hover:text-[var(--text-secondary)] disabled:pointer-events-none disabled:opacity-30"
+        aria-label="Mes anterior"
+      >
+        <ChevronLeft size={14} />
+      </button>
+
+      <select
+        value={selectedMonth}
+        onChange={e => navigate(Number(e.target.value), selectedYear)}
+        className={selectClass}
+      >
+        {MONTH_NAMES.map((name, i) => (
+          <option key={i + 1} value={i + 1}>
+            {name}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={selectedYear}
+        onChange={e => navigate(selectedMonth, Number(e.target.value))}
+        className={selectClass}
+      >
+        {years.map(y => (
+          <option key={y} value={y}>
+            {y}
+          </option>
+        ))}
+      </select>
+
+      <button
+        onClick={nextMonth}
+        disabled={isAtCurrentMonth}
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.04] text-[var(--text-muted)] transition-colors hover:border-white/[0.14] hover:bg-white/[0.07] hover:text-[var(--text-secondary)] disabled:pointer-events-none disabled:opacity-30"
+        aria-label="Mes siguiente"
+      >
+        <ChevronRight size={14} />
+      </button>
+    </div>
+  )
+}
+
 export function ReportsDashboard({
   expensesByCategory,
   monthlyEvolution,
   currentMonth,
   monthLabel,
   aiReports,
+  selectedMonth,
+  selectedYear,
 }: ReportsDashboardProps) {
   const top5 = expensesByCategory.slice(0, 5)
   const hasExpenses = expensesByCategory.length > 0
@@ -128,12 +227,17 @@ export function ReportsDashboard({
             <ArrowLeft size={12} />
             Volver a Finanzas
           </Link>
-          <h1 className="lumus-heading text-4xl font-bold text-[var(--text-primary)] md:text-5xl">
-            Reportes
-          </h1>
-          <p className="mt-3 text-base text-[var(--text-secondary)]">
-            {monthLabel} · Análisis de tu actividad financiera
-          </p>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="lumus-heading text-4xl font-bold text-[var(--text-primary)] md:text-5xl">
+                Reportes
+              </h1>
+              <p className="mt-3 text-base text-[var(--text-secondary)]">
+                {monthLabel} · Análisis de tu actividad financiera
+              </p>
+            </div>
+            <MonthYearFilter selectedMonth={selectedMonth} selectedYear={selectedYear} />
+          </div>
         </header>
 
         {/* Summary cards */}
@@ -280,7 +384,7 @@ export function ReportsDashboard({
         {/* Line chart — evolución 6 meses */}
         <div className="lumus-glass rounded-2xl p-6">
           <h2 className="lumus-heading mb-1 text-lg font-semibold text-[var(--text-primary)]">
-            Evolución últimos 6 meses
+            Evolución 6 meses
           </h2>
           <p className="mb-5 text-xs text-[var(--text-muted)]">Gastos vs Ingresos</p>
 
@@ -297,7 +401,7 @@ export function ReportsDashboard({
 
           {!hasEvolution ? (
             <div className="flex h-[220px] items-center justify-center">
-              <p className="text-sm text-[var(--text-muted)]">Sin movimientos en los últimos 6 meses</p>
+              <p className="text-sm text-[var(--text-muted)]">Sin movimientos en este período</p>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={260}>

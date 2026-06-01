@@ -15,25 +15,37 @@ type RawTx = {
   category: { id: string; name: string; color: string } | null
 }
 
-export default async function ReportesPage() {
+export default async function ReportesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string; year?: string }>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const params = await searchParams
   const now = new Date()
-  const currentMonth = now.getMonth() + 1
   const currentYear = now.getFullYear()
 
-  // Últimos 6 meses incluyendo el actual
+  const rawMonth = Number(params.month)
+  const rawYear = Number(params.year)
+  const selectedMonth = rawMonth >= 1 && rawMonth <= 12 ? rawMonth : now.getMonth() + 1
+  const selectedYear = rawYear >= 2020 && rawYear <= currentYear ? rawYear : currentYear
+
+  // 6 meses terminando en el mes seleccionado
+  const refDate = new Date(selectedYear, selectedMonth - 1, 1)
   const months = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now)
-    d.setMonth(d.getMonth() - i)
+    const d = new Date(refDate.getFullYear(), refDate.getMonth() - i, 1)
     return { month: d.getMonth() + 1, year: d.getFullYear() }
   }).reverse()
 
   const oldest = months[0]
   const rangeStart = `${oldest.year}-${String(oldest.month).padStart(2, '0')}-01`
-  const rangeEnd = now.toISOString().slice(0, 10)
+
+  // Último día del mes seleccionado
+  const lastDay = new Date(selectedYear, selectedMonth, 0).getDate()
+  const rangeEnd = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
   const { data: rawTx } = await supabase
     .from('transactions')
@@ -59,10 +71,10 @@ export default async function ReportesPage() {
     }
   })
 
-  // Gastos del mes actual por categoría
+  // Gastos del mes seleccionado por categoría
   const currentTx = transactions.filter(t => {
     const d = new Date(t.date)
-    return d.getMonth() + 1 === currentMonth && d.getFullYear() === currentYear && t.type === 'gasto'
+    return d.getMonth() + 1 === selectedMonth && d.getFullYear() === selectedYear && t.type === 'gasto'
   })
 
   const byCat: Record<string, { name: string; color: string; amount: number }> = {}
@@ -104,8 +116,10 @@ export default async function ReportesPage() {
       expensesByCategory={expensesByCategory}
       monthlyEvolution={monthlyEvolution}
       currentMonth={currentMonthStats}
-      monthLabel={`${MONTH_FULL[currentMonth - 1]} ${currentYear}`}
+      monthLabel={`${MONTH_FULL[selectedMonth - 1]} ${selectedYear}`}
       aiReports={aiReports}
+      selectedMonth={selectedMonth}
+      selectedYear={selectedYear}
     />
   )
 }
