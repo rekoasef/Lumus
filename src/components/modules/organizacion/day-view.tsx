@@ -1,52 +1,38 @@
 'use client'
 
+import { useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Clock, Plus, CheckCircle2, Circle, Zap, Repeat } from 'lucide-react'
-import type { Task } from '@/types/tasks.types'
+import { Plus } from 'lucide-react'
+import type { Task, RepeatType } from '@/types/tasks.types'
 import { localDateStr } from '@/lib/utils/format-date'
 
+const PX_PER_MINUTE = 1.0
+const HOUR_HEIGHT = 60 * PX_PER_MINUTE
+const TOTAL_HOURS = 24
+const COLUMN_HEIGHT = TOTAL_HOURS * HOUR_HEIGHT
+
+function formatHour(h: number): string {
+  if (h === 0) return '12 AM'
+  if (h < 12) return `${h} AM`
+  if (h === 12) return '12 PM'
+  return `${h - 12} PM`
+}
+
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number)
+  return h * 60 + m
+}
+
+function minutesToTime(minutes: number): string {
+  const h = Math.floor(minutes / 60).toString().padStart(2, '0')
+  const m = (minutes % 60).toString().padStart(2, '0')
+  return `${h}:${m}`
+}
+
 const PRIORITY_COLORS = {
-  alta: { border: '#ef4444', text: '#f87171', bg: 'rgba(239,68,68,0.08)' },
-  media: { border: '#7c6dfa', text: '#a78bfa', bg: 'rgba(124,109,250,0.08)' },
-  baja: { border: '#22c55e', text: '#4ade80', bg: 'rgba(34,197,94,0.08)' },
-}
-
-function getTodayStr() {
-  return localDateStr()
-}
-
-function getTodayLong() {
-  return new Date().toLocaleDateString('es-AR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  })
-}
-
-function formatDuration(mins: number) {
-  if (mins < 60) return `${mins}min`
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return m ? `${h}h ${m}min` : `${h}h`
-}
-
-function isCurrentBlock(task: Task): boolean {
-  if (!task.start_time) return false
-  const now = new Date()
-  const [h, m] = task.start_time.split(':').map(Number)
-  const startMins = h * 60 + m
-  const nowMins = now.getHours() * 60 + now.getMinutes()
-  const endMins = startMins + (task.duration_minutes ?? 30)
-  return nowMins >= startMins && nowMins < endMins
-}
-
-import type { RepeatType } from '@/types/tasks.types'
-
-const REPEAT_LABELS: Record<RepeatType, string> = {
-  daily: 'Todos los días',
-  weekly: 'Semanal',
-  weekdays: 'Lun–Vie',
-  monthly: 'Mensual',
+  alta:  { solid: '#ef4444', soft: 'rgba(239,68,68,0.22)' },
+  media: { solid: '#7c6dfa', soft: 'rgba(124,109,250,0.22)' },
+  baja:  { solid: '#22c55e', soft: 'rgba(34,197,94,0.18)' },
 }
 
 function isRecurringToday(task: Task): boolean {
@@ -54,18 +40,15 @@ function isRecurringToday(task: Task): boolean {
   const today = new Date()
   const todayStr = localDateStr(today)
   if (task.repeat_end_date && todayStr > task.repeat_end_date) return false
-
-  const dow = today.getDay() // 0=Dom, 1=Lun, ..., 6=Sáb
-  const dowMon = dow === 0 ? 6 : dow - 1 // Mon=0..Sun=6
-
+  const dow = today.getDay()
+  const dowMon = dow === 0 ? 6 : dow - 1
   switch (task.repeat_type) {
     case 'daily': return true
     case 'weekdays': return dow >= 1 && dow <= 5
     case 'weekly': return task.repeat_days?.includes(dowMon) ?? false
     case 'monthly': {
       if (!task.due_date) return false
-      const taskDay = new Date(task.due_date + 'T00:00:00').getDate()
-      return today.getDate() === taskDay
+      return today.getDate() === new Date(task.due_date + 'T00:00:00').getDate()
     }
     default: return false
   }
@@ -81,476 +64,279 @@ interface DayViewProps {
   onToggleRecurring: (taskId: string) => void
 }
 
-export function DayView({ tasks, recurringTasks, recurringCompletions, onCreateTask, onEditTask, onToggleTask, onToggleRecurring }: DayViewProps) {
-  const today = getTodayStr()
+export function DayView({
+  tasks,
+  recurringTasks,
+  recurringCompletions,
+  onCreateTask,
+  onEditTask,
+}: DayViewProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const today = localDateStr()
+  const now = new Date()
 
-  const todayRecurring = recurringTasks.filter(isRecurringToday)
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const nowMins = now.getHours() * 60 + now.getMinutes()
+    scrollRef.current.scrollTop = Math.max(0, nowMins * PX_PER_MINUTE - 120)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const scheduled = tasks
-    .filter(t => t.due_date?.startsWith(today) && t.start_time)
-    .sort((a, b) => (a.start_time ?? '').localeCompare(b.start_time ?? ''))
+  const nowTop = (now.getHours() * 60 + now.getMinutes()) * PX_PER_MINUTE
 
-  const unscheduled = tasks.filter(
-    t => (!t.due_date || t.due_date.startsWith(today)) && !t.start_time && t.status !== 'completada'
-  )
+  const timedTasks = [
+    ...tasks.filter(t => t.due_date?.startsWith(today) && t.start_time),
+    ...recurringTasks.filter(t => t.start_time && isRecurringToday(t)),
+  ]
 
-  const overdue = tasks.filter(
-    t => t.due_date && t.due_date < today && t.status !== 'completada'
-  )
+  const allDayTasks = [
+    ...tasks.filter(t => t.due_date && t.due_date < today && t.status !== 'completada'),
+    ...tasks.filter(t => t.due_date?.startsWith(today) && !t.start_time && t.status !== 'completada'),
+    ...recurringTasks.filter(t => !t.start_time && isRecurringToday(t)),
+  ]
 
-  const completed = tasks.filter(t => t.status === 'completada')
-  const total = tasks.filter(t => t.due_date?.startsWith(today) || !t.due_date).length
-  const completedToday = tasks.filter(t => t.status === 'completada' && t.due_date?.startsWith(today)).length
-  const progressPct = total > 0 ? Math.round((completedToday / total) * 100) : 0
+  function handleGridClick(e: React.MouseEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const y = e.clientY - rect.top
+    const minutes = Math.round(y / PX_PER_MINUTE / 15) * 15
+    const clamped = Math.min(Math.max(minutes, 0), TOTAL_HOURS * 60 - 30)
+    onCreateTask(today, minutesToTime(clamped))
+  }
 
-  return (
-    <div className="space-y-5">
-      {/* Header del día */}
-      <div
-        className="rounded-2xl px-5 py-4"
-        style={{
-          background: 'linear-gradient(135deg, rgba(124,109,250,0.07) 0%, rgba(17,17,24,0.9) 100%)',
-          border: '1px solid rgba(124,109,250,0.12)',
-        }}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[0.6rem] uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              Plan del día
-            </p>
-            <h2 className="mt-1 text-lg font-semibold capitalize text-[var(--text-primary)]">
-              {getTodayLong()}
-            </h2>
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold tabular-nums" style={{ color: '#bdb4ff' }}>
-              {completedToday}
-              <span className="text-base font-normal text-[var(--text-muted)]">/{total}</span>
-            </p>
-            <p className="text-[0.6rem] uppercase tracking-wider text-[var(--text-muted)]">Completadas</p>
-          </div>
-        </div>
-
-        {/* Progress bar */}
-        <div className="mt-4 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-          <motion.div
-            className="h-full rounded-full"
-            style={{ background: 'linear-gradient(90deg, #7c6dfa, #bdb4ff)' }}
-            initial={{ width: 0 }}
-            animate={{ width: `${progressPct}%` }}
-            transition={{ duration: 0.6, ease: 'easeOut' }}
-          />
-        </div>
-        <p className="mt-1.5 text-[11px] text-[var(--text-muted)]">
-          {progressPct === 100
-            ? '¡Todo completado! 🎉'
-            : `${progressPct}% del día completado`}
-        </p>
-      </div>
-
-      {/* Vencidas */}
-      {overdue.length > 0 && (
-        <section>
-          <div className="mb-2 flex items-center gap-2">
-            <span
-              className="h-[1px] flex-1"
-              style={{ background: 'rgba(239,68,68,0.25)' }}
-            />
-            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#f87171' }}>
-              Vencidas · {overdue.length}
-            </span>
-            <span
-              className="h-[1px] flex-1"
-              style={{ background: 'rgba(239,68,68,0.25)' }}
-            />
-          </div>
-          <div className="space-y-2">
-            {overdue.map(task => (
-              <TaskDayRow
-                key={task.id}
-                task={task}
-                onEdit={onEditTask}
-                onToggle={onToggleTask}
-                overdue
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Agenda del día */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span
-              className="h-[1px] w-8"
-              style={{ background: 'rgba(124,109,250,0.3)' }}
-            />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
-              Agenda
-            </span>
-          </div>
-          <button
-            onClick={() => {
-              const now = new Date()
-              const mins = Math.ceil((now.getHours() * 60 + now.getMinutes()) / 30) * 30
-              const h = Math.floor(mins / 60).toString().padStart(2, '0')
-              const m = (mins % 60).toString().padStart(2, '0')
-              onCreateTask(today, `${h}:${m}`)
-            }}
-            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors"
-            style={{
-              background: 'rgba(124,109,250,0.1)',
-              color: '#a78bfa',
-              border: '1px solid rgba(124,109,250,0.2)',
-            }}
-          >
-            <Plus size={11} />
-            Agregar bloque
-          </button>
-        </div>
-
-        {scheduled.length === 0 ? (
-          <div
-            className="flex flex-col items-center justify-center rounded-2xl py-8 text-center"
-            style={{
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px dashed rgba(255,255,255,0.07)',
-            }}
-          >
-            <Clock size={22} className="mb-2 text-[var(--text-muted)]" />
-            <p className="text-sm text-[var(--text-muted)]">No hay bloques agendados</p>
-            <button
-              onClick={() => onCreateTask(today, '09:00')}
-              className="mt-3 text-xs font-medium"
-              style={{ color: '#a78bfa' }}
-            >
-              Agendar primer bloque
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {scheduled.map(task => {
-              const isCurrent = isCurrentBlock(task)
-              const p = PRIORITY_COLORS[task.priority]
-              const isCompleted = task.status === 'completada'
-
-              return (
-                <motion.div
-                  key={task.id}
-                  layout
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-start gap-3 rounded-xl px-4 py-3 transition-all"
-                  style={{
-                    background: isCurrent
-                      ? 'rgba(124,109,250,0.1)'
-                      : isCompleted
-                        ? 'rgba(255,255,255,0.015)'
-                        : 'rgba(255,255,255,0.03)',
-                    border: isCurrent
-                      ? '1px solid rgba(124,109,250,0.3)'
-                      : '1px solid rgba(255,255,255,0.055)',
-                    borderLeft: `3px solid ${isCompleted ? 'rgba(255,255,255,0.1)' : p.border}`,
-                    opacity: isCompleted ? 0.5 : 1,
-                  }}
-                >
-                  {/* Hora */}
-                  <div className="flex-shrink-0 w-12 text-right">
-                    <p
-                      className="text-xs font-bold tabular-nums"
-                      style={{ color: isCurrent ? '#bdb4ff' : 'var(--text-muted)' }}
-                    >
-                      {task.start_time?.slice(0, 5)}
-                    </p>
-                    {task.duration_minutes && (
-                      <p className="text-[10px] text-[var(--text-muted)]">
-                        {formatDuration(task.duration_minutes)}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Linea divisor */}
-                  <div
-                    className="w-px self-stretch flex-shrink-0"
-                    style={{ background: isCurrent ? 'rgba(124,109,250,0.4)' : 'rgba(255,255,255,0.08)' }}
-                  />
-
-                  {/* Contenido */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start gap-2">
-                      <p
-                        className={`flex-1 text-sm font-medium leading-snug ${
-                          isCompleted
-                            ? 'line-through text-[var(--text-muted)]'
-                            : 'text-[var(--text-primary)]'
-                        }`}
-                      >
-                        {task.title}
-                      </p>
-                      {isCurrent && (
-                        <span
-                          className="flex-shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-                          style={{ background: 'rgba(124,109,250,0.2)', color: '#bdb4ff' }}
-                        >
-                          Ahora
-                        </span>
-                      )}
-                    </div>
-                    {task.description && (
-                      <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">
-                        {task.description}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Acciones */}
-                  <div className="flex flex-shrink-0 items-center gap-1">
-                    <button
-                      onClick={() => onToggleTask(task)}
-                      className="rounded-full p-1 transition-colors"
-                      style={{ color: isCompleted ? '#4ade80' : 'var(--text-muted)' }}
-                      aria-label="Completar"
-                    >
-                      {isCompleted ? <CheckCircle2 size={16} /> : <Circle size={16} />}
-                    </button>
-                  </div>
-                </motion.div>
-              )
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* Sin horario */}
-      {unscheduled.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center gap-2">
-            <span
-              className="h-[1px] flex-1"
-              style={{ background: 'rgba(255,255,255,0.06)' }}
-            />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
-              Sin horario · {unscheduled.length}
-            </span>
-            <span
-              className="h-[1px] flex-1"
-              style={{ background: 'rgba(255,255,255,0.06)' }}
-            />
-          </div>
-          <div className="space-y-2">
-            {unscheduled.map(task => (
-              <TaskDayRow
-                key={task.id}
-                task={task}
-                onEdit={onEditTask}
-                onToggle={onToggleTask}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Recurrentes */}
-      {todayRecurring.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center gap-2">
-            <span className="h-[1px] w-6" style={{ background: 'rgba(124,109,250,0.3)' }} />
-            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
-              <Repeat size={10} style={{ color: '#a78bfa' }} />
-              Recurrentes · {todayRecurring.length}
-            </span>
-            <span className="h-[1px] flex-1" style={{ background: 'rgba(124,109,250,0.15)' }} />
-          </div>
-          <div className="space-y-2">
-            {todayRecurring.map(task => {
-              const isDone = recurringCompletions.has(task.id)
-              const p = PRIORITY_COLORS[task.priority]
-              return (
-                <motion.div
-                  key={task.id}
-                  layout
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-3 rounded-xl px-4 py-3 transition-all"
-                  style={{
-                    background: 'rgba(124,109,250,0.05)',
-                    border: '1px solid rgba(124,109,250,0.12)',
-                    borderLeft: `3px solid ${isDone ? 'rgba(255,255,255,0.08)' : p.border}`,
-                    opacity: isDone ? 0.5 : 1,
-                  }}
-                >
-                  <button
-                    onClick={() => onToggleRecurring(task.id)}
-                    className="flex-shrink-0 flex size-[18px] items-center justify-center rounded-full transition-all"
-                    style={{
-                      border: isDone ? 'none' : `2px solid ${p.border}`,
-                      background: isDone ? p.border : 'transparent',
-                    }}
-                    aria-label="Completar hoy"
-                  >
-                    {isDone && <CheckCircle2 size={10} color="#fff" />}
-                  </button>
-
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${isDone ? 'line-through text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}>
-                      {task.title}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {task.start_time && (
-                        <span className="text-[11px] text-[var(--text-muted)]">
-                          {task.start_time.slice(0, 5)}
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1 text-[10px] text-[#a78bfa]">
-                        <Repeat size={9} />
-                        {REPEAT_LABELS[task.repeat_type!]}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => onEditTask(task)}
-                    className="flex-shrink-0 rounded p-1 text-[var(--text-muted)] opacity-0 hover:opacity-100 hover:text-[var(--text-primary)] transition-opacity"
-                    aria-label="Editar"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                    </svg>
-                  </button>
-                </motion.div>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Completadas */}
-      {completed.length > 0 && (
-        <section>
-          <div className="mb-2 flex items-center gap-2">
-            <span
-              className="h-[1px] flex-1"
-              style={{ background: 'rgba(34,197,94,0.15)' }}
-            />
-            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#4ade80' }}>
-              <Zap size={10} />
-              Completadas · {completed.length}
-            </span>
-            <span
-              className="h-[1px] flex-1"
-              style={{ background: 'rgba(34,197,94,0.15)' }}
-            />
-          </div>
-          <div className="space-y-2 opacity-50">
-            {completed.slice(0, 5).map(task => (
-              <TaskDayRow
-                key={task.id}
-                task={task}
-                onEdit={onEditTask}
-                onToggle={onToggleTask}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Estado vacío total */}
-      {scheduled.length === 0 && unscheduled.length === 0 && overdue.length === 0 && completed.length === 0 && (
-        <div
-          className="flex flex-col items-center justify-center rounded-3xl py-16 text-center"
-          style={{
-            background: 'rgba(255,255,255,0.02)',
-            border: '1px dashed rgba(255,255,255,0.07)',
-          }}
-        >
-          <div
-            className="mb-4 flex size-14 items-center justify-center rounded-2xl"
-            style={{ background: 'rgba(124,109,250,0.1)' }}
-          >
-            <Zap size={24} style={{ color: '#bdb4ff' }} />
-          </div>
-          <p className="text-sm font-semibold text-[var(--text-secondary)]">Día libre</p>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">No tenés nada agendado para hoy.</p>
-          <button
-            onClick={() => onCreateTask(today)}
-            className="mt-5 rounded-full px-5 py-2.5 text-sm font-bold"
-            style={{ background: 'var(--accent-lumus)', color: '#190f5d' }}
-          >
-            Crear primera tarea
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Fila de tarea compacta para la vista día ──────────────────────────────────
-
-interface TaskDayRowProps {
-  task: Task
-  onEdit: (t: Task) => void
-  onToggle: (t: Task) => void
-  overdue?: boolean
-}
-
-function TaskDayRow({ task, onEdit, onToggle, overdue }: TaskDayRowProps) {
-  const isCompleted = task.status === 'completada'
-  const p = PRIORITY_COLORS[task.priority]
+  const dayLabel = now.toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase().replace('.', '')
+  const monthLabel = now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="group flex items-center gap-3 rounded-xl px-4 py-3 transition-all"
+    <div
+      className="rounded-2xl overflow-hidden"
       style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: overdue
-          ? '1px solid rgba(239,68,68,0.15)'
-          : '1px solid rgba(255,255,255,0.055)',
-        borderLeft: `3px solid ${isCompleted ? 'rgba(255,255,255,0.08)' : p.border}`,
-        opacity: isCompleted ? 0.5 : 1,
+        background: 'rgba(255,255,255,0.025)',
+        border: '1px solid rgba(255,255,255,0.06)',
       }}
     >
-      <button
-        onClick={() => onToggle(task)}
-        className="flex-shrink-0 flex size-[18px] items-center justify-center rounded-full transition-all"
-        style={{
-          border: isCompleted ? 'none' : `2px solid ${p.border}`,
-          background: isCompleted ? p.border : 'transparent',
-        }}
-        aria-label="Completar"
+      {/* Day header */}
+      <div
+        className="flex items-center gap-3 px-4 py-3"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
       >
-        {isCompleted && <CheckCircle2 size={10} color="#fff" />}
-      </button>
+        <div className="flex items-center gap-2.5">
+          <span
+            className="text-[10px] font-bold uppercase tracking-widest"
+            style={{ color: '#a78bfa' }}
+          >
+            {dayLabel}
+          </span>
+          <div
+            className="flex size-8 items-center justify-center rounded-full text-sm font-bold"
+            style={{
+              background: '#7c6dfa',
+              color: '#fff',
+              boxShadow: '0 0 12px rgba(124,109,250,0.45)',
+            }}
+          >
+            {now.getDate()}
+          </div>
+          <span className="text-xs capitalize" style={{ color: 'var(--text-muted)' }}>
+            {monthLabel}
+          </span>
+        </div>
+        <div className="flex-1" />
+        <button
+          onClick={() => onCreateTask(today)}
+          className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all"
+          style={{
+            background: 'rgba(124,109,250,0.1)',
+            color: '#a78bfa',
+            border: '1px solid rgba(124,109,250,0.2)',
+          }}
+        >
+          <Plus size={11} />
+          Nueva tarea
+        </button>
+      </div>
 
-      <p
-        className={`flex-1 min-w-0 truncate text-sm font-medium ${
-          isCompleted ? 'line-through text-[var(--text-muted)]' : 'text-[var(--text-primary)]'
-        }`}
+      {/* All-day row */}
+      <div
+        className="flex items-stretch"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
       >
-        {task.title}
-      </p>
+        <div
+          className="w-16 flex-shrink-0 flex items-center justify-end pr-3 py-2"
+          style={{ borderRight: '1px solid rgba(255,255,255,0.05)' }}
+        >
+          <span
+            className="text-[9px] uppercase tracking-wider"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Todo el día
+          </span>
+        </div>
+        <div className="flex-1 flex flex-wrap items-center gap-1.5 px-3 py-2 min-h-[40px]">
+          {allDayTasks.map(task => {
+            const isOverdue = task.due_date && task.due_date < today
+            const p = PRIORITY_COLORS[task.priority]
+            return (
+              <button
+                key={task.id}
+                onClick={() => onEditTask(task)}
+                className="rounded-md px-2.5 py-0.5 text-xs font-medium truncate max-w-[200px] text-white"
+                style={{
+                  background: isOverdue ? 'rgba(239,68,68,0.25)' : p.soft,
+                  borderLeft: `3px solid ${isOverdue ? '#ef4444' : p.solid}`,
+                }}
+              >
+                {task.title}
+              </button>
+            )
+          })}
+          <button
+            onClick={() => onCreateTask(today)}
+            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] transition-colors hover:text-white"
+            style={{
+              color: 'var(--text-muted)',
+              border: '1px dashed rgba(255,255,255,0.1)',
+            }}
+          >
+            <Plus size={9} />
+            Nueva
+          </button>
+        </div>
+      </div>
 
-      <span
-        className="flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-        style={{ color: p.text, background: p.bg }}
-      >
-        {task.priority}
-      </span>
+      {/* Time grid */}
+      <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: '72vh' }}>
+        <div className="flex" style={{ height: COLUMN_HEIGHT }}>
+          {/* Time labels */}
+          <div
+            className="w-16 flex-shrink-0 relative select-none"
+            style={{ borderRight: '1px solid rgba(255,255,255,0.05)' }}
+          >
+            {Array.from({ length: TOTAL_HOURS - 1 }, (_, i) => i + 1).map(h => (
+              <div
+                key={h}
+                className="absolute right-3 text-[10px] text-right"
+                style={{
+                  top: h * HOUR_HEIGHT - 8,
+                  color: 'var(--text-muted)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {formatHour(h)}
+              </div>
+            ))}
+          </div>
 
-      <button
-        onClick={() => onEdit(task)}
-        className="flex-shrink-0 rounded p-1 text-[var(--text-muted)] opacity-0 transition-all hover:text-[var(--text-primary)] group-hover:opacity-100"
-        aria-label="Editar"
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-        </svg>
-      </button>
-    </motion.div>
+          {/* Event column */}
+          <div
+            className="flex-1 relative cursor-pointer"
+            onClick={handleGridClick}
+          >
+            {/* Hour and half-hour lines */}
+            {Array.from({ length: TOTAL_HOURS }, (_, i) => i).map(h => (
+              <div
+                key={h}
+                className="absolute w-full pointer-events-none"
+                style={{ top: h * HOUR_HEIGHT }}
+              >
+                {h > 0 && (
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.055)' }} />
+                )}
+                <div
+                  className="absolute w-full"
+                  style={{
+                    top: HOUR_HEIGHT / 2,
+                    borderTop: '1px solid rgba(255,255,255,0.022)',
+                  }}
+                />
+              </div>
+            ))}
+
+            {/* Current time indicator */}
+            <div
+              className="absolute w-full z-20 pointer-events-none flex items-center"
+              style={{ top: nowTop - 1 }}
+            >
+              <div
+                className="size-3 rounded-full flex-shrink-0 -ml-1.5"
+                style={{ background: '#ef4444' }}
+              />
+              <div
+                className="flex-1 h-[2px]"
+                style={{ background: '#ef4444', opacity: 0.85 }}
+              />
+            </div>
+
+            {/* Event blocks */}
+            {timedTasks.map(task => {
+              const p = PRIORITY_COLORS[task.priority]
+              const isRecurring = !!task.repeat_type
+              const isDone = isRecurring
+                ? recurringCompletions.has(task.id)
+                : task.status === 'completada'
+
+              const startMins = timeToMinutes(task.start_time!)
+              const durationMins = task.duration_minutes ?? 60
+              const top = startMins * PX_PER_MINUTE
+              const height = Math.max(durationMins * PX_PER_MINUTE, 22)
+              const isCompact = height < 42
+              const endTime = minutesToTime(startMins + durationMins)
+
+              return (
+                <motion.div
+                  key={task.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: isDone ? 0.45 : 1, scale: 1 }}
+                  style={{
+                    position: 'absolute',
+                    top,
+                    left: 4,
+                    right: 4,
+                    height,
+                    background: p.solid,
+                    borderRadius: 6,
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    zIndex: 10,
+                  }}
+                  onClick={e => {
+                    e.stopPropagation()
+                    onEditTask(task)
+                  }}
+                >
+                  <div
+                    className={`px-2 h-full overflow-hidden ${
+                      isCompact ? 'flex items-center gap-1.5' : 'flex flex-col pt-1.5 pb-1'
+                    }`}
+                  >
+                    <p className="text-white text-xs font-semibold leading-tight truncate">
+                      {task.title}
+                    </p>
+                    {!isCompact && (
+                      <p className="text-[10px] text-white/70 mt-0.5 leading-tight">
+                        {task.start_time?.slice(0, 5)} – {endTime}
+                        {isRecurring && <span className="ml-1 opacity-80">↻</span>}
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+              )
+            })}
+
+            {/* Empty state */}
+            {timedTasks.length === 0 && (
+              <div
+                className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                style={{ top: '30%' }}
+              >
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Hacé clic en el grid para agendar una tarea
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

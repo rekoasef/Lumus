@@ -31,7 +31,7 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
   })
 
   return (
-    <div className="group flex items-center gap-4 rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-3 transition-colors hover:bg-white/[0.04]">
+    <div className="group flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-3 transition-colors hover:bg-white/[0.04] sm:gap-4 sm:px-4">
       {/* Ícono de categoría */}
       <div
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
@@ -58,7 +58,7 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
             <Sparkles size={11} className="shrink-0 text-[var(--accent-lumus)]" aria-label="Clasificado por IA" />
           )}
         </div>
-        <div className="mt-0.5 flex items-center gap-2">
+        <div className="mt-0.5 flex items-center gap-1.5">
           {isAdjustment && (
             <span className="lumus-label text-[0.58rem]" style={{ color }}>
               Ajuste
@@ -83,16 +83,16 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
       </p>
 
       {/* Monto */}
-      <p className={`lumus-heading shrink-0 text-base font-bold ${amountColor}`}>
+      <p className={`lumus-heading shrink-0 text-sm font-bold sm:text-base ${amountColor}`}>
         {amountSign}{formattedAmount}
       </p>
 
-      {/* Acciones */}
-      <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      {/* Acciones — visibles siempre en mobile, hover en desktop */}
+      <div className="flex shrink-0 gap-0.5 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
         {!isAdjustment && (
           <button
             onClick={() => onEdit(transaction)}
-            className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-white/10 hover:text-[var(--text-primary)]"
+            className="rounded-md p-2 text-[var(--text-muted)] hover:bg-white/10 hover:text-[var(--text-primary)] active:bg-white/10 sm:p-1.5"
             aria-label="Editar"
           >
             <Pencil size={13} />
@@ -100,7 +100,7 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
         )}
         <button
           onClick={() => onDelete(transaction.id)}
-          className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--danger)]/10 hover:text-[var(--danger)]"
+          className="rounded-md p-2 text-[var(--text-muted)] hover:bg-[var(--danger)]/10 hover:text-[var(--danger)] active:bg-[var(--danger)]/10 active:text-[var(--danger)] sm:p-1.5"
           aria-label="Eliminar"
         >
           <Trash2 size={13} />

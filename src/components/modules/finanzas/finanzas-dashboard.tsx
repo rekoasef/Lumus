@@ -260,7 +260,7 @@ export function FinanzasDashboard({
   ]
 
   return (
-    <div className="min-h-screen px-3 py-5 sm:px-5 sm:py-8 lg:px-12 lg:py-12">
+    <div className="min-h-screen px-3 py-4 sm:px-5 sm:py-8 lg:px-12 lg:py-12">
       <div className="mx-auto max-w-[1120px]">
 
         {/* Banner de informe mensual — aparece cuando no hay informe del mes anterior */}
@@ -272,22 +272,23 @@ export function FinanzasDashboard({
         )}
 
         {/* Header */}
-        <header className="mb-10">
-          <div className="flex items-start justify-between">
+        <header className="mb-6 sm:mb-10">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="lumus-heading text-4xl font-bold text-[var(--text-primary)] md:text-5xl">
+              <h1 className="lumus-heading text-3xl font-bold text-[var(--text-primary)] sm:text-4xl md:text-5xl">
                 Finanzas
               </h1>
-              <p className="mt-3 text-base text-[var(--text-secondary)]">
+              <p className="mt-1.5 text-sm text-[var(--text-secondary)] sm:mt-3 sm:text-base">
                 Controlá tus billeteras, gastos e ingresos.
               </p>
             </div>
             <Link
               href="/finanzas/reportes"
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-[var(--text-muted)] transition-colors hover:border-white/20 hover:text-[var(--text-secondary)]"
+              className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-[var(--text-muted)] transition-colors hover:border-white/20 hover:text-[var(--text-secondary)]"
             >
               <BarChart2 size={12} />
-              Ver reportes
+              <span className="hidden sm:inline">Ver reportes</span>
+              <span className="sm:hidden">Reportes</span>
             </Link>
           </div>
 
@@ -405,8 +406,8 @@ export function FinanzasDashboard({
 
         {/* Movimientos */}
         {activeSection === 'transacciones' && (
-          <section className="lumus-glass rounded-2xl p-6">
-            <h2 className="lumus-heading mb-5 text-xl font-semibold text-[var(--text-primary)]">
+          <section className="lumus-glass rounded-2xl p-3 sm:p-6">
+            <h2 className="lumus-heading mb-4 px-1 text-lg font-semibold text-[var(--text-primary)] sm:mb-5 sm:text-xl">
               Movimientos
             </h2>
             <TransactionList

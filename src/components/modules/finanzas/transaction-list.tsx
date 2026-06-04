@@ -318,7 +318,7 @@ export function TransactionList({
             <button
               key={tab.id}
               onClick={() => handleFilterMode(tab.id)}
-              className={`relative flex-shrink-0 px-3 pb-3 pt-1 text-xs font-medium transition-colors ${
+              className={`relative flex-shrink-0 px-3 pb-3 pt-1.5 text-xs font-medium transition-colors ${
                 filterMode === tab.id
                   ? 'text-[var(--text-primary)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
@@ -332,10 +332,11 @@ export function TransactionList({
           ))}
         </div>
 
+        {/* Botón Nuevo — visible en desktop, en mobile es FAB flotante */}
         <button
           onClick={() => { setEditing(null); setShowForm(true) }}
           disabled={loading || wallets.length === 0}
-          className="mb-1 flex items-center gap-1.5 rounded-xl bg-[var(--accent-lumus)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
+          className="mb-1 hidden items-center gap-1.5 rounded-xl bg-[var(--accent-lumus)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 sm:flex"
         >
           <Plus size={13} />
           Nuevo
@@ -408,10 +409,10 @@ export function TransactionList({
 
         {/* Período: Todos | Desde — Hasta */}
         {filterMode === 'periodo' && (
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <button
               onClick={() => { setRangeFrom(''); setRangeTo(''); setSelectedCategoryKey(null) }}
-              className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+              className={`self-start rounded-lg px-2.5 py-1 text-xs font-medium transition-colors sm:shrink-0 ${
                 isPeriodoAll
                   ? 'text-[var(--accent-lumus)] underline underline-offset-2'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
@@ -420,14 +421,14 @@ export function TransactionList({
               Todos
             </button>
 
-            <div className="flex flex-1 items-end gap-2 min-w-0">
+            <div className="flex items-end gap-2">
               <div className="flex flex-1 flex-col min-w-0">
                 <label className="lumus-label mb-1 block text-[0.55rem] text-[var(--text-muted)]">DESDE</label>
                 <input
                   type="date"
                   value={rangeFrom}
                   onChange={e => { setRangeFrom(e.target.value); setSelectedCategoryKey(null) }}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none [color-scheme:dark]"
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none [color-scheme:dark] sm:py-1.5 sm:text-xs"
                 />
               </div>
               <span className="mb-2 text-sm text-[var(--text-muted)]">–</span>
@@ -437,7 +438,7 @@ export function TransactionList({
                   type="date"
                   value={rangeTo}
                   onChange={e => { setRangeTo(e.target.value); setSelectedCategoryKey(null) }}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none [color-scheme:dark]"
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none [color-scheme:dark] sm:py-1.5 sm:text-xs"
                 />
               </div>
             </div>
@@ -628,6 +629,16 @@ export function TransactionList({
           )}
         </>
       )}
+
+      {/* FAB flotante — solo mobile */}
+      <button
+        onClick={() => { setEditing(null); setShowForm(true) }}
+        disabled={loading || wallets.length === 0}
+        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-lumus)] text-white shadow-lg shadow-[var(--accent-lumus)]/30 active:scale-95 transition-transform disabled:opacity-50 sm:hidden"
+        aria-label="Nuevo movimiento"
+      >
+        <Plus size={22} />
+      </button>
 
       {/* Formulario */}
       {showForm && (

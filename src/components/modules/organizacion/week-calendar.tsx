@@ -12,10 +12,17 @@ const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60
 const PX_PER_MINUTE = 1.6
 const COLUMN_HEIGHT = TOTAL_MINUTES * PX_PER_MINUTE
 
-const PRIORITY: Record<TaskPriority, { bg: string; border: string; text: string }> = {
-  alta:  { bg: 'rgba(239,68,68,0.15)',  border: '#ef4444',  text: '#f87171' },
-  media: { bg: 'rgba(124,109,250,0.15)', border: '#7c6dfa', text: '#a78bfa' },
-  baja:  { bg: 'rgba(34,197,94,0.12)',  border: '#22c55e',  text: '#4ade80' },
+const PRIORITY: Record<TaskPriority, { solid: string }> = {
+  alta:  { solid: '#ef4444' },
+  media: { solid: '#7c6dfa' },
+  baja:  { solid: '#22c55e' },
+}
+
+function formatHour(h: number): string {
+  if (h === 0) return '12 AM'
+  if (h < 12) return `${h} AM`
+  if (h === 12) return '12 PM'
+  return `${h - 12} PM`
 }
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -153,17 +160,15 @@ export function WeekCalendar({ tasks, onCreateTask, onEditTask }: WeekCalendarPr
   function getBlockStyle(task: Task): React.CSSProperties {
     const startMins = timeToMinutes(task.start_time!) - START_HOUR * 60
     const top = Math.max(0, startMins) * PX_PER_MINUTE
-    const height = Math.max((task.duration_minutes ?? 30) * PX_PER_MINUTE, 28)
-    const colors = PRIORITY[task.priority]
+    const height = Math.max((task.duration_minutes ?? 30) * PX_PER_MINUTE, 24)
     return {
       position: 'absolute',
       top,
       left: 3,
       right: 3,
       height,
-      backgroundColor: colors.bg,
-      borderLeft: `2.5px solid ${colors.border}`,
-      borderRadius: 8,
+      backgroundColor: PRIORITY[task.priority].solid,
+      borderRadius: 6,
       overflow: 'hidden',
       cursor: 'pointer',
       zIndex: 1,
@@ -265,16 +270,19 @@ export function WeekCalendar({ tasks, onCreateTask, onEditTask }: WeekCalendarPr
           style={{ height: COLUMN_HEIGHT }}
         >
           {hours.map(h => (
-            <div
-              key={h}
-              className="absolute right-2 text-[10px] text-right"
-              style={{
-                top: (h - START_HOUR) * 60 * PX_PER_MINUTE - 7,
-                color: 'var(--text-muted)',
-              }}
-            >
-              {h}:00
-            </div>
+            h > START_HOUR && (
+              <div
+                key={h}
+                className="absolute right-2 text-[10px] text-right"
+                style={{
+                  top: (h - START_HOUR) * 60 * PX_PER_MINUTE - 7,
+                  color: 'var(--text-muted)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {formatHour(h)}
+              </div>
+            )
           ))}
         </div>
 
@@ -308,29 +316,37 @@ export function WeekCalendar({ tasks, onCreateTask, onEditTask }: WeekCalendarPr
                 }}
                 onClick={e => handleColumnClick(e, day)}
               >
-                {/* Líneas de hora */}
+                {/* Líneas de hora y media hora */}
                 {hours.map(h => (
-                  <div
-                    key={h}
-                    className="absolute w-full pointer-events-none"
-                    style={{
-                      top: (h - START_HOUR) * 60 * PX_PER_MINUTE,
-                      borderTop: '1px solid rgba(255,255,255,0.04)',
-                    }}
-                  />
+                  <div key={h}>
+                    <div
+                      className="absolute w-full pointer-events-none"
+                      style={{
+                        top: (h - START_HOUR) * 60 * PX_PER_MINUTE,
+                        borderTop: h === START_HOUR ? 'none' : '1px solid rgba(255,255,255,0.055)',
+                      }}
+                    />
+                    <div
+                      className="absolute w-full pointer-events-none"
+                      style={{
+                        top: (h - START_HOUR) * 60 * PX_PER_MINUTE + 30 * PX_PER_MINUTE,
+                        borderTop: '1px solid rgba(255,255,255,0.022)',
+                      }}
+                    />
+                  </div>
                 ))}
 
                 {/* Línea actual */}
                 {nowTop !== null && (
                   <div
                     className="absolute w-full z-10 pointer-events-none flex items-center"
-                    style={{ top: nowTop }}
+                    style={{ top: nowTop - 1 }}
                   >
                     <div
                       className="size-2.5 rounded-full flex-shrink-0 -ml-1.5"
-                      style={{ background: '#7c6dfa', boxShadow: '0 0 8px rgba(124,109,250,0.8)' }}
+                      style={{ background: '#ef4444' }}
                     />
-                    <div className="flex-1 h-px" style={{ background: 'rgba(124,109,250,0.6)' }} />
+                    <div className="flex-1 h-[2px]" style={{ background: '#ef4444', opacity: 0.85 }} />
                   </div>
                 )}
 
@@ -349,14 +365,11 @@ export function WeekCalendar({ tasks, onCreateTask, onEditTask }: WeekCalendarPr
                     title={task.title}
                   >
                     <div className="px-2 py-1.5 h-full overflow-hidden">
-                      <p
-                        className="text-[11px] font-semibold leading-tight truncate"
-                        style={{ color: PRIORITY[task.priority].text }}
-                      >
+                      <p className="text-[11px] font-semibold leading-tight truncate text-white">
                         {task.title}
                       </p>
                       {(task.duration_minutes ?? 0) >= 45 && (
-                        <p className="text-[9px] mt-0.5 opacity-75" style={{ color: PRIORITY[task.priority].text }}>
+                        <p className="text-[9px] mt-0.5 text-white/70">
                           {task.start_time?.slice(0, 5)}
                           {task.duration_minutes && ` · ${task.duration_minutes}min`}
                         </p>
