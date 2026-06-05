@@ -53,16 +53,94 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: result.error.flatten() }, { status: 400 })
   }
 
+  const d = result.data
+  const isTransfer = d.type === 'transferencia' && d.to_wallet_id
+
+  if (isTransfer) {
+    // Verificar que la billetera destino pertenece al usuario
+    const { data: destWallet } = await supabase
+      .from('wallets')
+      .select('id')
+      .eq('id', d.to_wallet_id!)
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .single()
+
+    if (!destWallet) {
+      return NextResponse.json({ error: 'Billetera destino no encontrada' }, { status: 400 })
+    }
+
+    const desc = d.description?.trim() || null
+
+    // Insertar las dos transacciones en paralelo
+    const [egreso, ingreso] = await Promise.all([
+      supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          wallet_id: d.wallet_id,
+          category_id: null,
+          type: 'transferencia',
+          amount: d.amount,
+          description: desc,
+          date: d.date,
+          auto_classified: false,
+          deleted_at: null,
+        })
+        .select(`id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at, wallet:wallets(id, name, color), category:finance_categories(id, name, color, icon)`)
+        .single(),
+      supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          wallet_id: d.to_wallet_id!,
+          category_id: null,
+          type: 'transferencia',
+          amount: d.amount,
+          description: desc,
+          date: d.date,
+          auto_classified: false,
+          deleted_at: null,
+        })
+        .select(`id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at, wallet:wallets(id, name, color), category:finance_categories(id, name, color, icon)`)
+        .single(),
+    ])
+
+    if (egreso.error) return NextResponse.json({ error: egreso.error.message }, { status: 500 })
+    if (ingreso.error) return NextResponse.json({ error: ingreso.error.message }, { status: 500 })
+
+    // Recomputar balances de ambas billeteras
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rpc = supabase.rpc as any
+    await Promise.all([
+      rpc('recompute_wallet_balance', { p_wallet_id: d.wallet_id }),
+      rpc('recompute_wallet_balance', { p_wallet_id: d.to_wallet_id }),
+    ])
+
+    const { data: wallets } = await supabase
+      .from('wallets')
+      .select('id, name, type, balance, currency, color, icon, created_at, updated_at')
+      .in('id', [d.wallet_id, d.to_wallet_id!])
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+
+    return NextResponse.json(
+      { transaction: egreso.data, extraTransaction: ingreso.data, wallets: wallets ?? [] },
+      { status: 201 },
+    )
+  }
+
+  // Gasto / ingreso normales
   const { data, error } = await supabase
     .from('transactions')
     .insert({
       user_id: user.id,
-      wallet_id: result.data.wallet_id,
-      category_id: result.data.category_id ?? null,
-      type: result.data.type,
-      amount: result.data.amount,
-      description: result.data.description ?? null,
-      date: result.data.date,
+      wallet_id: d.wallet_id,
+      category_id: d.category_id ?? null,
+      type: d.type,
+      amount: d.amount,
+      description: d.description ?? null,
+      date: d.date,
       auto_classified: body.auto_classified === true,
       deleted_at: null,
     })
@@ -75,14 +153,13 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Actualizar balance de la billetera explícitamente (safety net además del trigger)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.rpc as any)('recompute_wallet_balance', { p_wallet_id: result.data.wallet_id })
+  await (supabase.rpc as any)('recompute_wallet_balance', { p_wallet_id: d.wallet_id })
 
   const { data: wallet } = await supabase
     .from('wallets')
     .select('id, name, type, balance, currency, color, icon, created_at, updated_at')
-    .eq('id', result.data.wallet_id)
+    .eq('id', d.wallet_id)
     .eq('user_id', user.id)
     .is('deleted_at', null)
     .single()

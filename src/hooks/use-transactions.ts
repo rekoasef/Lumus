@@ -40,10 +40,17 @@ export function useTransactions(
         body: JSON.stringify(input),
       })
       if (!res.ok) throw new Error('Error al crear la transacción')
-      const { transaction, wallet } = await res.json() as { transaction: Transaction; wallet?: WalletBalanceUpdate }
-      setTransactions(prev => [transaction, ...prev])
-      if (wallet) callbacks?.onWalletBalance?.([wallet])
-      return transaction
+      const body = await res.json() as {
+        transaction: Transaction
+        extraTransaction?: Transaction
+        wallet?: WalletBalanceUpdate
+        wallets?: WalletBalanceUpdate[]
+      }
+      const newTxs = [body.transaction, ...(body.extraTransaction ? [body.extraTransaction] : [])]
+      setTransactions(prev => [...newTxs, ...prev])
+      if (body.wallets?.length) callbacks?.onWalletBalance?.(body.wallets)
+      else if (body.wallet) callbacks?.onWalletBalance?.([body.wallet])
+      return body.transaction
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
       return null
@@ -95,6 +102,10 @@ export function useTransactions(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callbacks?.onWalletBalance])
 
+  const addTransaction = useCallback((tx: Transaction) => {
+    setTransactions(prev => [tx, ...prev])
+  }, [])
+
   return {
     transactions,
     monthGastos,
@@ -104,6 +115,7 @@ export function useTransactions(
     createTransaction,
     updateTransaction,
     deleteTransaction,
+    addTransaction,
   }
 }
 

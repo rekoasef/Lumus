@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { LumusOrb } from '@/components/lumus/lumus-orb'
 import { LumusFullscreen } from '@/components/lumus/lumus-fullscreen'
@@ -21,8 +21,12 @@ function getGreeting(): string {
 }
 
 export function DashboardHero({ firstName, date }: DashboardHeroProps) {
-  const greeting = getGreeting()
+  const [greeting, setGreeting] = useState('')
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
+
+  useEffect(() => {
+    setGreeting(getGreeting())
+  }, [])
 
   return (
     <>

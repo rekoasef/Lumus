@@ -95,6 +95,26 @@ export interface FinanceReport {
   created_at: string
 }
 
+export type RecurringRepeatType = 'daily' | 'weekly' | 'monthly'
+
+export interface RecurringTransaction {
+  id: string
+  user_id: string
+  wallet_id: string
+  category_id: string | null
+  type: 'gasto' | 'ingreso'
+  amount: number
+  description: string | null
+  repeat_type: RecurringRepeatType
+  repeat_day: number | null
+  next_date: string
+  active: boolean
+  created_at: string
+  updated_at: string
+  wallet?: Pick<Wallet, 'id' | 'name' | 'color'>
+  category?: Pick<FinanceCategory, 'id' | 'name' | 'color' | 'icon'>
+}
+
 export type TransactionFilter = {
   type: TransactionType | 'todas'
   category_id: string | null

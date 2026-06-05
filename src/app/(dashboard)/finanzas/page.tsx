@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { FinanzasDashboard } from '@/components/modules/finanzas/finanzas-dashboard'
-import type { Wallet, FinanceCategory, Transaction, Budget, Subscription, SavingGoal } from '@/types/finance.types'
+import type { Wallet, FinanceCategory, Transaction, Budget, Subscription, SavingGoal, RecurringTransaction } from '@/types/finance.types'
 
 export default async function FinanzasPage() {
   const supabase = await createClient()
@@ -14,7 +14,10 @@ export default async function FinanzasPage() {
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
   const monthEnd = new Date(year, month, 0).toISOString().slice(0, 10)
 
-  const [walletsRes, categoriesRes, transactionsRes, budgetsRes, subscriptionsRes, goalsRes] = await Promise.all([
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any
+
+  const [walletsRes, categoriesRes, transactionsRes, budgetsRes, subscriptionsRes, goalsRes, recurringRes] = await Promise.all([
     supabase
       .from('wallets')
       .select('id, name, type, balance, currency, color, icon, created_at, updated_at')
@@ -58,11 +61,17 @@ export default async function FinanzasPage() {
       .eq('user_id', user.id)
       .order('achieved', { ascending: true })
       .order('created_at', { ascending: true }),
+    sb
+      .from('recurring_transactions')
+      .select(`id, wallet_id, category_id, type, amount, description, repeat_type, repeat_day, next_date, active, created_at, updated_at, wallet:wallets(id, name, color), category:finance_categories(id, name, color, icon)`)
+      .eq('user_id', user.id)
+      .order('next_date', { ascending: true }),
   ])
 
   const wallets = (walletsRes.data ?? []) as Wallet[]
   const categories = (categoriesRes.data ?? []) as FinanceCategory[]
   const transactions = (transactionsRes.data ?? []) as Transaction[]
+  const recurring = (recurringRes.data ?? []) as RecurringTransaction[]
 
   const budgetCategoryIds = (budgetsRes.data ?? []).map(b => b.category_id).filter(Boolean)
   let spentByCategory: Record<string, number> = {}
@@ -101,6 +110,7 @@ export default async function FinanzasPage() {
       initialBudgets={budgets}
       initialSubscriptions={subscriptions}
       initialGoals={goals}
+      initialRecurring={recurring}
     />
   )
 }

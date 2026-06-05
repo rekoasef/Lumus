@@ -52,11 +52,14 @@ export function TransactionForm({
 
   const watchedType       = watch('type')
   const watchedCategoryId = watch('category_id')
+  const watchedWalletId   = watch('wallet_id')
 
   const filteredByType = categories.filter(c => c.type === watchedType)
   const visibleCategories = categorySearch.trim()
     ? filteredByType.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
     : filteredByType
+
+  const destWallets = wallets.filter(w => w.id !== watchedWalletId)
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4">
@@ -137,7 +140,9 @@ export function TransactionForm({
             {/* Billetera + Fecha en fila */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="lumus-label mb-2 block text-[0.65rem] text-[var(--text-muted)]">BILLETERA</label>
+                <label className="lumus-label mb-2 block text-[0.65rem] text-[var(--text-muted)]">
+                  {watchedType === 'transferencia' ? 'ORIGEN' : 'BILLETERA'}
+                </label>
                 <select
                   {...register('wallet_id')}
                   className="w-full rounded-xl border border-white/10 bg-[#111118] px-3 py-3.5 text-base text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none sm:py-2.5 sm:text-sm"
@@ -157,6 +162,25 @@ export function TransactionForm({
                 />
               </div>
             </div>
+
+            {/* Billetera destino — solo para transferencias */}
+            {watchedType === 'transferencia' && (
+              <div>
+                <label className="lumus-label mb-2 block text-[0.65rem] text-[var(--text-muted)]">DESTINO</label>
+                <select
+                  {...register('to_wallet_id')}
+                  className="w-full rounded-xl border border-[var(--accent-lumus)]/30 bg-[#111118] px-3 py-3.5 text-base text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none sm:py-2.5 sm:text-sm"
+                >
+                  <option value="">— Seleccioná billetera destino —</option>
+                  {destWallets.map(w => (
+                    <option key={w.id} value={w.id}>{w.name}</option>
+                  ))}
+                </select>
+                {destWallets.length === 0 && (
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">Necesitás al menos 2 billeteras para transferir.</p>
+                )}
+              </div>
+            )}
 
             {/* Categoría con buscador — solo para gasto/ingreso */}
             {watchedType !== 'transferencia' && (

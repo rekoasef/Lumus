@@ -50,17 +50,33 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherState> {
     `&daily=temperature_2m_max,temperature_2m_min` +
     `&timezone=auto&forecast_days=1`
 
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 8000)
+
   const [weatherRes, geoRes] = await Promise.allSettled([
-    fetch(url).then(r => r.json() as Promise<OpenMeteoResponse>),
+    fetch(url, { signal: controller.signal }).then(async r => {
+      if (!r.ok) throw new Error(`Open-Meteo HTTP ${r.status}`)
+      return r.json() as Promise<OpenMeteoResponse>
+    }),
     fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=es`,
-      { headers: { 'User-Agent': 'Lumus Personal OS (radevelopment02@gmail.com)' } }
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=es`
     ).then(r => r.json() as Promise<NominatimResponse>),
   ])
 
-  if (weatherRes.status === 'rejected') throw new Error('Weather fetch failed')
+  clearTimeout(timeoutId)
+
+  if (weatherRes.status === 'rejected') {
+    console.error('[WeatherWidget] fetch failed:', weatherRes.reason)
+    throw weatherRes.reason
+  }
 
   const w = weatherRes.value
+
+  if (!w.current || !w.daily) {
+    console.error('[WeatherWidget] unexpected response shape:', w)
+    throw new Error('Unexpected API response')
+  }
+
   const geo = geoRes.status === 'fulfilled' ? geoRes.value : null
   const city =
     geo?.address?.city ??
@@ -116,8 +132,14 @@ export function WeatherWidget() {
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-        <span>Clima no disponible</span>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-[var(--text-muted)]">Clima no disponible</span>
+        <button
+          onClick={load}
+          className="rounded-md px-2 py-0.5 text-xs text-[var(--accent-lumus)] hover:bg-white/5"
+        >
+          Reintentar
+        </button>
       </div>
     )
   }

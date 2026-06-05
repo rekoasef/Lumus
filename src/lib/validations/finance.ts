@@ -45,6 +45,7 @@ export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>
 
 export const createTransactionSchema = z.object({
   wallet_id: z.string().uuid('Billetera requerida'),
+  to_wallet_id: z.string().uuid().nullable().optional(),
   category_id: z.string().uuid().nullable().optional(),
   type: z.enum(['gasto', 'ingreso', 'transferencia']),
   amount: z.number().positive('El monto debe ser mayor a 0'),
@@ -133,3 +134,23 @@ export const updateSavingGoalSchema = z.object({
 
 export type CreateSavingGoalInput = z.infer<typeof createSavingGoalSchema>
 export type UpdateSavingGoalInput = z.infer<typeof updateSavingGoalSchema>
+
+// ——— Recurring Transactions ———
+
+export const createRecurringTransactionSchema = z.object({
+  wallet_id:   z.string().uuid('Billetera requerida'),
+  category_id: z.string().uuid().nullable().optional(),
+  type:        z.enum(['gasto', 'ingreso']),
+  amount:      z.number().positive('El monto debe ser mayor a 0'),
+  description: z.string().max(500).nullable().optional(),
+  repeat_type: z.enum(['daily', 'weekly', 'monthly']),
+  repeat_day:  z.number().int().nullable().optional(),
+  next_date:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD'),
+})
+
+export const updateRecurringTransactionSchema = createRecurringTransactionSchema.partial().extend({
+  active: z.boolean().optional(),
+})
+
+export type CreateRecurringTransactionInput = z.infer<typeof createRecurringTransactionSchema>
+export type UpdateRecurringTransactionInput = z.infer<typeof updateRecurringTransactionSchema>

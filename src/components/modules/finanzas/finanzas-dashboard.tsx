@@ -17,6 +17,7 @@ import { SubscriptionCard } from './subscription-card'
 import { SubscriptionForm } from './subscription-form'
 import { SavingGoalCard } from './saving-goal-card'
 import { SavingGoalForm } from './saving-goal-form'
+import { RecurringTransactionList } from './recurring-transaction-list'
 import { useWallets } from '@/hooks/use-wallets'
 import { useBudgets } from '@/hooks/use-budgets'
 import { useSubscriptions } from '@/hooks/use-subscriptions'
@@ -27,6 +28,7 @@ import { useFinanceReport } from '@/hooks/use-finance-report'
 import { MonthlyReportBanner } from './monthly-report-banner'
 import { MonthlyReportModal } from './monthly-report-modal'
 import type { CreateWalletInput, UpdateWalletInput, CreateBudgetInput, CreateSubscriptionInput, CreateSavingGoalInput, UpdateTransactionInput } from '@/lib/validations/finance'
+import type { RecurringTransaction } from '@/types/finance.types'
 import type { CreateTransactionInput } from '@/lib/validations/finance'
 import { confirm } from '@/components/shared/confirm-dialog'
 import { toast } from 'sonner'
@@ -43,9 +45,10 @@ interface FinanzasDashboardProps {
   initialBudgets: Budget[]
   initialSubscriptions: Subscription[]
   initialGoals: SavingGoal[]
+  initialRecurring: RecurringTransaction[]
 }
 
-type Section = 'transacciones' | 'billeteras' | 'categorias' | 'presupuestos' | 'suscripciones' | 'metas'
+type Section = 'transacciones' | 'billeteras' | 'categorias' | 'presupuestos' | 'suscripciones' | 'metas' | 'recurrentes'
 
 
 export function FinanzasDashboard({
@@ -55,6 +58,7 @@ export function FinanzasDashboard({
   initialBudgets,
   initialSubscriptions,
   initialGoals,
+  initialRecurring,
 }: FinanzasDashboardProps) {
   const { wallets, totalBalance: _totalBalance, balanceByCurrency, loading, createWallet, updateWallet, adjustBalance, deleteWallet, localUpdateBalance: _localUpdateBalance, setWalletBalance } =
     useWallets(initialWallets)
@@ -67,6 +71,7 @@ export function FinanzasDashboard({
     createTransaction,
     updateTransaction,
     deleteTransaction,
+    addTransaction,
   } = useTransactions(initialTransactions, {
     onWalletBalance: (updatedWallets) => {
       for (const w of updatedWallets) setWalletBalance(w.id, w.balance)
@@ -252,6 +257,7 @@ export function FinanzasDashboard({
 
   const SECTIONS: { id: Section; label: string }[] = [
     { id: 'transacciones', label: 'Movimientos' },
+    { id: 'recurrentes',   label: 'Recurrentes' },
     { id: 'billeteras',    label: 'Billeteras' },
     { id: 'categorias',    label: 'Categorías' },
     { id: 'presupuestos',  label: 'Presupuestos' },
@@ -418,6 +424,21 @@ export function FinanzasDashboard({
               onCreate={handleTransactionCreate}
               onUpdate={handleTransactionUpdate}
               onDelete={handleTransactionDelete}
+            />
+          </section>
+        )}
+
+        {/* Recurrentes */}
+        {activeSection === 'recurrentes' && (
+          <section className="lumus-glass rounded-2xl p-3 sm:p-6">
+            <RecurringTransactionList
+              initialRecurring={initialRecurring}
+              wallets={wallets}
+              categories={initialCategories}
+              onTransactionApplied={(tx, wallet) => {
+                addTransaction(tx)
+                if (wallet) setWalletBalance(wallet.id, wallet.balance)
+              }}
             />
           </section>
         )}

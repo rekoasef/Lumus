@@ -2,22 +2,24 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, CalendarDays, List, Sun, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, CalendarDays, List, Sun, ChevronDown, ChevronUp, CalendarRange } from 'lucide-react'
 import { localDateStr } from '@/lib/utils/format-date'
 import { useTasks } from '@/hooks/use-tasks'
 import { TaskItem } from './task-item'
 import { TaskForm } from './task-form'
 import { WeekCalendar } from './week-calendar'
 import { DayView } from './day-view'
+import { MonthCalendar } from './month-calendar'
 import type { Task, TaskStatus, TaskPriority } from '@/types/tasks.types'
 import type { CreateTaskInput, UpdateTaskInput } from '@/lib/validations/tasks'
 
-type ViewMode = 'hoy' | 'lista' | 'semana'
+type ViewMode = 'hoy' | 'lista' | 'semana' | 'mes'
 
 const VIEWS: { value: ViewMode; icon: React.ElementType; label: string }[] = [
   { value: 'hoy', icon: Sun, label: 'Hoy' },
   { value: 'lista', icon: List, label: 'Lista' },
   { value: 'semana', icon: CalendarDays, label: 'Semana' },
+  { value: 'mes', icon: CalendarRange, label: 'Mes' },
 ]
 
 // Grupos para la vista lista
@@ -251,6 +253,22 @@ export function TaskList({ initialTasks, initialCompletions }: TaskListProps) {
             <WeekCalendar
               tasks={allTasks}
               onCreateTask={openNewTask}
+              onEditTask={handleEdit}
+            />
+          </motion.div>
+        )}
+
+        {viewMode === 'mes' && (
+          <motion.div
+            key="mes"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18 }}
+          >
+            <MonthCalendar
+              tasks={allTasks}
+              onCreateTask={(date) => openNewTask(date)}
               onEditTask={handleEdit}
             />
           </motion.div>
