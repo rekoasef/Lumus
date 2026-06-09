@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Scan } from 'lucide-react'
 import { LumusOrbIcon } from '@/components/lumus/lumus-orb'
 import { useRecipes } from '@/hooks/use-recipes'
 import { useMealLogs } from '@/hooks/use-meal-logs'
@@ -11,22 +11,38 @@ import { RecipeForm } from './recipe-form'
 import { MealLogSection } from './meal-log-section'
 import { MealLogForm } from './meal-log-form'
 import { ShoppingListComponent } from './shopping-list'
+import { NutritionGoalBanner } from './nutrition-goal-banner'
+import { FoodAnalyzer } from './food-analyzer'
+import { WeeklyNutritionChart } from './weekly-nutrition-chart'
 import { LumusChat } from '@/components/lumus/lumus-chat'
-import type { Recipe, MealType } from '@/types/food.types'
+import type { Recipe, MealType, RecipeCategory } from '@/types/food.types'
+import type { CreateMealLogInput } from '@/lib/validations/food'
 
-type Section = 'hoy' | 'recetas' | 'lista'
+type Section = 'hoy' | 'recetas' | 'lista' | 'semana'
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'hoy', label: 'Hoy' },
   { id: 'recetas', label: 'Recetas' },
-  { id: 'lista', label: 'Lista del súper' },
+  { id: 'lista', label: 'Lista' },
+  { id: 'semana', label: 'Semana' },
+]
+
+const RECIPE_FILTERS: { id: 'all' | 'favorites' | 'ai' | RecipeCategory; label: string }[] = [
+  { id: 'all', label: 'Todas' },
+  { id: 'favorites', label: '❤️ Favoritas' },
+  { id: 'desayuno', label: 'Desayuno' },
+  { id: 'almuerzo', label: 'Almuerzo' },
+  { id: 'merienda', label: 'Merienda' },
+  { id: 'cena', label: 'Cena' },
+  { id: 'postre', label: 'Postre' },
+  { id: 'ai', label: '✨ IA' },
 ]
 
 const LUMUS_SUGGESTIONS = [
   '¿Qué puedo cocinar con lo que tengo?',
-  'Sugerí una cena saludable',
-  '¿Cómo estuvo mi alimentación hoy?',
-  'Generá una lista del súper semanal',
+  'Sugerí una cena alta en proteínas',
+  '¿Cómo estuvo mi alimentación esta semana?',
+  'Generame la lista del súper para esta semana',
 ]
 
 interface ComidasDashboardProps {
@@ -43,16 +59,22 @@ export function ComidasDashboard({
   const [activeSection, setActiveSection] = useState<Section>('hoy')
   const [showRecipeForm, setShowRecipeForm] = useState(false)
   const [showMealLogForm, setShowMealLogForm] = useState(false)
+  const [showFoodAnalyzer, setShowFoodAnalyzer] = useState(false)
   const [activeMealType, setActiveMealType] = useState<MealType>('almuerzo')
   const [showLumus, setShowLumus] = useState(false)
-  const [selectedDate, setSelectedDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })
-  const [recipeFilter, setRecipeFilter] = useState<'all' | 'favorites' | 'ai'>('all')
+  const [recipeFilter, setRecipeFilter] = useState<'all' | 'favorites' | 'ai' | RecipeCategory>('all')
+
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  })
 
   const { recipes, isGenerating, createRecipe, updateRecipe, deleteRecipe, toggleFavorite, generateRecipe } = useRecipes(initialRecipes)
-  const { getCaloriesForDate, getLogsByMealType, addLog, deleteLog } = useMealLogs(initialMealLogs)
+  const { logs, getCaloriesForDate, getProteinForDate, getLogsByMealType, addLog, deleteLog } = useMealLogs(initialMealLogs)
   const { uncheckedItems, checkedItems, itemsByCategory, addItem, toggleChecked, deleteItem, clearChecked } = useShoppingList(initialShoppingItems)
 
   const todayCalories = getCaloriesForDate(selectedDate)
+  const todayProtein = getProteinForDate(selectedDate)
   const logsByMealType = getLogsByMealType(selectedDate)
 
   function changeDate(delta: number) {
@@ -61,13 +83,17 @@ export function ComidasDashboard({
     setSelectedDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)
   }
 
-  const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()
+  const today = (() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  })()
   const isToday = selectedDate === today
 
   const filteredRecipes = recipes.filter(r => {
     if (recipeFilter === 'favorites') return r.favorite
     if (recipeFilter === 'ai') return r.ai_generated
-    return true
+    if (recipeFilter === 'all') return true
+    return r.category === recipeFilter
   })
 
   function handleAddLog(mealType: MealType) {
@@ -75,10 +101,15 @@ export function ComidasDashboard({
     setShowMealLogForm(true)
   }
 
-  function handleSelectRecipeForLog(recipe: Recipe) {
-    setActiveSection('hoy')
-    setActiveMealType('almuerzo')
-    setShowMealLogForm(true)
+  async function handleAnalyzerAdd(data: { name: string; calories: number; protein_g: number; meal_type: MealType }) {
+    const input: CreateMealLogInput = {
+      date: selectedDate,
+      meal_type: data.meal_type,
+      name: data.name,
+      calories: data.calories,
+      protein_g: data.protein_g,
+    }
+    return addLog(input)
   }
 
   return (
@@ -148,6 +179,22 @@ export function ComidasDashboard({
             </button>
           </div>
 
+          {/* Nutrition goal banner */}
+          <NutritionGoalBanner totalCalories={todayCalories} totalProtein={todayProtein} />
+
+          {/* Analyze food shortcut */}
+          <button
+            onClick={() => setShowFoodAnalyzer(true)}
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-white/[0.03]"
+            style={{ background: 'rgba(124,109,250,0.05)', border: '1px solid rgba(124,109,250,0.15)' }}
+          >
+            <Scan size={16} className="text-[var(--accent-lumus)] flex-shrink-0" />
+            <div>
+              <p className="text-xs font-medium text-[var(--accent-lumus)]">Analizar comida con Lumus</p>
+              <p className="text-[0.65rem] text-[var(--text-muted)]">Subí una foto o describí lo que comiste para estimar calorías</p>
+            </div>
+          </button>
+
           <MealLogSection
             date={selectedDate}
             logsByMealType={logsByMealType}
@@ -162,28 +209,29 @@ export function ComidasDashboard({
       {/* RECETAS */}
       {activeSection === 'recetas' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex gap-1.5">
-              {(['all', 'favorites', 'ai'] as const).map(f => (
+          {/* Filters */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1 scrollbar-hide">
+              {RECIPE_FILTERS.map(f => (
                 <button
-                  key={f}
-                  onClick={() => setRecipeFilter(f)}
-                  className={`rounded-full px-3 py-1.5 text-xs transition-colors ${
-                    recipeFilter === f
+                  key={f.id}
+                  onClick={() => setRecipeFilter(f.id)}
+                  className={`flex-shrink-0 rounded-full px-3 py-1.5 text-xs transition-colors ${
+                    recipeFilter === f.id
                       ? 'bg-[#f97316]/20 text-[#f97316]'
                       : 'bg-white/5 text-[var(--text-muted)] hover:bg-white/10'
                   }`}
                 >
-                  {f === 'all' ? 'Todas' : f === 'favorites' ? 'Favoritas' : 'Generadas por IA'}
+                  {f.label}
                 </button>
               ))}
             </div>
             <button
               onClick={() => setShowRecipeForm(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-[#f97316] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#ea6c0c]"
+              className="flex flex-shrink-0 items-center gap-1.5 rounded-xl bg-[#f97316] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#ea6c0c]"
             >
               <Plus size={13} />
-              Nueva receta
+              Nueva
             </button>
           </div>
 
@@ -214,12 +262,21 @@ export function ComidasDashboard({
                   recipe={recipe}
                   onToggleFavorite={toggleFavorite}
                   onDelete={deleteRecipe}
-                  onSelect={handleSelectRecipeForLog}
+                  onSelect={() => {
+                    setActiveSection('hoy')
+                    setActiveMealType('almuerzo')
+                    setShowMealLogForm(true)
+                  }}
                 />
               ))}
             </div>
           )}
         </div>
+      )}
+
+      {/* SEMANA */}
+      {activeSection === 'semana' && (
+        <WeeklyNutritionChart logs={logs} />
       )}
 
       {/* LISTA DEL SÚPER */}
@@ -264,7 +321,15 @@ export function ComidasDashboard({
         />
       )}
 
-      {/* Lumus chat */}
+      {showFoodAnalyzer && (
+        <FoodAnalyzer
+          date={selectedDate}
+          defaultMealType={activeMealType}
+          onAddToLog={handleAnalyzerAdd}
+          onClose={() => setShowFoodAnalyzer(false)}
+        />
+      )}
+
       {showLumus && (
         <LumusChat
           module="comidas"

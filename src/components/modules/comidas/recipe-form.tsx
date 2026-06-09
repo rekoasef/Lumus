@@ -4,7 +4,20 @@ import { useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { X, Plus, Trash2, Sparkles, Loader2 } from 'lucide-react'
-import { createRecipeSchema, type CreateRecipeInput } from '@/lib/validations/food'
+import { z } from 'zod'
+import { createRecipeSchema, RECIPE_CATEGORIES, type CreateRecipeInput } from '@/lib/validations/food'
+import type { RecipeCategory } from '@/types/food.types'
+
+type RecipeFormValues = z.input<typeof createRecipeSchema>
+
+const CATEGORY_LABELS: Record<RecipeCategory, string> = {
+  desayuno: 'Desayuno',
+  almuerzo: 'Almuerzo',
+  merienda: 'Merienda',
+  cena:     'Cena',
+  postre:   'Postre',
+  otro:     'Otro',
+}
 
 interface RecipeFormProps {
   onSave: (data: CreateRecipeInput) => Promise<boolean>
@@ -18,16 +31,18 @@ export function RecipeForm({ onSave, onGenerate, onClose }: RecipeFormProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
-  const { register, control, handleSubmit, formState: { errors } } = useForm<CreateRecipeInput>({
+  const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm<RecipeFormValues>({
     resolver: zodResolver(createRecipeSchema),
-    defaultValues: { ingredients: [{ name: '', quantity: '', unit: '' }] },
+    defaultValues: { ingredients: [{ name: '', quantity: '', unit: '' }], category: 'otro', servings: 1 },
   })
+
+  const selectedCategory = watch('category')
 
   const { fields, append, remove } = useFieldArray({ control, name: 'ingredients' })
 
-  async function onSubmit(data: CreateRecipeInput) {
+  async function onSubmit(data: RecipeFormValues) {
     setIsSaving(true)
-    const ok = await onSave(data)
+    const ok = await onSave(data as CreateRecipeInput)
     setIsSaving(false)
     if (ok) onClose()
   }
@@ -113,6 +128,27 @@ export function RecipeForm({ onSave, onGenerate, onClose }: RecipeFormProps) {
           </div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="p-5 space-y-4">
+            {/* Categoría */}
+            <div>
+              <label className="mb-2 block text-xs text-[var(--text-muted)]">Categoría</label>
+              <div className="flex flex-wrap gap-1.5">
+                {RECIPE_CATEGORIES.map(cat => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setValue('category', cat)}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                      selectedCategory === cat
+                        ? 'bg-[var(--accent-lumus)] text-white'
+                        : 'bg-white/5 text-[var(--text-muted)] hover:bg-white/10'
+                    }`}
+                  >
+                    {CATEGORY_LABELS[cat]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div>
               <label className="mb-1.5 block text-xs text-[var(--text-muted)]">Título *</label>
               <input
@@ -191,6 +227,7 @@ export function RecipeForm({ onSave, onGenerate, onClose }: RecipeFormProps) {
             <div className="grid grid-cols-2 gap-3">
               {[
                 { name: 'calories' as const, label: 'Calorías (kcal)', isInt: true },
+                { name: 'servings' as const, label: 'Porciones', isInt: true },
                 { name: 'prep_time_min' as const, label: 'Tiempo prep. (min)', isInt: true },
                 { name: 'protein_g' as const, label: 'Proteínas (g)', isInt: false },
                 { name: 'carbs_g' as const, label: 'Carbohidratos (g)', isInt: false },

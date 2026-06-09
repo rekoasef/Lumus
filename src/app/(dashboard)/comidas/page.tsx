@@ -25,7 +25,7 @@ export default async function ComidasPage() {
 
     supabase
       .from('meal_logs')
-      .select('id, user_id, recipe_id, date, meal_type, name, calories, notes, created_at, recipe:recipes(id, title, calories)')
+      .select('id, user_id, recipe_id, date, meal_type, name, calories, protein_g, photo_url, notes, created_at, recipe:recipes(id, title, calories)')
       .eq('user_id', user.id)
       .gte('date', sevenDaysAgo)
       .lte('date', today)

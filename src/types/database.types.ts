@@ -7,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -317,25 +319,25 @@ export type Database = {
       }
       finance_reports: {
         Row: {
-          id: string
-          user_id: string
-          month: string
           content: string
           created_at: string
+          id: string
+          month: string
+          user_id: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          month: string
           content: string
           created_at?: string
+          id?: string
+          month: string
+          user_id: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          month?: string
           content?: string
           created_at?: string
+          id?: string
+          month?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -497,6 +499,8 @@ export type Database = {
           meal_type: string
           name: string | null
           notes: string | null
+          photo_url: string | null
+          protein_g: number | null
           recipe_id: string | null
           user_id: string
         }
@@ -508,6 +512,8 @@ export type Database = {
           meal_type: string
           name?: string | null
           notes?: string | null
+          photo_url?: string | null
+          protein_g?: number | null
           recipe_id?: string | null
           user_id: string
         }
@@ -519,6 +525,8 @@ export type Database = {
           meal_type?: string
           name?: string | null
           notes?: string | null
+          photo_url?: string | null
+          protein_g?: number | null
           recipe_id?: string | null
           user_id?: string
         }
@@ -639,6 +647,7 @@ export type Database = {
           ai_generated: boolean | null
           calories: number | null
           carbs_g: number | null
+          category: string
           created_at: string | null
           description: string | null
           fat_g: number | null
@@ -648,6 +657,7 @@ export type Database = {
           instructions: string | null
           prep_time_min: number | null
           protein_g: number | null
+          servings: number
           title: string
           updated_at: string | null
           user_id: string
@@ -656,6 +666,7 @@ export type Database = {
           ai_generated?: boolean | null
           calories?: number | null
           carbs_g?: number | null
+          category?: string
           created_at?: string | null
           description?: string | null
           fat_g?: number | null
@@ -665,6 +676,7 @@ export type Database = {
           instructions?: string | null
           prep_time_min?: number | null
           protein_g?: number | null
+          servings?: number
           title: string
           updated_at?: string | null
           user_id: string
@@ -673,6 +685,7 @@ export type Database = {
           ai_generated?: boolean | null
           calories?: number | null
           carbs_g?: number | null
+          category?: string
           created_at?: string | null
           description?: string | null
           fat_g?: number | null
@@ -682,11 +695,75 @@ export type Database = {
           instructions?: string | null
           prep_time_min?: number | null
           protein_g?: number | null
+          servings?: number
           title?: string
           updated_at?: string | null
           user_id?: string
         }
         Relationships: []
+      }
+      recurring_transactions: {
+        Row: {
+          active: boolean
+          amount: number
+          category_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          next_date: string
+          repeat_day: number | null
+          repeat_type: string
+          type: string
+          updated_at: string
+          user_id: string
+          wallet_id: string
+        }
+        Insert: {
+          active?: boolean
+          amount: number
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          next_date: string
+          repeat_day?: number | null
+          repeat_type: string
+          type: string
+          updated_at?: string
+          user_id: string
+          wallet_id: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          next_date?: string
+          repeat_day?: number | null
+          repeat_type?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "finance_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       routines: {
         Row: {
@@ -940,6 +1017,38 @@ export type Database = {
           },
         ]
       }
+      task_completions: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_completions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_label_assignments: {
         Row: {
           label_id: string
@@ -1001,6 +1110,9 @@ export type Database = {
           id: string
           parent_id: string | null
           priority: string | null
+          repeat_days: number[] | null
+          repeat_end_date: string | null
+          repeat_type: string | null
           routine_id: string | null
           start_time: string | null
           status: string | null
@@ -1017,6 +1129,9 @@ export type Database = {
           id?: string
           parent_id?: string | null
           priority?: string | null
+          repeat_days?: number[] | null
+          repeat_end_date?: string | null
+          repeat_type?: string | null
           routine_id?: string | null
           start_time?: string | null
           status?: string | null
@@ -1033,6 +1148,9 @@ export type Database = {
           id?: string
           parent_id?: string | null
           priority?: string | null
+          repeat_days?: number[] | null
+          repeat_end_date?: string | null
+          repeat_type?: string | null
           routine_id?: string | null
           start_time?: string | null
           status?: string | null
@@ -1203,9 +1321,12 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          activity_level: string
           avatar_url: string | null
           birth_date: string | null
           created_at: string | null
+          daily_calorie_goal: number | null
+          daily_protein_goal: number | null
           education: string | null
           height_cm: number | null
           id: string
@@ -1214,14 +1335,18 @@ export type Database = {
           occupation: string | null
           onboarding_done: boolean | null
           timezone: string | null
+          trains: boolean
           updated_at: string | null
           user_id: string
           weight_kg: number | null
         }
         Insert: {
+          activity_level?: string
           avatar_url?: string | null
           birth_date?: string | null
           created_at?: string | null
+          daily_calorie_goal?: number | null
+          daily_protein_goal?: number | null
           education?: string | null
           height_cm?: number | null
           id?: string
@@ -1230,14 +1355,18 @@ export type Database = {
           occupation?: string | null
           onboarding_done?: boolean | null
           timezone?: string | null
+          trains?: boolean
           updated_at?: string | null
           user_id: string
           weight_kg?: number | null
         }
         Update: {
+          activity_level?: string
           avatar_url?: string | null
           birth_date?: string | null
           created_at?: string | null
+          daily_calorie_goal?: number | null
+          daily_protein_goal?: number | null
           education?: string | null
           height_cm?: number | null
           id?: string
@@ -1246,6 +1375,7 @@ export type Database = {
           occupation?: string | null
           onboarding_done?: boolean | null
           timezone?: string | null
+          trains?: boolean
           updated_at?: string | null
           user_id?: string
           weight_kg?: number | null
@@ -1490,7 +1620,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      recompute_wallet_balance: {
+        Args: { p_wallet_id: string }
+        Returns: undefined
+      }
+      seed_default_finance_categories: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

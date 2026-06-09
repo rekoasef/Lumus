@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('meal_logs')
     .select(`
-      id, user_id, recipe_id, date, meal_type, name, calories, notes, created_at,
+      id, user_id, recipe_id, date, meal_type, name, calories, protein_g, photo_url, notes, created_at,
       recipe:recipes(id, title, calories)
     `)
     .eq('user_id', user.id)
@@ -52,10 +52,12 @@ export async function POST(req: NextRequest) {
       meal_type: result.data.meal_type,
       name: result.data.name ?? null,
       calories: result.data.calories ?? null,
+      protein_g: result.data.protein_g ?? null,
+      photo_url: result.data.photo_url ?? null,
       notes: result.data.notes ?? null,
     })
     .select(`
-      id, user_id, recipe_id, date, meal_type, name, calories, notes, created_at,
+      id, user_id, recipe_id, date, meal_type, name, calories, protein_g, photo_url, notes, created_at,
       recipe:recipes(id, title, calories)
     `)
     .single()

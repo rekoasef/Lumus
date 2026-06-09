@@ -4,8 +4,13 @@ import Anthropic from '@anthropic-ai/sdk'
 
 const SYSTEM_PROMPT = `Eres un nutricionista y chef experto. El usuario te pide que generes una receta.
 Responde ÚNICAMENTE con un JSON válido con esta estructura exacta, sin texto adicional ni bloques de código:
-{"title":"nombre de la receta","description":"descripción breve (1-2 oraciones)","ingredients":[{"name":"ingrediente","quantity":"cantidad","unit":"unidad"}],"instructions":"pasos detallados de preparación","calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"prep_time_min":0}
-Las unidades en español. Usá null para valores nutricionales que no puedas estimar. No envuelvas el JSON en markdown.`
+{"title":"nombre de la receta","description":"descripción breve (1-2 oraciones)","category":"desayuno","servings":2,"ingredients":[{"name":"ingrediente","quantity":"cantidad","unit":"unidad"}],"instructions":"pasos detallados de preparación","calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"prep_time_min":0}
+
+- category: elegí la más apropiada entre "desayuno", "almuerzo", "merienda", "cena", "postre", "otro"
+- servings: cantidad de porciones que rinde la receta
+- calories/protein_g/carbs_g/fat_g: valores por porción (no totales)
+- Las unidades en español. Usá null para valores nutricionales que no puedas estimar.
+- No envuelvas el JSON en markdown.`
 
 function extractJson(text: string): string {
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/)

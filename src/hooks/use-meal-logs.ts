@@ -15,6 +15,10 @@ export function useMealLogs(initialLogs: MealLog[]) {
     return getTodayLogs(date).reduce((sum, l) => sum + (l.calories ?? 0), 0)
   }
 
+  function getProteinForDate(date: string): number {
+    return getTodayLogs(date).reduce((sum, l) => sum + (l.protein_g ?? 0), 0)
+  }
+
   function getLogsByMealType(date: string): Record<MealType, MealLog[]> {
     const todayLogs = getTodayLogs(date)
     return {
@@ -44,5 +48,5 @@ export function useMealLogs(initialLogs: MealLog[]) {
     return true
   }
 
-  return { logs, getTodayLogs, getCaloriesForDate, getLogsByMealType, addLog, deleteLog }
+  return { logs, getTodayLogs, getCaloriesForDate, getProteinForDate, getLogsByMealType, addLog, deleteLog }
 }
