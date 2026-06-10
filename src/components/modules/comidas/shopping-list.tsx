@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Trash2, Check, X, FileText, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
-import type { ShoppingListItem } from '@/types/food.types'
+import { AnimatePresence } from 'framer-motion'
+import { Plus, Trash2, Check, X, FileText, Loader2, ChevronDown, ChevronUp, ScanLine } from 'lucide-react'
+import type { ShoppingListItem, ProductScanResult } from '@/types/food.types'
 import type { CreateShoppingItemInput } from '@/lib/validations/food'
+import { BarcodeScanner } from './barcode-scanner'
 
 interface ParsedItem { name: string; quantity: string | null; category: string }
 
@@ -31,6 +33,7 @@ export function ShoppingListComponent({
   const [newCategory, setNewCategory] = useState('')
   const [isAdding, setIsAdding] = useState(false)
   const [showChecked, setShowChecked] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
 
   // import mode
   const [showImport, setShowImport] = useState(false)
@@ -53,6 +56,15 @@ export function ShoppingListComponent({
     setNewQty('')
     setNewCategory('')
     setIsAdding(false)
+  }
+
+  async function handleScanToList(product: ProductScanResult) {
+    const name = [product.name, product.brand].filter(Boolean).join(' — ') || `Código ${product.code}`
+    await onAdd({
+      name,
+      quantity: product.quantity ?? undefined,
+      category: undefined,
+    })
   }
 
   async function handleParse() {
@@ -167,14 +179,23 @@ export function ShoppingListComponent({
           className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)]/50 focus:outline-none"
         />
 
-        {/* Import button */}
-        <button
-          onClick={() => { setShowImport(true); setParsedItems(null); setImportText(''); setImportError(null) }}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 py-2 text-xs text-[var(--text-muted)] transition-colors hover:border-[#f97316]/40 hover:text-[var(--text-secondary)]"
-        >
-          <FileText size={12} />
-          Importar lista desde texto
-        </button>
+        {/* Extra actions */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setShowScanner(true)}
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/15 py-2 text-xs text-[var(--text-muted)] transition-colors hover:border-[#f97316]/40 hover:text-[var(--text-secondary)]"
+          >
+            <ScanLine size={12} />
+            Escanear código
+          </button>
+          <button
+            onClick={() => { setShowImport(true); setParsedItems(null); setImportText(''); setImportError(null) }}
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/15 py-2 text-xs text-[var(--text-muted)] transition-colors hover:border-[#f97316]/40 hover:text-[var(--text-secondary)]"
+          >
+            <FileText size={12} />
+            Importar texto
+          </button>
+        </div>
       </div>
 
       {/* Items by category */}
@@ -275,6 +296,16 @@ export function ShoppingListComponent({
           )}
         </div>
       )}
+
+      {/* Barcode scanner modal */}
+      <AnimatePresence>
+        {showScanner && (
+          <BarcodeScanner
+            onAddToList={handleScanToList}
+            onClose={() => setShowScanner(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Import modal */}
       {showImport && (

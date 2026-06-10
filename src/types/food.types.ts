@@ -83,3 +83,20 @@ export interface DailyNutritionSummary {
   goal_calories: number | null
   goal_protein_g: number | null
 }
+
+export interface ProductScanResult {
+  code: string
+  name: string | null
+  brand: string | null
+  quantity: string | null
+  image_url: string | null
+  calories_per_100g: number | null
+  protein_per_100g: number | null
+  carbs_per_100g: number | null
+  fat_per_100g: number | null
+  serving_size: string | null
+  calories_per_serving: number | null
+  protein_per_serving: number | null
+  carbs_per_serving: number | null
+  fat_per_serving: number | null
+}

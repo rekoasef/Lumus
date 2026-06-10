@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
+import { X, ScanLine } from 'lucide-react'
 import { createMealLogSchema, type CreateMealLogInput } from '@/lib/validations/food'
-import type { Recipe, MealType } from '@/types/food.types'
+import type { Recipe, MealType, ProductScanResult } from '@/types/food.types'
+import { BarcodeScanner } from './barcode-scanner'
 
 const MEAL_TYPES: { value: MealType; label: string }[] = [
   { value: 'desayuno', label: 'Desayuno' },
@@ -25,6 +27,7 @@ interface MealLogFormProps {
 export function MealLogForm({ date, defaultMealType = 'almuerzo', recipes, onSave, onClose }: MealLogFormProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [useRecipe, setUseRecipe] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<CreateMealLogInput>({
     resolver: zodResolver(createMealLogSchema),
@@ -32,6 +35,15 @@ export function MealLogForm({ date, defaultMealType = 'almuerzo', recipes, onSav
   })
 
   const selectedRecipeId = watch('recipe_id')
+
+  function handleScanToMeal(product: ProductScanResult) {
+    const name = product.name || (product.brand ? `Producto ${product.brand}` : `Código ${product.code}`)
+    setValue('name', name)
+    if (product.calories_per_100g !== null) {
+      setValue('calories', Math.round(product.calories_per_100g))
+    }
+    setShowScanner(false)
+  }
 
   function handleRecipeChange(id: string) {
     setValue('recipe_id', id || null)
@@ -50,6 +62,15 @@ export function MealLogForm({ date, defaultMealType = 'almuerzo', recipes, onSav
   }
 
   return (
+    <>
+    <AnimatePresence>
+      {showScanner && (
+        <BarcodeScanner
+          onAddToMealLog={handleScanToMeal}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
+    </AnimatePresence>
     <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={onClose} />
 
@@ -120,7 +141,20 @@ export function MealLogForm({ date, defaultMealType = 'almuerzo', recipes, onSav
           )}
 
           <div>
-            <label className="mb-1.5 block text-xs text-[var(--text-muted)]">Nombre {!useRecipe && '*'}</label>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-xs text-[var(--text-muted)]">Nombre {!useRecipe && '*'}</label>
+              {!useRecipe && (
+                <button
+                  type="button"
+                  onClick={() => setShowScanner(true)}
+                  className="flex items-center gap-1 rounded-lg px-2 py-0.5 text-[0.7rem] font-medium transition-colors hover:bg-white/10"
+                  style={{ color: '#f97316' }}
+                >
+                  <ScanLine size={11} />
+                  Escanear código
+                </button>
+              )}
+            </div>
             <input
               {...register('name')}
               placeholder="¿Qué comiste?"
@@ -168,5 +202,6 @@ export function MealLogForm({ date, defaultMealType = 'almuerzo', recipes, onSav
         </form>
       </div>
     </div>
+    </>
   )
 }
