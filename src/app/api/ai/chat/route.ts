@@ -11,7 +11,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 const bodySchema = z.object({
   message: z.string().min(1).max(2000),
-  module: z.enum(['organizacion', 'finanzas', 'comidas', 'fit', 'habitos', 'journal', 'relaciones', 'estudio', 'general']),
+  module: z.enum(['finanzas', 'general']),
   conversationHistory: z.array(z.object({
     role: z.enum(['user', 'assistant']),
     content: z.string(),
@@ -21,22 +21,6 @@ const bodySchema = z.object({
 })
 
 // ── Tools disponibles ─────────────────────────────────────────────────────────
-
-const AGENDAR_TAREA_TOOL: Anthropic.Tool = {
-  name: 'agendar_tarea',
-  description: 'Crea una nueva tarea, reunión o evento en la agenda del usuario. Úsalo cuando el usuario pida agendar, crear, recordar o anotar cualquier tarea o compromiso.',
-  input_schema: {
-    type: 'object' as const,
-    properties: {
-      titulo: { type: 'string', description: 'Título de la tarea o evento' },
-      fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD. Calculá la fecha real: hoy es la fecha actual del sistema.' },
-      hora_inicio: { type: 'string', description: 'Hora de inicio en formato HH:MM, opcional' },
-      duracion_minutos: { type: 'number', description: 'Duración en minutos, opcional' },
-      prioridad: { type: 'string', enum: ['alta', 'media', 'baja'] },
-    },
-    required: ['titulo'],
-  },
-}
 
 const REGISTRAR_GASTO_TOOL: Anthropic.Tool = {
   name: 'registrar_gasto',
@@ -53,43 +37,9 @@ const REGISTRAR_GASTO_TOOL: Anthropic.Tool = {
   },
 }
 
-const AGENT_TOOLS = [AGENDAR_TAREA_TOOL, REGISTRAR_GASTO_TOOL]
+const AGENT_TOOLS = [REGISTRAR_GASTO_TOOL]
 
 // ── Ejecutores de tools ───────────────────────────────────────────────────────
-
-async function ejecutarAgendarTarea(
-  input: { titulo: string; fecha?: string; hora_inicio?: string; duracion_minutos?: number; prioridad?: string },
-  supabase: SupabaseClient,
-  userId: string
-): Promise<{ result: string; action?: AIAction }> {
-  const today = new Date().toISOString().slice(0, 10)
-
-  const { data, error } = await supabase
-    .from('tasks')
-    .insert({
-      user_id: userId,
-      title: input.titulo,
-      priority: (input.prioridad as 'alta' | 'media' | 'baja') ?? 'media',
-      due_date: input.fecha ?? today,
-      start_time: input.hora_inicio ?? null,
-      duration_minutes: input.duracion_minutos ?? null,
-      deleted_at: null,
-    })
-    .select('id, title, due_date, start_time')
-    .single()
-
-  if (error) return { result: `Error al crear la tarea: ${error.message}` }
-
-  const details = [
-    data.due_date && `📅 ${data.due_date}`,
-    data.start_time && `🕐 ${data.start_time}`,
-  ].filter(Boolean).join(' · ')
-
-  return {
-    result: `Tarea "${data.title}" creada${details ? ` (${details})` : ''}.`,
-    action: { type: 'task_created', title: data.title, details: details || 'Sin fecha' },
-  }
-}
 
 async function ejecutarRegistrarGasto(
   input: { descripcion: string; monto: number; tipo: 'gasto' | 'ingreso'; fecha?: string },
@@ -196,7 +146,7 @@ IMPORTANTE — modo voz:
     systemPrompt += `\n\nINFORMACIÓN EN TIEMPO REAL (obtenida ahora mismo de internet):\n${webContext.content}\n\nUsá esta información para responder con datos precisos y actuales.`
   }
 
-  systemPrompt += `\n\nFECHA DE HOY: ${today}\n\nSOS UN AGENTE ACTIVO: podés crear tareas y registrar gastos directamente. Si el usuario pide agendar algo o registrar un gasto/ingreso, usá las herramientas disponibles sin pedir confirmación — solo actuá y confirmá con una frase natural.`
+  systemPrompt += `\n\nFECHA DE HOY: ${today}\n\nSOS UN AGENTE FINANCIERO ACTIVO: podés registrar gastos e ingresos directamente. Si el usuario pide registrar un gasto o ingreso, usá la herramienta disponible sin pedir confirmación — solo actuá y confirmá con una frase natural. No crees tareas ni acciones fuera de finanzas.`
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -226,15 +176,7 @@ IMPORTANTE — modo voz:
       toolBlocks.map(async (block) => {
         let resultText: string
 
-        if (block.name === 'agendar_tarea') {
-          const { result, action } = await ejecutarAgendarTarea(
-            block.input as Parameters<typeof ejecutarAgendarTarea>[0],
-            supabase,
-            user.id
-          )
-          resultText = result
-          if (action) actions.push(action)
-        } else if (block.name === 'registrar_gasto') {
+        if (block.name === 'registrar_gasto') {
           const { result, action } = await ejecutarRegistrarGasto(
             block.input as Parameters<typeof ejecutarRegistrarGasto>[0],
             supabase,

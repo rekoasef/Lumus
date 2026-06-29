@@ -2,56 +2,30 @@ export interface UserSnapshot {
   perfil: {
     nombre: string
     edad: number
-    peso_kg: number | null
-    altura_cm: number | null
     ocupacion: string | null
+    ingreso_mensual: number | null
     resumen_vida: string
   }
   semana: string
-  organizacion: {
-    tareas_pendientes: number
-    tareas_completadas_semana: number
-    tareas_vencidas: number
-    proximas_tareas: string[]
-  }
   finanzas: {
+    saldo_ars: number
+    billeteras: Array<{ nombre: string; saldo: number; moneda: string }>
     gastado_mes: number
     ingresado_mes: number
+    balance_mes: number
     presupuesto_mes: number
+    presupuesto_usado_pct: number
     categoria_top_gasto: string
     dias_para_fin_mes: number
-    total_suscripciones_mes: number
+    total_recurrentes_mes: number
+    proximos_recurrentes: Array<{ nombre: string; monto: number; tipo: 'gasto' | 'ingreso'; fecha: string }>
     metas_activas: Array<{ nombre: string; progreso_pct: number }>
   }
-  comidas: {
-    calorias_hoy: number
-    comidas_registradas_hoy: number
-    recetas_guardadas: number
-    items_lista_super: number
-  }
-  fit: {
-    peso_actual: number | null
-    tendencia_peso: string
-    entrenos_semana: number
-    agua_hoy_ml: number
-    sueno_anoche_h: number | null
-    rutinas_guardadas: number
-  }
-  habitos: {
-    gym: string
-    agua: string
-    sueno_promedio: number
-  }
-  salud: {
-    ultimo_peso: number | null
-    tendencia_peso: string
-  }
-  mood_semana: number
   objetivos_activos: string[]
 }
 
 export interface AIAction {
-  type: 'task_created' | 'transaction_created'
+  type: 'transaction_created'
   title: string
   details: string
 }
@@ -64,14 +38,7 @@ export interface AIMessage {
 }
 
 export type AIModule =
-  | 'organizacion'
   | 'finanzas'
-  | 'comidas'
-  | 'fit'
-  | 'habitos'
-  | 'journal'
-  | 'relaciones'
-  | 'estudio'
   | 'general'
 
 export type AITask =

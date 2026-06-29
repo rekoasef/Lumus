@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { FinanzasDashboard } from '@/components/modules/finanzas/finanzas-dashboard'
-import type { Wallet, FinanceCategory, Transaction, Budget, Subscription, SavingGoal, RecurringTransaction } from '@/types/finance.types'
+import type { Wallet, FinanceCategory, Transaction, Budget, SavingGoal, RecurringTransaction } from '@/types/finance.types'
 
 export default async function FinanzasPage() {
   const supabase = await createClient()
@@ -17,7 +17,7 @@ export default async function FinanzasPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
 
-  const [walletsRes, categoriesRes, transactionsRes, budgetsRes, subscriptionsRes, goalsRes, recurringRes] = await Promise.all([
+  const [walletsRes, categoriesRes, transactionsRes, budgetsRes, goalsRes, recurringRes] = await Promise.all([
     supabase
       .from('wallets')
       .select('id, name, type, balance, currency, color, icon, created_at, updated_at')
@@ -49,12 +49,6 @@ export default async function FinanzasPage() {
       .eq('month', month)
       .eq('year', year)
       .order('created_at', { ascending: true }),
-    supabase
-      .from('subscriptions')
-      .select('id, name, amount, currency, billing_cycle, next_billing, active, icon, wallet_id, created_at, updated_at')
-      .eq('user_id', user.id)
-      .order('active', { ascending: false })
-      .order('name', { ascending: true }),
     supabase
       .from('saving_goals')
       .select('id, name, target_amount, current_amount, target_date, achieved, icon, wallet_id, created_at, updated_at')
@@ -99,7 +93,6 @@ export default async function FinanzasPage() {
     spent: spentByCategory[b.category_id] ?? 0,
   })) as Budget[]
 
-  const subscriptions = (subscriptionsRes.data ?? []) as Subscription[]
   const goals = (goalsRes.data ?? []) as SavingGoal[]
 
   return (
@@ -108,7 +101,6 @@ export default async function FinanzasPage() {
       initialCategories={categories}
       initialTransactions={transactions}
       initialBudgets={budgets}
-      initialSubscriptions={subscriptions}
       initialGoals={goals}
       initialRecurring={recurring}
     />

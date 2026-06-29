@@ -4,15 +4,9 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
+  BarChart2,
   LayoutDashboard,
-  CheckSquare,
   Wallet,
-  Utensils,
-  Activity,
-  Repeat2,
-  BookOpen,
-  Users,
-  GraduationCap,
   UserCircle,
   LogOut,
   Mic,
@@ -22,15 +16,9 @@ import { VoiceModal } from '@/components/lumus/voice-modal'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',    label: 'Inicio',       icon: LayoutDashboard },
-  { href: '/organizacion', label: 'Organización', icon: CheckSquare },
-  { href: '/finanzas',     label: 'Finanzas',     icon: Wallet },
-  { href: '/comidas',      label: 'Comidas',      icon: Utensils },
-  { href: '/fit',          label: 'Fit',          icon: Activity },
-  { href: '/habitos',      label: 'Hábitos',      icon: Repeat2 },
-  { href: '/journal',      label: 'Journal',      icon: BookOpen },
-  { href: '/relaciones',   label: 'Relaciones',   icon: Users },
-  { href: '/estudio',      label: 'Estudio',      icon: GraduationCap },
+  { href: '/dashboard',          label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/finanzas',           label: 'Gastos',    icon: Wallet },
+  { href: '/finanzas/reportes',  label: 'Reportes',  icon: BarChart2 },
 ]
 
 function isActive(pathname: string, href: string) {
@@ -129,7 +117,7 @@ export function TopNav() {
             onMouseLeave={e => (e.currentTarget.style.border = '1px solid transparent')}
           >
             <Mic size={15} />
-            <span className="hidden xl:block text-[0.72rem] font-medium">Voz</span>
+            <span className="hidden xl:block text-[0.72rem] font-medium">Voz financiera</span>
           </button>
           <div className="h-5 w-px bg-white/10" />
           <Link

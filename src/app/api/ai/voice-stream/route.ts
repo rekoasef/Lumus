@@ -27,22 +27,6 @@ const WEB_SEARCH_TOOL: Anthropic.Tool = {
   },
 }
 
-const AGENDAR_TAREA_TOOL: Anthropic.Tool = {
-  name: 'agendar_tarea',
-  description: 'Crea una nueva tarea, reunión o evento en la agenda del usuario. Úsalo cuando el usuario pida agendar, crear o recordar cualquier tarea o compromiso.',
-  input_schema: {
-    type: 'object' as const,
-    properties: {
-      titulo: { type: 'string' },
-      fecha: { type: 'string', description: 'Formato YYYY-MM-DD. Calculá la fecha real.' },
-      hora_inicio: { type: 'string', description: 'Formato HH:MM, opcional' },
-      duracion_minutos: { type: 'number', description: 'Duración en minutos, opcional' },
-      prioridad: { type: 'string', enum: ['alta', 'media', 'baja'] },
-    },
-    required: ['titulo'],
-  },
-}
-
 const REGISTRAR_GASTO_TOOL: Anthropic.Tool = {
   name: 'registrar_gasto',
   description: 'Registra un gasto o ingreso en las finanzas del usuario.',
@@ -124,7 +108,7 @@ MODO VOZ — reglas estrictas:
 - CRÍTICO: respondé SIEMPRE en español rioplatense. Jamás en inglés ni otro idioma.
 - CRÍTICO: si no sabés algo con certeza (clima, partidos, noticias, precios), usá la herramienta buscar_web. NUNCA inventes datos reales — es preferible buscar que dar información falsa.
 - FECHA DE HOY: ${today}
-- SOS UN AGENTE ACTIVO: si el usuario pide agendar algo o registrar un gasto, usá las herramientas agendar_tarea o registrar_gasto. Actuá directamente y confirmá en una oración corta.`
+- SOS UN AGENTE FINANCIERO ACTIVO: si el usuario pide registrar un gasto o ingreso, usá la herramienta registrar_gasto. Actuá directamente y confirmá en una oración corta. No crees tareas ni acciones fuera de finanzas.`
 
   const encoder = new TextEncoder()
 
@@ -144,7 +128,7 @@ MODO VOZ — reglas estrictas:
         const firstResponse = await anthropic.messages.create({
           model: 'claude-sonnet-4-5',
           max_tokens: 300,
-          tools: [WEB_SEARCH_TOOL, AGENDAR_TAREA_TOOL, REGISTRAR_GASTO_TOOL],
+          tools: [WEB_SEARCH_TOOL, REGISTRAR_GASTO_TOOL],
           tool_choice: { type: 'auto' },
           system: systemPrompt,
           messages,
@@ -162,18 +146,6 @@ MODO VOZ — reglas estrictas:
               if (b.name === 'buscar_web') {
                 const input = b.input as { query: string }
                 content = await tavilySearch(input.query)
-              } else if (b.name === 'agendar_tarea') {
-                const input = b.input as { titulo: string; fecha?: string; hora_inicio?: string; duracion_minutos?: number; prioridad?: string }
-                const { data, error } = await supabase.from('tasks').insert({
-                  user_id: user.id,
-                  title: input.titulo,
-                  priority: (input.prioridad as 'alta' | 'media' | 'baja') ?? 'media',
-                  due_date: input.fecha ?? today,
-                  start_time: input.hora_inicio ?? null,
-                  duration_minutes: input.duracion_minutos ?? null,
-                  deleted_at: null,
-                }).select('title, due_date, start_time').single()
-                content = error ? `Error: ${error.message}` : `Tarea "${data.title}" agendada${data.due_date ? ` para ${data.due_date}` : ''}${data.start_time ? ` a las ${data.start_time}` : ''}.`
               } else if (b.name === 'registrar_gasto') {
                 const input = b.input as { descripcion: string; monto: number; tipo: 'gasto' | 'ingreso'; fecha?: string }
                 const { data: wallet } = await supabase.from('wallets').select('id, name').eq('user_id', user.id).is('deleted_at', null).order('created_at', { ascending: true }).limit(1).single()

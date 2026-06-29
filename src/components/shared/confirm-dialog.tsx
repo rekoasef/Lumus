@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Trash2, LogOut, X } from 'lucide-react'
 
@@ -56,10 +56,17 @@ export function ConfirmDialogProvider() {
   const [state, setConfirm] = useState<ConfirmState | null>(null)
   const resolveRef = useRef<((v: boolean) => void) | null>(null)
 
-  _setConfirm = useCallback((s: ConfirmState | null) => {
+  const showConfirm = useCallback((s: ConfirmState | null) => {
     if (s) resolveRef.current = s.resolve
     setConfirm(s)
   }, [])
+
+  useEffect(() => {
+    _setConfirm = showConfirm
+    return () => {
+      if (_setConfirm === showConfirm) _setConfirm = null
+    }
+  }, [showConfirm])
 
   function handleAnswer(value: boolean) {
     resolveRef.current?.(value)

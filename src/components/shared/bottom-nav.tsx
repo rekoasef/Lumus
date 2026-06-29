@@ -2,14 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, CheckSquare, Wallet, Utensils, MoreHorizontal } from 'lucide-react'
+import { BarChart2, LayoutDashboard, Wallet, UserCircle } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',    label: 'Inicio',       icon: LayoutDashboard },
-  { href: '/organizacion', label: 'Tareas',       icon: CheckSquare },
-  { href: '/finanzas',     label: 'Finanzas',     icon: Wallet },
-  { href: '/comidas',      label: 'Comidas',      icon: Utensils },
-  { href: '/perfil',       label: 'Más',          icon: MoreHorizontal },
+  { href: '/dashboard',         label: 'Panel',    icon: LayoutDashboard },
+  { href: '/finanzas',          label: 'Gastos',   icon: Wallet },
+  { href: '/finanzas/reportes', label: 'Reportes', icon: BarChart2 },
+  { href: '/perfil',            label: 'Perfil',   icon: UserCircle },
 ]
 
 export function BottomNav() {

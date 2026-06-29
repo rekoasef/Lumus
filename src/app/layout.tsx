@@ -20,8 +20,8 @@ const hankenGrotesk = Hanken_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: 'Lumus — Tu Sistema Operativo Personal',
-  description: 'Lumus centraliza tu organización, finanzas, salud, hábitos y más con IA contextual integrada.',
+  title: 'Lumus — Gestora de gastos',
+  description: 'Lumus centraliza gastos, ingresos, presupuestos, pagos fijos, metas de ahorro y cotizaciones.',
 }
 
 export default function RootLayout({

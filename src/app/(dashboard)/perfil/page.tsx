@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { Activity, BadgeDollarSign, GraduationCap, Ruler, Scale, User } from 'lucide-react'
+import { Activity, BadgeDollarSign, CalendarDays, User } from 'lucide-react'
 
 export default async function PerfilPage() {
   const supabase = await createClient()
@@ -9,7 +9,7 @@ export default async function PerfilPage() {
 
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('name, occupation, education, weight_kg, height_cm, monthly_salary, birth_date')
+    .select('name, occupation, monthly_salary, birth_date')
     .eq('user_id', user.id)
     .single()
 
@@ -22,9 +22,7 @@ export default async function PerfilPage() {
   const profileItems = [
     { label: 'Nombre', value: profile?.name, icon: User },
     { label: 'Ocupación', value: profile?.occupation, icon: Activity },
-    { label: 'Estudios', value: profile?.education, icon: GraduationCap },
-    { label: 'Peso', value: profile?.weight_kg ? `${profile.weight_kg} kg` : null, icon: Scale },
-    { label: 'Altura', value: profile?.height_cm ? `${profile.height_cm} cm` : null, icon: Ruler },
+    { label: 'Nacimiento', value: profile?.birth_date ? new Date(`${profile.birth_date}T12:00:00`).toLocaleDateString('es-AR') : null, icon: CalendarDays },
     { label: 'Ingreso', value: profile?.monthly_salary ? `$${profile.monthly_salary.toLocaleString('es-AR')}` : null, icon: BadgeDollarSign },
   ]
 
@@ -34,7 +32,7 @@ export default async function PerfilPage() {
         <header className="mb-9">
           <p className="lumus-label text-[#cfc6ff]">Perfil</p>
           <h1 className="lumus-heading mt-4 text-4xl font-bold text-[var(--text-primary)] md:text-5xl">
-            Información personal
+            Perfil financiero
           </h1>
           <p className="mt-4 text-base text-[var(--text-secondary)]">{user.email}</p>
         </header>
@@ -50,9 +48,9 @@ export default async function PerfilPage() {
         </section>
 
         <section className="lumus-glass mt-7 rounded-3xl p-8">
-          <p className="lumus-label text-[#ffb86e]">Resumen de vida</p>
+          <p className="lumus-label text-[#ffb86e]">Contexto financiero</p>
           <p className="mt-6 whitespace-pre-wrap text-base leading-8 text-[var(--text-secondary)]">
-            {summary?.content ?? 'Todavía no hay contexto personal archivado.'}
+            {summary?.content ?? 'Todavía no hay contexto financiero archivado.'}
           </p>
         </section>
       </div>

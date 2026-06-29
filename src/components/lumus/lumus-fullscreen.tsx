@@ -8,10 +8,10 @@ import { useVoiceLumus } from '@/hooks/use-voice-lumus'
 import type { OrbState } from './lumus-orb'
 
 const SUGGESTIONS = [
-  '¿Cómo fue mi día?',
-  'Revisa mi agenda',
-  'Necesito enfocarme',
-  '¿Cómo estoy durmiendo?',
+  '¿Cuánto gasté este mes?',
+  'Registrá un gasto',
+  '¿Dónde estoy gastando de más?',
+  '¿Puedo ahorrar más?',
 ]
 
 const WAVE = [3, 6, 4, 9, 5, 8, 3]
@@ -21,7 +21,7 @@ interface LumusFullscreenProps {
 }
 
 export function LumusFullscreen({ onClose }: LumusFullscreenProps) {
-  const { voiceState, transcript, spokenText, isSupported, start, stop, sendMessage } = useVoiceLumus()
+  const { voiceState, transcript, spokenText, start, stop, sendMessage } = useVoiceLumus()
 
   const orbState: OrbState =
     voiceState === 'listening'  ? 'listening'  :
@@ -217,8 +217,8 @@ export function LumusFullscreen({ onClose }: LumusFullscreenProps) {
                   Estoy aquí,<br />¿qué necesitás?
                 </h1>
                 <p className="mt-4 text-[1.05rem] leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  Podés hablar conmigo sobre cualquier<br />
-                  área de tu vida. Estoy aquí para ayudarte.
+                  Podés hablar conmigo sobre gastos,<br />
+                  ingresos, pagos fijos y ahorro.
                 </p>
               </motion.div>
             )}

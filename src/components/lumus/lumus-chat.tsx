@@ -234,19 +234,13 @@ export function LumusChat({ module, moduleLabel, suggestions, onClose }: LumusCh
                         key={ai}
                         className="flex items-start gap-2 rounded-xl px-3 py-2"
                         style={{
-                          background: action.type === 'task_created'
-                            ? 'rgba(124,109,250,0.1)'
-                            : 'rgba(34,197,94,0.08)',
-                          border: action.type === 'task_created'
-                            ? '1px solid rgba(124,109,250,0.2)'
-                            : '1px solid rgba(34,197,94,0.15)',
+                          background: 'rgba(34,197,94,0.08)',
+                          border: '1px solid rgba(34,197,94,0.15)',
                         }}
                       >
-                        <span className="mt-0.5 text-[11px]">
-                          {action.type === 'task_created' ? '📅' : '💰'}
-                        </span>
+                        <span className="mt-0.5 text-[11px]">💰</span>
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold" style={{ color: action.type === 'task_created' ? '#bdb4ff' : '#4ade80' }}>
+                          <p className="text-xs font-semibold" style={{ color: '#4ade80' }}>
                             {action.title}
                           </p>
                           {action.details && (

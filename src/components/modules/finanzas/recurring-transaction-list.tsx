@@ -16,6 +16,12 @@ const REPEAT_LABELS: Record<string, string> = {
   daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual',
 }
 
+function monthlyEquivalent(r: RecurringTransaction) {
+  if (r.repeat_type === 'daily') return r.amount * 30
+  if (r.repeat_type === 'weekly') return r.amount * (52 / 12)
+  return r.amount
+}
+
 function fmt(n: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(n)
 }
@@ -81,6 +87,17 @@ export function RecurringTransactionList({
 
   const active   = recurring.filter(r => r.active)
   const inactive = recurring.filter(r => !r.active)
+  const activeExpenses = active.filter(r => r.type === 'gasto')
+  const activeIncome = active.filter(r => r.type === 'ingreso')
+  const monthlyExpenses = activeExpenses.reduce((sum, r) => sum + monthlyEquivalent(r), 0)
+  const monthlyIncome = activeIncome.reduce((sum, r) => sum + monthlyEquivalent(r), 0)
+  const dueSoonCount = active.filter(r => {
+    const next = new Date(r.next_date + 'T12:00:00')
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const diff = Math.round((next.getTime() - today.getTime()) / 86400000)
+    return diff <= 7
+  }).length
 
   return (
     <div>
@@ -88,10 +105,10 @@ export function RecurringTransactionList({
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h2 className="lumus-heading text-xl font-semibold text-[var(--text-primary)]">
-            Recurrentes
+            Fijos y recurrentes
           </h2>
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-            Sueldo, alquiler, servicios fijos
+            Sueldo, alquiler, servicios, cuotas y suscripciones
           </p>
         </div>
         <button
@@ -104,6 +121,23 @@ export function RecurringTransactionList({
         </button>
       </div>
 
+      {recurring.length > 0 && (
+        <div className="mb-5 grid grid-cols-3 gap-2">
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+            <p className="text-[0.58rem] uppercase tracking-wider text-[var(--text-muted)]">Gastos fijos</p>
+            <p className="mt-1 text-sm font-bold text-[var(--danger)]">{fmt(monthlyExpenses)}</p>
+          </div>
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+            <p className="text-[0.58rem] uppercase tracking-wider text-[var(--text-muted)]">Ingresos fijos</p>
+            <p className="mt-1 text-sm font-bold text-[var(--success)]">{fmt(monthlyIncome)}</p>
+          </div>
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+            <p className="text-[0.58rem] uppercase tracking-wider text-[var(--text-muted)]">Próximos</p>
+            <p className="mt-1 text-sm font-bold text-[var(--text-primary)]">{dueSoonCount}</p>
+          </div>
+        </div>
+      )}
+
       {wallets.length === 0 && (
         <div className="rounded-xl border border-dashed border-white/10 py-10 text-center">
           <p className="text-sm text-[var(--text-muted)]">Primero creá una billetera.</p>
@@ -113,7 +147,7 @@ export function RecurringTransactionList({
       {wallets.length > 0 && recurring.length === 0 && (
         <div className="rounded-2xl border border-dashed border-white/10 py-16 text-center">
           <Repeat size={32} className="mx-auto mb-3 text-[var(--text-muted)]/40" />
-          <p className="text-sm font-medium text-[var(--text-muted)]">Sin recurrentes todavía</p>
+          <p className="text-sm font-medium text-[var(--text-muted)]">Sin pagos fijos todavía</p>
           <p className="mt-1 text-xs text-[var(--text-muted)]/60">
             Creá tu sueldo, alquiler o cualquier movimiento que se repite
           </p>

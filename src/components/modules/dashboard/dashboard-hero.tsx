@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { LumusOrb } from '@/components/lumus/lumus-orb'
 import { LumusFullscreen } from '@/components/lumus/lumus-fullscreen'
@@ -21,12 +21,8 @@ function getGreeting(): string {
 }
 
 export function DashboardHero({ firstName, date }: DashboardHeroProps) {
-  const [greeting, setGreeting] = useState('')
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
-
-  useEffect(() => {
-    setGreeting(getGreeting())
-  }, [])
+  const greeting = getGreeting()
 
   return (
     <>
@@ -97,11 +93,11 @@ export function DashboardHero({ firstName, date }: DashboardHeroProps) {
 
               <div className="text-center">
                 <p className="text-[0.55rem] uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                  Sistema activo
+                  Control financiero
                 </p>
                 <div className="mt-1 flex items-center justify-center gap-1.5">
                   <span className="size-1.5 rounded-full bg-[#22c55e] shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
-                  <span className="text-xs text-[#22c55e]">Lumus online</span>
+                  <span className="text-xs text-[#22c55e]">Lumus finanzas</span>
                 </div>
               </div>
             </div>
@@ -116,6 +112,9 @@ export function DashboardHero({ firstName, date }: DashboardHeroProps) {
                   {greeting},{' '}
                   <span style={{ color: '#bdb4ff' }}>{firstName}</span>
                 </h1>
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                  Gastos, saldos, clima y cotizaciones en un solo panel.
+                </p>
               </div>
 
               <LiveClock />

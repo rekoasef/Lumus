@@ -105,32 +105,32 @@ function buildGreeting(firstName: string, weather: WeatherSnap | null): string {
   const hour = new Date().getHours()
 
   if (!weather) {
-    if (hour < 12) return `Buenos días, ${firstName}. Bienvenido de nuevo a Lumus.`
-    if (hour < 18) return `Buenas tardes, ${firstName}. ¿Cómo va el día?`
-    return `Buenas noches, ${firstName}. Un día más con Lumus.`
+    if (hour < 12) return `Buenos días, ${firstName}. Revisemos tus gastos antes de arrancar.`
+    if (hour < 18) return `Buenas tardes, ${firstName}. Buen momento para mirar cómo viene el mes.`
+    return `Buenas noches, ${firstName}. Cerrá el día con tus finanzas claras.`
   }
 
   const { condition, temp, city } = weather
 
   if (hour < 12) {
-    if (condition === 'sunny') return `Buenos días, ${firstName}. ${temp}° y soleado en ${city}. Buen día para arrancar con energía.`
-    if (condition === 'rainy' || condition === 'drizzle') return `Buenos días, ${firstName}. Llueve con ${temp}° en ${city}. Perfecto para enfocarse adentro.`
-    if (condition === 'stormy') return `Buenos días, ${firstName}. Tormenta en ${city} con ${temp}°. Cuidado si salís hoy.`
+    if (condition === 'sunny') return `Buenos días, ${firstName}. ${temp}° y sol en ${city}. Revisemos el presupuesto del día.`
+    if (condition === 'rainy' || condition === 'drizzle') return `Buenos días, ${firstName}. Llueve con ${temp}° en ${city}. Buen momento para ordenar gastos.`
+    if (condition === 'stormy') return `Buenos días, ${firstName}. Tormenta en ${city} con ${temp}°. Cuidá también los gastos de salida.`
     if (condition === 'snowy') return `Buenos días, ${firstName}. ${temp}° y nevada en ${city}. Abrigáte bien.`
-    if (condition === 'partly-cloudy') return `Buenos días, ${firstName}. ${temp}° y parcialmente nublado en ${city}. ¿Qué vas a lograr hoy?`
-    return `Buenos días, ${firstName}. ${temp}° en ${city} hoy. ¿Qué vas a lograr?`
+    if (condition === 'partly-cloudy') return `Buenos días, ${firstName}. ${temp}° y parcialmente nublado en ${city}. Veamos cómo viene tu mes.`
+    return `Buenos días, ${firstName}. ${temp}° en ${city}. Veamos cómo vienen tus finanzas.`
   }
 
   if (hour < 18) {
-    if (condition === 'sunny') return `Buenas tardes, ${firstName}. ${temp}° y sol en ${city}. ¿Cómo va el día?`
-    if (condition === 'rainy' || condition === 'drizzle') return `Buenas tardes, ${firstName}. ${temp}° y lluvia en ${city}. ¿Cómo sigue el día?`
-    if (condition === 'stormy') return `Buenas tardes, ${firstName}. Tormenta con ${temp}° en ${city}. Quedáte al tanto.`
-    return `Buenas tardes, ${firstName}. ${temp}° en ${city}. ¿Cómo va el día?`
+    if (condition === 'sunny') return `Buenas tardes, ${firstName}. ${temp}° y sol en ${city}. Revisemos si el gasto sigue en rango.`
+    if (condition === 'rainy' || condition === 'drizzle') return `Buenas tardes, ${firstName}. ${temp}° y lluvia en ${city}. Ideal para ordenar movimientos.`
+    if (condition === 'stormy') return `Buenas tardes, ${firstName}. Tormenta con ${temp}° en ${city}. Quedáte al tanto de tus pagos fijos.`
+    return `Buenas tardes, ${firstName}. ${temp}° en ${city}. Veamos el pulso del mes.`
   }
 
-  if (condition === 'sunny') return `Buenas noches, ${firstName}. ${temp}° en ${city}. Cerrando el día con buena energía.`
-  if (condition === 'rainy' || condition === 'drizzle' || condition === 'stormy') return `Buenas noches, ${firstName}. Llueve afuera con ${temp}° en ${city}. Tiempo de cerrar el día.`
-  return `Buenas noches, ${firstName}. ${temp}° afuera en ${city}. Tiempo de cerrar el día.`
+  if (condition === 'sunny') return `Buenas noches, ${firstName}. ${temp}° en ${city}. Buen momento para cerrar gastos.`
+  if (condition === 'rainy' || condition === 'drizzle' || condition === 'stormy') return `Buenas noches, ${firstName}. Llueve afuera con ${temp}° en ${city}. Cerremos el día financiero.`
+  return `Buenas noches, ${firstName}. ${temp}° afuera en ${city}. Cerremos el día financiero.`
 }
 
 interface DailyGreetingProps {
@@ -280,8 +280,9 @@ export function DailyGreeting({ firstName }: DailyGreetingProps) {
 
   useEffect(() => {
     if (!visible) return
-    startDismissTimer()
+    const kickoffTimer = setTimeout(startDismissTimer, 0)
     return () => {
+      clearTimeout(kickoffTimer)
       if (timerRef.current) clearTimeout(timerRef.current)
       if (intervalRef.current) clearInterval(intervalRef.current)
     }

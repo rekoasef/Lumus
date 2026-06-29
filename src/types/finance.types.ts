@@ -1,7 +1,6 @@
 export type WalletType = 'efectivo' | 'banco' | 'virtual'
 export type TransactionType = 'gasto' | 'ingreso' | 'transferencia' | 'ajuste'
 export type CategoryType = 'gasto' | 'ingreso'
-export type BillingCycle = 'mensual' | 'anual' | 'semanal'
 
 export interface Wallet {
   id: string
@@ -54,22 +53,6 @@ export interface Budget {
   created_at: string
   category?: Pick<FinanceCategory, 'id' | 'name' | 'color' | 'icon'>
   spent?: number
-}
-
-export interface Subscription {
-  id: string
-  user_id: string
-  wallet_id: string | null
-  name: string
-  amount: number
-  currency: string
-  billing_cycle: BillingCycle
-  next_billing: string | null
-  active: boolean
-  variable: boolean
-  icon: string | null
-  created_at: string
-  updated_at: string
 }
 
 export interface SavingGoal {

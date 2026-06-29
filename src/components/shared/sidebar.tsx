@@ -4,30 +4,18 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
+  BarChart2,
   LayoutDashboard,
-  CheckSquare,
   Wallet,
-  Utensils,
-  Activity,
-  Repeat2,
-  BookOpen,
-  Users,
-  GraduationCap,
   UserCircle,
   LogOut,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',    label: 'Inicio',        icon: LayoutDashboard },
-  { href: '/organizacion', label: 'Organización',  icon: CheckSquare },
-  { href: '/finanzas',     label: 'Finanzas',      icon: Wallet },
-  { href: '/comidas',      label: 'Comidas',       icon: Utensils },
-  { href: '/fit',          label: 'Fit & Salud',   icon: Activity },
-  { href: '/habitos',      label: 'Hábitos',       icon: Repeat2 },
-  { href: '/journal',      label: 'Journal',       icon: BookOpen },
-  { href: '/relaciones',   label: 'Relaciones',    icon: Users },
-  { href: '/estudio',      label: 'Estudio',       icon: GraduationCap },
+  { href: '/dashboard',         label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/finanzas',          label: 'Gastos',    icon: Wallet },
+  { href: '/finanzas/reportes', label: 'Reportes',  icon: BarChart2 },
 ]
 
 const NAV_BOTTOM = [
@@ -72,7 +60,7 @@ export function Sidebar() {
           </div>
           <div>
             <p className="lumus-heading text-xl font-semibold text-[#cfc6ff]">Lumus</p>
-            <p className="mt-0.5 text-sm text-[var(--text-secondary)]">IA activa</p>
+            <p className="mt-0.5 text-sm text-[var(--text-secondary)]">Finanzas</p>
           </div>
         </div>
       )}

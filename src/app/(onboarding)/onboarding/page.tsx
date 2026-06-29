@@ -10,14 +10,11 @@ type Step = 1 | 2 | 3
 interface ProfileData {
   name: string
   birthDate: string
-  weightKg: string
-  heightCm: string
   occupation: string
-  education: string
   monthlySalary: string
 }
 
-const STEP_LABELS = ['Bienvenida', 'Perfil', 'Contexto']
+const STEP_LABELS = ['Bienvenida', 'Perfil', 'Finanzas']
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -26,10 +23,7 @@ export default function OnboardingPage() {
   const [profile, setProfile] = useState<ProfileData>({
     name: '',
     birthDate: '',
-    weightKg: '',
-    heightCm: '',
     occupation: '',
-    education: '',
     monthlySalary: '',
   })
   const [lifeSummary, setLifeSummary] = useState('')
@@ -52,10 +46,7 @@ export default function OnboardingPage() {
       user_id: user.id,
       name: profile.name,
       birth_date: profile.birthDate || null,
-      weight_kg: profile.weightKg ? parseFloat(profile.weightKg) : null,
-      height_cm: profile.heightCm ? parseFloat(profile.heightCm) : null,
       occupation: profile.occupation || null,
-      education: profile.education || null,
       monthly_salary: profile.monthlySalary ? parseFloat(profile.monthlySalary) : null,
       onboarding_done: true,
     })
@@ -113,15 +104,15 @@ export default function OnboardingPage() {
                 priority
               />
             </div>
-            <p className="lumus-label mb-4 text-[#cfc6ff]">Lumus OS</p>
+            <p className="lumus-label mb-4 text-[#cfc6ff]">Lumus Finanzas</p>
             <h1 className="lumus-heading mb-3 text-4xl font-bold text-[var(--text-primary)]">
-              Inicializa tu sistema personal
+              Inicializá tu gestora de gastos
             </h1>
             <p className="text-[var(--text-secondary)] leading-relaxed mb-2">
-              Una capa de organización para tareas, finanzas, salud, hábitos e inteligencia contextual.
+              Un panel enfocado en gastos, ingresos, presupuestos, pagos fijos, ahorro y cotizaciones.
             </p>
             <p className="mb-8 text-sm leading-relaxed text-[var(--text-secondary)]">
-              Estos datos ayudan a Lumus a calibrar el panel, tus rutinas y el contexto de IA.
+              Estos datos ayudan a Lumus a calibrar tus métricas financieras y el contexto de IA.
             </p>
             <button
               onClick={() => setStep(2)}
@@ -137,7 +128,7 @@ export default function OnboardingPage() {
         {step === 2 && (
           <div className="lumus-glass rounded-3xl p-6">
             <h2 className="lumus-heading mb-1 text-2xl font-semibold text-[var(--text-primary)]">Tu perfil</h2>
-            <p className="mb-6 text-sm text-[var(--text-secondary)]">Esta información ayuda a Lumus a personalizar tu experiencia.</p>
+            <p className="mb-6 text-sm text-[var(--text-secondary)]">Esta información ayuda a Lumus a personalizar tu panel financiero.</p>
 
             <div className="space-y-4">
               <div>
@@ -162,33 +153,6 @@ export default function OnboardingPage() {
                     type="date"
                     value={profile.birthDate}
                     onChange={e => handleProfileChange('birthDate', e.target.value)}
-                    className="w-full rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-3 text-sm text-[var(--text-primary)] transition-all focus:border-[var(--accent-lumus)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-lumus)]/30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-1.5">
-                    Peso (kg)
-                  </label>
-                  <input
-                    type="number"
-                    value={profile.weightKg}
-                    onChange={e => handleProfileChange('weightKg', e.target.value)}
-                    placeholder="75"
-                    className="w-full rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-all focus:border-[var(--accent-lumus)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-lumus)]/30"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-1.5">
-                    Altura (cm)
-                  </label>
-                  <input
-                    type="number"
-                    value={profile.heightCm}
-                    onChange={e => handleProfileChange('heightCm', e.target.value)}
-                    placeholder="175"
                     className="w-full rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-all focus:border-[var(--accent-lumus)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-lumus)]/30"
                   />
                 </div>
@@ -218,19 +182,6 @@ export default function OnboardingPage() {
                   className="w-full rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-all focus:border-[var(--accent-lumus)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-lumus)]/30"
                 />
               </div>
-
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-1.5">
-                  Estudios
-                </label>
-                <input
-                  type="text"
-                  value={profile.education}
-                  onChange={e => handleProfileChange('education', e.target.value)}
-                  placeholder="Universitario, bootcamp, autodidacta..."
-                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-all focus:border-[var(--accent-lumus)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-lumus)]/30"
-                />
-              </div>
             </div>
 
             <div className="flex gap-3 mt-6">
@@ -251,17 +202,17 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Paso 3 — Campo libre */}
+        {/* Paso 3 — Contexto financiero */}
         {step === 3 && (
           <div className="lumus-glass rounded-3xl p-6">
-            <h2 className="lumus-heading mb-1 text-2xl font-semibold text-[var(--text-primary)]">Contexto personal</h2>
+            <h2 className="lumus-heading mb-1 text-2xl font-semibold text-[var(--text-primary)]">Contexto financiero</h2>
             <p className="mb-4 text-sm text-[var(--text-secondary)]">
-              Es opcional, pero valioso. Cuanto más contexto tenga Lumus, mejor va a poder ayudarte.
+              Es opcional, pero valioso. Cuanto más contexto financiero tenga Lumus, mejores análisis puede darte.
             </p>
             <textarea
               value={lifeSummary}
               onChange={e => setLifeSummary(e.target.value)}
-              placeholder="Contale a Lumus tus objetivos, proyectos, rutinas, límites y lo que querés mejorar..."
+              placeholder="Contale a Lumus tus objetivos de ahorro, gastos fijos, deudas, límites mensuales y lo que querés mejorar..."
               rows={8}
               className="w-full resize-none rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-3 text-sm leading-relaxed text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-all focus:border-[var(--accent-lumus)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-lumus)]/30"
             />

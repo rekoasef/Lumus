@@ -96,15 +96,8 @@
   --glass-border:          rgba(255, 255, 255, 0.08);
   --glass-border-top:      rgba(255, 255, 255, 0.14);
 
-  /* ── Module colors ── */
-  --mod-organizacion:      #7c6dfa;
+  /* ── Finance module ── */
   --mod-finanzas:          #22c55e;
-  --mod-comidas:           #f97316;
-  --mod-fit:               #ef4444;
-  --mod-habitos:           #3b82f6;
-  --mod-journal:           #ec4899;
-  --mod-relaciones:        #ffb86e;
-  --mod-estudio:           #06b6d4;
 
   --sidebar:               #111018;
   --sidebar-foreground:    #e5e0ed;

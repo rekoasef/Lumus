@@ -9,6 +9,12 @@ const bodySchema = z.object({
 
 type GastoRow = { amount: number; category: { name: string } | null }
 
+function recurringMonthlyAmount(amount: number, repeatType: string) {
+  if (repeatType === 'daily') return amount * 30
+  if (repeatType === 'weekly') return amount * (52 / 12)
+  return amount
+}
+
 async function buildMonthContext(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
@@ -21,7 +27,7 @@ async function buildMonthContext(
 
   const monthLabel = new Date(y, m - 1, 1).toLocaleString('es-AR', { month: 'long', year: 'numeric' })
 
-  const [gastosRes, ingresosRes, budgetsRes, subsRes, goalsRes, walletsRes] = await Promise.all([
+  const [gastosRes, ingresosRes, budgetsRes, recurrentesRes, goalsRes, walletsRes] = await Promise.all([
     supabase
       .from('transactions')
       .select('amount, category:finance_categories(name)')
@@ -45,8 +51,8 @@ async function buildMonthContext(
       .eq('month', m)
       .eq('year', y),
     supabase
-      .from('subscriptions')
-      .select('name, amount, billing_cycle, currency')
+      .from('recurring_transactions')
+      .select('description, amount, type, repeat_type, next_date')
       .eq('user_id', userId)
       .eq('active', true),
     supabase
@@ -83,17 +89,16 @@ async function buildMonthContext(
         .join('\n')
     : '  - Sin presupuestos definidos'
 
-  // Suscripciones — costo mensual
-  const totalSubs = Math.round(
-    (subsRes.data ?? []).reduce((s, sub) => {
-      if (sub.billing_cycle === 'anual')   return s + Number(sub.amount) / 12
-      if (sub.billing_cycle === 'semanal') return s + Number(sub.amount) * (52 / 12)
-      return s + Number(sub.amount)
+  // Fijos y recurrentes — costo mensual
+  const totalFixed = Math.round(
+    (recurrentesRes.data ?? []).reduce((s, rec) => {
+      if (rec.type !== 'gasto') return s
+      return s + recurringMonthlyAmount(Number(rec.amount), rec.repeat_type)
     }, 0),
   )
-  const subLines = (subsRes.data ?? [])
-    .map(s => `  - ${s.name} (${s.billing_cycle}): ${s.currency} ${Number(s.amount).toLocaleString('es-AR')}`)
-    .join('\n') || '  - Sin vencimientos'
+  const recurringLines = (recurrentesRes.data ?? [])
+    .map(r => `  - ${r.description ?? (r.type === 'gasto' ? 'Gasto fijo' : 'Ingreso fijo')} (${r.type}, ${r.repeat_type}): $${Number(r.amount).toLocaleString('es-AR')} · próxima fecha ${r.next_date}`)
+    .join('\n') || '  - Sin fijos/recurrentes'
 
   // Metas de ahorro
   const goalLines = (goalsRes.data ?? [])
@@ -124,9 +129,9 @@ ${categoriaLines}
 PRESUPUESTOS:
 ${budgetLines}
 
-VENCIMIENTOS ACTIVOS (costo mensual estimado): $${totalSubs.toLocaleString('es-AR')}
-DETALLE VENCIMIENTOS:
-${subLines}
+FIJOS Y RECURRENTES ACTIVOS (gasto mensual estimado): $${totalFixed.toLocaleString('es-AR')}
+DETALLE FIJOS Y RECURRENTES:
+${recurringLines}
 
 METAS DE AHORRO:
 ${goalLines}

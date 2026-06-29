@@ -4,30 +4,26 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Plus, TrendingUp, TrendingDown, Wallet as WalletIcon, ChevronLeft, ChevronRight, BarChart2, Minus } from 'lucide-react'
 import { LumusChat } from '@/components/lumus/lumus-chat'
-import type { Wallet, FinanceCategory, Transaction, Budget, Subscription, SavingGoal } from '@/types/finance.types'
+import type { Wallet, FinanceCategory, Transaction, Budget, SavingGoal } from '@/types/finance.types'
 import { WalletCard } from './wallet-card'
 import { WalletForm } from './wallet-form'
 import { WalletAdjustForm } from './wallet-adjust-form'
-import { PaySubscriptionForm } from './pay-subscription-form'
 import { CategoryList } from './category-list'
 import { TransactionList } from './transaction-list'
 import { BudgetCard } from './budget-card'
 import { BudgetForm } from './budget-form'
-import { SubscriptionCard } from './subscription-card'
-import { SubscriptionForm } from './subscription-form'
 import { SavingGoalCard } from './saving-goal-card'
 import { SavingGoalForm } from './saving-goal-form'
 import { RecurringTransactionList } from './recurring-transaction-list'
 import { useWallets } from '@/hooks/use-wallets'
 import { useBudgets } from '@/hooks/use-budgets'
-import { useSubscriptions } from '@/hooks/use-subscriptions'
 import { useSavingGoals } from '@/hooks/use-saving-goals'
 import { useExchangeRates } from '@/hooks/use-exchange-rates'
 import { useTransactions } from '@/hooks/use-transactions'
 import { useFinanceReport } from '@/hooks/use-finance-report'
 import { MonthlyReportBanner } from './monthly-report-banner'
 import { MonthlyReportModal } from './monthly-report-modal'
-import type { CreateWalletInput, UpdateWalletInput, CreateBudgetInput, CreateSubscriptionInput, CreateSavingGoalInput, UpdateTransactionInput } from '@/lib/validations/finance'
+import type { CreateWalletInput, UpdateWalletInput, CreateBudgetInput, CreateSavingGoalInput, UpdateTransactionInput } from '@/lib/validations/finance'
 import type { RecurringTransaction } from '@/types/finance.types'
 import type { CreateTransactionInput } from '@/lib/validations/finance'
 import { confirm } from '@/components/shared/confirm-dialog'
@@ -43,12 +39,11 @@ interface FinanzasDashboardProps {
   initialCategories: FinanceCategory[]
   initialTransactions: Transaction[]
   initialBudgets: Budget[]
-  initialSubscriptions: Subscription[]
   initialGoals: SavingGoal[]
   initialRecurring: RecurringTransaction[]
 }
 
-type Section = 'transacciones' | 'billeteras' | 'categorias' | 'presupuestos' | 'suscripciones' | 'metas' | 'recurrentes'
+type Section = 'transacciones' | 'billeteras' | 'categorias' | 'presupuestos' | 'metas' | 'recurrentes'
 
 
 export function FinanzasDashboard({
@@ -56,7 +51,6 @@ export function FinanzasDashboard({
   initialCategories,
   initialTransactions,
   initialBudgets,
-  initialSubscriptions,
   initialGoals,
   initialRecurring,
 }: FinanzasDashboardProps) {
@@ -87,12 +81,6 @@ export function FinanzasDashboard({
     useBudgets(initialBudgets, now.getMonth() + 1, now.getFullYear())
   const [showBudgetForm, setShowBudgetForm] = useState(false)
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null)
-
-  const { subscriptions, loading: subsLoading, monthlyTotal, createSubscription, updateSubscription, deleteSubscription, toggleActive, paySubscription } =
-    useSubscriptions(initialSubscriptions)
-  const [showSubForm, setShowSubForm] = useState(false)
-  const [editingSub, setEditingSub] = useState<Subscription | null>(null)
-  const [payingSub, setPayingSub] = useState<Subscription | null>(null)
 
   const { goals, loading: goalsLoading, createGoal, updateGoal, deleteGoal, contribute, markAchieved } =
     useSavingGoals(initialGoals)
@@ -200,37 +188,6 @@ export function FinanzasDashboard({
     refreshBudgets(m, y)
   }
 
-  async function handleSaveSub(data: CreateSubscriptionInput) {
-    if (editingSub) {
-      await updateSubscription(editingSub.id, data)
-      toast.success('Vencimiento actualizado')
-    } else {
-      await createSubscription(data)
-      toast.success('Vencimiento creado')
-    }
-    setShowSubForm(false)
-    setEditingSub(null)
-  }
-
-  function handleEditSub(s: Subscription) {
-    setEditingSub(s)
-    setShowSubForm(true)
-  }
-
-  async function handleDeleteSub(id: string) {
-    const ok = await confirm({ description: '¿Eliminar este vencimiento?' })
-    if (!ok) return
-    await deleteSubscription(id)
-    toast.success('Vencimiento eliminado')
-  }
-
-  async function handlePaySub(amount: number, categoryId: string | null, walletId: string | null, date: string) {
-    if (!payingSub) return
-    await paySubscription(payingSub.id, amount, categoryId, walletId, date)
-    setPayingSub(null)
-    toast.success('Pago registrado')
-  }
-
   async function handleSaveGoal(data: CreateSavingGoalInput) {
     if (editingGoal) {
       await updateGoal(editingGoal.id, data)
@@ -257,11 +214,10 @@ export function FinanzasDashboard({
 
   const SECTIONS: { id: Section; label: string }[] = [
     { id: 'transacciones', label: 'Movimientos' },
-    { id: 'recurrentes',   label: 'Recurrentes' },
+    { id: 'recurrentes',   label: 'Fijos' },
     { id: 'billeteras',    label: 'Billeteras' },
     { id: 'categorias',    label: 'Categorías' },
     { id: 'presupuestos',  label: 'Presupuestos' },
-    { id: 'suscripciones', label: 'Vencimientos' },
     { id: 'metas',         label: 'Metas' },
   ]
 
@@ -570,66 +526,6 @@ export function FinanzasDashboard({
             )}
           </section>
         )}
-        {/* Suscripciones */}
-        {activeSection === 'suscripciones' && (
-          <section>
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h2 className="lumus-heading text-xl font-semibold text-[var(--text-primary)]">
-                  Vencimientos
-                </h2>
-                {subscriptions.some(s => s.active) && (
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">
-                    Total mensual activo:{' '}
-                    <span className="font-semibold text-[var(--text-secondary)]">
-                      {fmt(monthlyTotal)}
-                    </span>
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => { setEditingSub(null); setShowSubForm(true) }}
-                disabled={subsLoading}
-                className="flex items-center gap-2 rounded-xl bg-[var(--accent-lumus)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50"
-              >
-                <Plus size={16} />
-                Nuevo vencimiento
-              </button>
-            </div>
-
-            {subsLoading ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="lumus-glass h-40 animate-pulse rounded-xl" />
-                ))}
-              </div>
-            ) : subscriptions.length === 0 ? (
-              <div className="lumus-glass rounded-2xl py-20 text-center">
-                <p className="text-[var(--text-muted)]">No tenés vencimientos registrados.</p>
-                <button
-                  onClick={() => setShowSubForm(true)}
-                  className="mt-4 text-sm text-[var(--accent-lumus)] hover:underline"
-                >
-                  Agregar el primero
-                </button>
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {subscriptions.map(sub => (
-                  <SubscriptionCard
-                    key={sub.id}
-                    subscription={sub}
-                    onEdit={handleEditSub}
-                    onDelete={handleDeleteSub}
-                    onToggleActive={toggleActive}
-                    onPay={setPayingSub}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
         {/* Metas de Ahorro */}
         {activeSection === 'metas' && (
           <section>
@@ -704,25 +600,6 @@ export function FinanzasDashboard({
           onSave={handleSaveBudget}
           onClose={() => { setShowBudgetForm(false); setEditingBudget(null) }}
           initial={editingBudget ?? undefined}
-        />
-      )}
-
-      {showSubForm && (
-        <SubscriptionForm
-          wallets={wallets}
-          onSave={handleSaveSub}
-          onClose={() => { setShowSubForm(false); setEditingSub(null) }}
-          initial={editingSub ?? undefined}
-        />
-      )}
-
-      {payingSub && (
-        <PaySubscriptionForm
-          subscription={payingSub}
-          categories={initialCategories}
-          wallets={wallets}
-          onPay={handlePaySub}
-          onClose={() => setPayingSub(null)}
         />
       )}
 
