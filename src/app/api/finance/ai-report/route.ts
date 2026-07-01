@@ -5,9 +5,18 @@ import { createClient } from '@/lib/supabase/server'
 
 const bodySchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/, 'Formato YYYY-MM requerido'),
+  regenerate: z.boolean().optional().default(false),
 })
 
 type GastoRow = { amount: number; category: { name: string } | null }
+type GoalRow = {
+  name: string
+  target_amount: number
+  current_amount: number | null
+  achieved: boolean | null
+  wallet_id: string | null
+  wallet: { name: string; balance: number; currency: string | null } | { name: string; balance: number; currency: string | null }[] | null
+}
 
 function recurringMonthlyAmount(amount: number, repeatType: string) {
   if (repeatType === 'daily') return amount * 30
@@ -57,7 +66,7 @@ async function buildMonthContext(
       .eq('active', true),
     supabase
       .from('saving_goals')
-      .select('name, target_amount, current_amount, achieved')
+      .select('name, target_amount, current_amount, achieved, wallet_id, wallet:wallets(name, balance, currency)')
       .eq('user_id', userId),
     supabase
       .from('wallets')
@@ -85,7 +94,14 @@ async function buildMonthContext(
   type BudgetRow = { amount: number; category: { name: string } | null }
   const budgetLines = (budgetsRes.data ?? [] as unknown as BudgetRow[]).length > 0
     ? (budgetsRes.data as unknown as BudgetRow[])
-        .map(b => `  - ${b.category?.name ?? 'Sin categoría'}: presupuesto $${Math.round(Number(b.amount)).toLocaleString('es-AR')}`)
+        .map(b => {
+          const categoryName = b.category?.name ?? 'Sin categoría'
+          const budgetAmount = Number(b.amount)
+          const spent = byCat[categoryName] ?? 0
+          const pct = budgetAmount > 0 ? Math.round((spent / budgetAmount) * 100) : 0
+          const remaining = Math.max(budgetAmount - spent, 0)
+          return `  - ${categoryName}: gastado $${Math.round(spent).toLocaleString('es-AR')} de $${Math.round(budgetAmount).toLocaleString('es-AR')} (${pct}%). Disponible: $${Math.round(remaining).toLocaleString('es-AR')}`
+        })
         .join('\n')
     : '  - Sin presupuestos definidos'
 
@@ -101,12 +117,19 @@ async function buildMonthContext(
     .join('\n') || '  - Sin fijos/recurrentes'
 
   // Metas de ahorro
-  const goalLines = (goalsRes.data ?? [])
+  const goalLines = ((goalsRes.data ?? []) as unknown as GoalRow[])
     .map(g => {
+      const wallet = Array.isArray(g.wallet) ? g.wallet[0] : g.wallet
+      const currentAmount = wallet ? Number(wallet.balance ?? 0) : Number(g.current_amount ?? 0)
       const pct = g.target_amount > 0
-        ? Math.round((Number(g.current_amount) / Number(g.target_amount)) * 100)
+        ? Math.round((currentAmount / Number(g.target_amount)) * 100)
         : 0
-      const status = g.achieved ? '✅ Lograda' : `${pct}% (${Math.round(Number(g.current_amount)).toLocaleString('es-AR')} / ${Math.round(Number(g.target_amount)).toLocaleString('es-AR')})`
+      const source = wallet
+        ? `billetera vinculada "${wallet.name}"`
+        : 'monto cargado en la meta'
+      const status = g.achieved
+        ? 'Lograda'
+        : `${pct}% ($${Math.round(currentAmount).toLocaleString('es-AR')} / $${Math.round(Number(g.target_amount)).toLocaleString('es-AR')}) desde ${source}`
       return `  - ${g.name}: ${status}`
     })
     .join('\n') || '  - Sin metas de ahorro'
@@ -174,9 +197,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { month } = parsed.data
+  const { month, regenerate } = parsed.data
 
-  // Si ya existe, devolvemos el existente
   const { data: existing } = await supabase
     .from('finance_reports')
     .select('id, user_id, month, content, created_at')
@@ -184,7 +206,7 @@ export async function POST(req: NextRequest) {
     .eq('month', month)
     .maybeSingle()
 
-  if (existing) return NextResponse.json({ report: existing })
+  if (existing && !regenerate) return NextResponse.json({ report: existing })
 
   const [y, m] = month.split('-').map(Number)
   const monthLabel = new Date(y, m - 1, 1).toLocaleString('es-AR', { month: 'long', year: 'numeric' })
@@ -195,27 +217,27 @@ export async function POST(req: NextRequest) {
 
   const userPrompt = `${context}
 
-Generá un informe financiero mensual para ${monthLabel} con exactamente estas secciones en orden:
+Generá un informe financiero mensual para ${monthLabel} con estas secciones, en este orden:
 
-## 📊 Resumen del mes
-[2-3 oraciones con el panorama general: cómo quedó el mes, si fue positivo o negativo, algo destacado]
+RESUMEN DEL MES
+2 a 3 oraciones con el panorama general: cómo quedó el mes, si fue positivo o negativo y algo destacado.
 
-## 💰 Ingresos y gastos
-[Tabla o lista clara con los totales y el balance]
+INGRESOS Y GASTOS
+Usá líneas simples con etiqueta y valor: Ingresos totales, Gastos totales, Balance del mes y Tasa de ahorro.
 
-## 🏷️ Gastos por categoría
-[Las top categorías de gasto con montos, ordenadas de mayor a menor]
+GASTOS POR CATEGORÍA
+Top categorías con monto y porcentaje, ordenadas de mayor a menor.
 
-## 📋 Presupuestos
-[Estado de cada presupuesto si hay, o mencioná que no hay definidos]
+PRESUPUESTOS
+Estado de cada presupuesto si hay, o mencioná que no hay definidos.
 
-## 🎯 Metas de ahorro
-[Progreso de cada meta con porcentaje]
+METAS DE AHORRO
+Progreso real de cada meta. Si la meta está vinculada a una billetera, usá el balance de esa billetera como dinero actual de la meta.
 
-## 💡 Recomendaciones
-[3 a 5 recomendaciones concretas y accionables basadas en los datos reales del mes]
+RECOMENDACIONES
+3 a 5 recomendaciones concretas y accionables basadas en los datos reales del mes.
 
-Sé directo. No repitas datos obvios. Priorizá insights útiles.`
+No uses Markdown: no uses ##, tablas con |, negritas, asteriscos ni bloques de código. Sé directo. No repitas datos obvios. Priorizá insights útiles.`
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -228,9 +250,16 @@ Sé directo. No repitas datos obvios. Priorizá insights útiles.`
 
   const content = response.content[0].type === 'text' ? response.content[0].text : ''
 
-  const { data: saved, error: saveError } = await supabase
-    .from('finance_reports')
-    .insert({ user_id: user.id, month, content })
+  const saveQuery = existing
+    ? supabase
+        .from('finance_reports')
+        .update({ content, created_at: new Date().toISOString() })
+        .eq('id', existing.id)
+    : supabase
+        .from('finance_reports')
+        .insert({ user_id: user.id, month, content })
+
+  const { data: saved, error: saveError } = await saveQuery
     .select('id, user_id, month, content, created_at')
     .single()
 

@@ -1,42 +1,17 @@
 'use client'
 
-import { X, Sparkles, Loader2, RefreshCw } from 'lucide-react'
+import { X, Sparkles, Loader2, RefreshCw, Download } from 'lucide-react'
 import type { FinanceReport } from '@/types/finance.types'
+import { FinanceReportDocument } from './finance-report-document'
+import { downloadFinanceReportPdf } from '@/lib/finance/report-pdf'
 
 interface MonthlyReportModalProps {
   report: FinanceReport | null
   generating: boolean
   error: string | null
   monthLabel: string
-  onGenerate: () => void
+  onGenerate: (options?: { regenerate?: boolean }) => void
   onClose: () => void
-}
-
-function renderMarkdown(text: string) {
-  return text.split('\n').map((line, i) => {
-    if (line.startsWith('## ')) {
-      return (
-        <h3 key={i} className="mb-1 mt-5 text-sm font-semibold text-[var(--text-primary)] first:mt-0">
-          {line.slice(3)}
-        </h3>
-      )
-    }
-    if (line.startsWith('- ') || line.startsWith('• ')) {
-      return (
-        <li key={i} className="ml-3 list-none text-sm leading-relaxed text-[var(--text-secondary)] before:mr-1.5 before:content-['·']">
-          {line.slice(2)}
-        </li>
-      )
-    }
-    if (line.trim() === '') {
-      return <div key={i} className="h-1" />
-    }
-    return (
-      <p key={i} className="text-sm leading-relaxed text-[var(--text-secondary)]">
-        {line}
-      </p>
-    )
-  })
 }
 
 export function MonthlyReportModal({
@@ -49,7 +24,7 @@ export function MonthlyReportModal({
 }: MonthlyReportModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="lumus-glass flex max-h-[85vh] w-full max-w-xl flex-col rounded-2xl">
+      <div className="lumus-glass flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl">
 
         {/* Header */}
         <div className="flex flex-shrink-0 items-center justify-between border-b border-white/[0.07] p-5">
@@ -89,7 +64,7 @@ export function MonthlyReportModal({
             <div className="flex flex-col items-center justify-center gap-3 py-12">
               <p className="text-sm text-[var(--danger)]">{error}</p>
               <button
-                onClick={onGenerate}
+                onClick={() => onGenerate()}
                 className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-white/5"
               >
                 <RefreshCw size={12} />
@@ -113,7 +88,7 @@ export function MonthlyReportModal({
                 </p>
               </div>
               <button
-                onClick={onGenerate}
+                onClick={() => onGenerate()}
                 className="rounded-lg bg-[var(--accent-lumus)] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
               >
                 Generar informe mensual
@@ -124,20 +99,27 @@ export function MonthlyReportModal({
           {/* Estado: informe generado */}
           {!generating && !error && report && (
             <div>
-              <div className="space-y-0.5">
-                {renderMarkdown(report.content)}
-              </div>
+              <FinanceReportDocument report={report} compact />
               <div className="mt-6 flex items-center justify-between border-t border-white/[0.07] pt-4">
                 <p className="text-[0.6rem] text-[var(--text-muted)]">
                   Generado el {new Date(report.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
-                <button
-                  onClick={onGenerate}
-                  className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-[0.65rem] text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-secondary)]"
-                >
-                  <RefreshCw size={10} />
-                  Regenerar
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => downloadFinanceReportPdf(report)}
+                    className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-[0.65rem] text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-secondary)]"
+                  >
+                    <Download size={10} />
+                    PDF
+                  </button>
+                  <button
+                    onClick={() => onGenerate({ regenerate: true })}
+                    className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-[0.65rem] text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-secondary)]"
+                  >
+                    <RefreshCw size={10} />
+                    Regenerar
+                  </button>
+                </div>
               </div>
             </div>
           )}

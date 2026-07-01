@@ -30,14 +30,14 @@ export function useFinanceReport() {
       .catch(() => setReport(null))
   }, [prevMonth])
 
-  const generate = useCallback(async () => {
+  const generate = useCallback(async (options?: { regenerate?: boolean }) => {
     setGenerating(true)
     setError(null)
     try {
       const res = await fetch('/api/finance/ai-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month: prevMonth }),
+        body: JSON.stringify({ month: prevMonth, regenerate: options?.regenerate ?? false }),
       })
       if (!res.ok) throw new Error('Error al generar el informe')
       const { report: r } = await res.json() as { report: FinanceReport }

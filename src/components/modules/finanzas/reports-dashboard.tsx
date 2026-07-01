@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, TrendingDown, TrendingUp, Minus, Sparkles, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, TrendingDown, TrendingUp, Minus, Sparkles, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Download, RefreshCw } from 'lucide-react'
 import {
   PieChart, Pie, Cell, Tooltip,
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -11,6 +11,8 @@ import {
 } from 'recharts'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import type { FinanceReport } from '@/types/finance.types'
+import { FinanceReportDocument } from './finance-report-document'
+import { downloadFinanceReportPdf } from '@/lib/finance/report-pdf'
 
 export interface CategoryStat {
   id: string
@@ -49,35 +51,40 @@ const TOOLTIP_STYLE: React.CSSProperties = {
   boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
 }
 
-function renderMarkdown(text: string) {
-  return text.split('\n').map((line, i) => {
-    if (line.startsWith('## ')) {
-      return (
-        <h3 key={i} className="mb-1 mt-5 text-sm font-semibold text-[var(--text-primary)] first:mt-0">
-          {line.slice(3)}
-        </h3>
-      )
-    }
-    if (line.startsWith('- ') || line.startsWith('• ')) {
-      return (
-        <li key={i} className="ml-3 list-none text-sm leading-relaxed text-[var(--text-secondary)] before:mr-1.5 before:content-['·']">
-          {line.slice(2)}
-        </li>
-      )
-    }
-    if (line.trim() === '') return <div key={i} className="h-1" />
-    return <p key={i} className="text-sm leading-relaxed text-[var(--text-secondary)]">{line}</p>
-  })
-}
-
 function AIReportCard({ report }: { report: FinanceReport }) {
   const [open, setOpen] = useState(false)
+  const [currentReport, setCurrentReport] = useState(report)
+  const [regenerating, setRegenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
-  const [y, m] = report.month.split('-').map(Number)
+  const [y, m] = currentReport.month.split('-').map(Number)
   const monthLabel = new Date(y, m - 1, 1).toLocaleString('es-AR', { month: 'long', year: 'numeric' })
-  const createdAt = new Date(report.created_at).toLocaleDateString('es-AR', {
+  const createdAt = new Date(currentReport.created_at).toLocaleDateString('es-AR', {
     day: 'numeric', month: 'short', year: 'numeric',
   })
+
+  async function handleRegenerate() {
+    setRegenerating(true)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/finance/ai-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ month: currentReport.month, regenerate: true }),
+      })
+
+      if (!res.ok) throw new Error('No se pudo regenerar el informe')
+      const { report: updatedReport } = await res.json() as { report: FinanceReport }
+      setCurrentReport(updatedReport)
+      router.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error desconocido')
+    } finally {
+      setRegenerating(false)
+    }
+  }
 
   return (
     <div className="lumus-glass overflow-hidden rounded-xl">
@@ -102,8 +109,32 @@ function AIReportCard({ report }: { report: FinanceReport }) {
 
       {open && (
         <div className="border-t border-white/[0.06] px-5 pb-5 pt-4">
-          <div className="space-y-0.5">
-            {renderMarkdown(report.content)}
+          <FinanceReportDocument report={currentReport} />
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.07] pt-4">
+            {error ? (
+              <p className="text-xs text-[var(--danger)]">{error}</p>
+            ) : (
+              <p className="text-xs text-[var(--text-muted)]">Podés actualizarlo si cargaste movimientos nuevos.</p>
+            )}
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => downloadFinanceReportPdf(currentReport)}
+                className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-secondary)]"
+              >
+                <Download size={12} />
+                Descargar PDF
+              </button>
+              <button
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                className="flex items-center gap-1.5 rounded-lg bg-[var(--accent-lumus)] px-3 py-2 text-xs font-semibold text-[#190f5d] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+              >
+                <RefreshCw size={12} className={regenerating ? 'animate-spin' : ''} />
+                {regenerating ? 'Regenerando...' : 'Regenerar'}
+              </button>
+            </div>
           </div>
         </div>
       )}
