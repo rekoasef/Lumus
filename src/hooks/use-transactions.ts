@@ -18,18 +18,6 @@ export function useTransactions(
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const now = new Date()
-  const thisMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-  const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
-
-  const monthGastos = transactions
-    .filter(t => t.type === 'gasto' && t.date >= thisMonthStart && t.date <= thisMonthEnd)
-    .reduce((sum, t) => sum + t.amount, 0)
-
-  const monthIngresos = transactions
-    .filter(t => t.type === 'ingreso' && t.date >= thisMonthStart && t.date <= thisMonthEnd)
-    .reduce((sum, t) => sum + t.amount, 0)
-
   const createTransaction = useCallback(async (input: CreateTransactionInput): Promise<Transaction | null> => {
     setLoading(true)
     setError(null)
@@ -108,8 +96,6 @@ export function useTransactions(
 
   return {
     transactions,
-    monthGastos,
-    monthIngresos,
     loading,
     error,
     createTransaction,

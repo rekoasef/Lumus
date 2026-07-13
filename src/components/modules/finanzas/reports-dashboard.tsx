@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, TrendingDown, TrendingUp, Minus, Sparkles, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Download, RefreshCw } from 'lucide-react'
 import {
@@ -10,11 +10,29 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { formatCurrency } from '@/lib/utils/format-currency'
+import { useExchangeRates } from '@/hooks/use-exchange-rates'
 import type { FinanceReport } from '@/types/finance.types'
 import { FinanceReportDocument } from './finance-report-document'
 import { downloadFinanceReportPdf } from '@/lib/finance/report-pdf'
 
+// Montos separados por moneda de billetera (ARS, USD...) — se convierten
+// a un total en ARS en el cliente, con la cotización vigente
+type CurrencyAmounts = Record<string, number>
+
 export interface CategoryStat {
+  id: string
+  name: string
+  color: string
+  amounts: CurrencyAmounts
+}
+
+export interface MonthStat {
+  label: string
+  gastos: CurrencyAmounts
+  ingresos: CurrencyAmounts
+}
+
+interface ConvertedCategoryStat {
   id: string
   name: string
   color: string
@@ -22,16 +40,9 @@ export interface CategoryStat {
   pct: number
 }
 
-export interface MonthStat {
-  label: string
-  gastos: number
-  ingresos: number
-}
-
 interface ReportsDashboardProps {
   expensesByCategory: CategoryStat[]
   monthlyEvolution: MonthStat[]
-  currentMonth: { gastos: number; ingresos: number; balance: number }
   monthLabel: string
   aiReports: FinanceReport[]
   selectedMonth: number
@@ -234,15 +245,57 @@ function MonthYearFilter({
 export function ReportsDashboard({
   expensesByCategory,
   monthlyEvolution,
-  currentMonth,
   monthLabel,
   aiReports,
   selectedMonth,
   selectedYear,
 }: ReportsDashboardProps) {
-  const top5 = expensesByCategory.slice(0, 5)
-  const hasExpenses = expensesByCategory.length > 0
-  const hasEvolution = monthlyEvolution.some(m => m.gastos > 0 || m.ingresos > 0)
+  const { rates: exchangeRates, toARS } = useExchangeRates()
+
+  const hasForeignCurrency = useMemo(() => {
+    const currencies = new Set<string>()
+    expensesByCategory.forEach(c => Object.keys(c.amounts).forEach(cur => currencies.add(cur)))
+    monthlyEvolution.forEach(m => {
+      Object.keys(m.gastos).forEach(cur => currencies.add(cur))
+      Object.keys(m.ingresos).forEach(cur => currencies.add(cur))
+    })
+    return [...currencies].some(cur => cur !== 'ARS')
+  }, [expensesByCategory, monthlyEvolution])
+
+  const sumARS = (amounts: CurrencyAmounts) =>
+    Object.entries(amounts).reduce((sum, [currency, amount]) => sum + toARS(amount, currency), 0)
+
+  const convertedCategories: ConvertedCategoryStat[] = useMemo(() => {
+    const withAmount = expensesByCategory.map(c => ({
+      id: c.id,
+      name: c.name,
+      color: c.color,
+      amount: sumARS(c.amounts),
+    }))
+    const total = withAmount.reduce((s, c) => s + c.amount, 0)
+    return withAmount
+      .map(c => ({ ...c, pct: total > 0 ? (c.amount / total) * 100 : 0 }))
+      .sort((a, b) => b.amount - a.amount)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expensesByCategory, exchangeRates])
+
+  const convertedEvolution = useMemo(() => monthlyEvolution.map(m => ({
+    label: m.label,
+    gastos: sumARS(m.gastos),
+    ingresos: sumARS(m.ingresos),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  })), [monthlyEvolution, exchangeRates])
+
+  const top5 = convertedCategories.slice(0, 5)
+  const hasExpenses = convertedCategories.length > 0
+  const hasEvolution = convertedEvolution.some(m => m.gastos > 0 || m.ingresos > 0)
+
+  const currentEvolutionEntry = convertedEvolution[convertedEvolution.length - 1]
+  const currentMonth = {
+    gastos:   currentEvolutionEntry?.gastos   ?? 0,
+    ingresos: currentEvolutionEntry?.ingresos ?? 0,
+    balance:  (currentEvolutionEntry?.ingresos ?? 0) - (currentEvolutionEntry?.gastos ?? 0),
+  }
   const balancePositive = currentMonth.balance >= 0
 
   return (
@@ -266,6 +319,11 @@ export function ReportsDashboard({
               <p className="mt-3 text-base text-[var(--text-secondary)]">
                 {monthLabel} · Análisis de tu actividad financiera
               </p>
+              {hasForeignCurrency && exchangeRates && (
+                <p className="mt-1 text-[0.6rem] text-[var(--text-muted)]">
+                  Montos en USD convertidos a ARS al dólar blue (${exchangeRates.USD.toLocaleString('es-AR')})
+                </p>
+              )}
             </div>
             <MonthYearFilter selectedMonth={selectedMonth} selectedYear={selectedYear} />
           </div>
@@ -326,7 +384,7 @@ export function ReportsDashboard({
               <ResponsiveContainer width="100%" height={240}>
                 <PieChart>
                   <Pie
-                    data={expensesByCategory}
+                    data={convertedCategories}
                     cx="50%"
                     cy="50%"
                     innerRadius={65}
@@ -335,7 +393,7 @@ export function ReportsDashboard({
                     dataKey="amount"
                     nameKey="name"
                   >
-                    {expensesByCategory.map(entry => (
+                    {convertedCategories.map(entry => (
                       <Cell key={entry.id} fill={entry.color} stroke="transparent" />
                     ))}
                   </Pie>
@@ -343,7 +401,7 @@ export function ReportsDashboard({
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null
                       const entry = payload[0]
-                      const cat = entry.payload as CategoryStat
+                      const cat = entry.payload as ConvertedCategoryStat
                       return (
                         <div style={TOOLTIP_STYLE}>
                           <p style={{ color: cat.color, fontSize: 12, fontWeight: 600 }}>
@@ -437,7 +495,7 @@ export function ReportsDashboard({
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <LineChart
-                data={monthlyEvolution}
+                data={convertedEvolution}
                 margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
               >
                 <CartesianGrid

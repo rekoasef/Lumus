@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     .from('transactions')
     .select(`
       id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at,
-      wallet:wallets(id, name, color),
+      wallet:wallets(id, name, color, currency),
       category:finance_categories(id, name, color, icon)
     `)
     .eq('user_id', user.id)
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
           auto_classified: false,
           deleted_at: null,
         })
-        .select(`id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at, wallet:wallets(id, name, color), category:finance_categories(id, name, color, icon)`)
+        .select(`id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at, wallet:wallets(id, name, color, currency), category:finance_categories(id, name, color, icon)`)
         .single(),
       supabase
         .from('transactions')
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
           auto_classified: false,
           deleted_at: null,
         })
-        .select(`id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at, wallet:wallets(id, name, color), category:finance_categories(id, name, color, icon)`)
+        .select(`id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at, wallet:wallets(id, name, color, currency), category:finance_categories(id, name, color, icon)`)
         .single(),
     ])
 
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
     })
     .select(`
       id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at,
-      wallet:wallets(id, name, color),
+      wallet:wallets(id, name, color, currency),
       category:finance_categories(id, name, color, icon)
     `)
     .single()

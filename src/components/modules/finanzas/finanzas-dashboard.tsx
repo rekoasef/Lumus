@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Plus, TrendingUp, TrendingDown, Wallet as WalletIcon, ChevronLeft, ChevronRight, BarChart2, Minus } from 'lucide-react'
 import { LumusChat } from '@/components/lumus/lumus-chat'
@@ -59,8 +59,6 @@ export function FinanzasDashboard({
   const { rates: exchangeRates, toARS } = useExchangeRates()
   const {
     transactions,
-    monthGastos,
-    monthIngresos,
     loading: txLoading,
     createTransaction,
     updateTransaction,
@@ -98,8 +96,20 @@ export function FinanzasDashboard({
     '¿Cómo estoy financieramente?',
   ]
 
-  const gastosDelMes = monthGastos
-  const ingresosDelMes = monthIngresos
+  // Gastos/ingresos del mes convertidos a ARS — las billeteras pueden estar
+  // en distinta moneda (ARS/USD) y no se pueden sumar montos crudos entre sí
+  const thisMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
+
+  const { gastosDelMes, ingresosDelMes } = useMemo(() => {
+    const monthTx = transactions.filter(t => t.date >= thisMonthStart && t.date <= thisMonthEnd)
+    const sumARS = (type: 'gasto' | 'ingreso') =>
+      monthTx
+        .filter(t => t.type === type)
+        .reduce((sum, t) => sum + toARS(t.amount, t.wallet?.currency ?? 'ARS'), 0)
+    return { gastosDelMes: sumARS('gasto'), ingresosDelMes: sumARS('ingreso') }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, thisMonthStart, thisMonthEnd, exchangeRates])
 
   async function handleTransactionCreate(data: CreateTransactionInput) {
     return createTransaction(data)
@@ -315,7 +325,9 @@ export function FinanzasDashboard({
                   <p className="lumus-heading mt-2 text-xl font-bold text-[var(--success)]">
                     {fmt(ingresosDelMes)}
                   </p>
-                  <p className="mt-0.5 text-[0.6rem] text-[var(--text-muted)]">Este mes</p>
+                  <p className="mt-0.5 text-[0.6rem] text-[var(--text-muted)]">
+                    Este mes{hasForeignCurrency ? ' · convertido a ARS' : ''}
+                  </p>
                 </div>
 
                 {/* Gastos del mes */}
@@ -327,7 +339,9 @@ export function FinanzasDashboard({
                   <p className="lumus-heading mt-2 text-xl font-bold text-[var(--danger)]">
                     {fmt(gastosDelMes)}
                   </p>
-                  <p className="mt-0.5 text-[0.6rem] text-[var(--text-muted)]">Este mes</p>
+                  <p className="mt-0.5 text-[0.6rem] text-[var(--text-muted)]">
+                    Este mes{hasForeignCurrency ? ' · convertido a ARS' : ''}
+                  </p>
                 </div>
 
                 {/* Resto — diferencia del mes */}

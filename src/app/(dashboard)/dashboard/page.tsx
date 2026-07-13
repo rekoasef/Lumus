@@ -15,6 +15,7 @@ import {
 import { DashboardHero } from '@/components/modules/dashboard/dashboard-hero'
 import { DailyGreeting } from '@/components/modules/dashboard/daily-greeting'
 import type { RecurringRepeatType, TransactionType } from '@/types/finance.types'
+import { getExchangeRates, convertToARS } from '@/lib/finance/exchange-rates'
 
 type FinanceTransaction = {
   id: string
@@ -25,7 +26,7 @@ type FinanceTransaction = {
   description: string | null
   date: string
   created_at: string
-  wallet?: { id: string; name: string; color: string } | null
+  wallet?: { id: string; name: string; color: string; currency: string } | null
   category?: { id: string; name: string; color: string; icon: string | null } | null
 }
 
@@ -53,6 +54,7 @@ type RecurringSummary = {
   repeat_type: RecurringRepeatType
   next_date: string
   active: boolean
+  wallet?: { currency: string } | null
 }
 
 type SavingGoalSummary = {
@@ -114,7 +116,7 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
   const monthEnd = getLocalDate(new Date(year, month, 0))
 
-  const [walletsRes, transactionsRes, budgetsRes, recurringRes, goalsRes] = await Promise.all([
+  const [walletsRes, transactionsRes, budgetsRes, recurringRes, goalsRes, rates] = await Promise.all([
     supabase
       .from('wallets')
       .select('id, name, balance, currency, color')
@@ -125,7 +127,7 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
       .from('transactions')
       .select(`
         id, wallet_id, category_id, type, amount, description, date, created_at,
-        wallet:wallets(id, name, color),
+        wallet:wallets(id, name, color, currency),
         category:finance_categories(id, name, color, icon)
       `)
       .eq('user_id', userId)
@@ -141,7 +143,7 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
       .eq('year', year),
     supabase
       .from('recurring_transactions')
-      .select('id, type, amount, description, repeat_type, next_date, active')
+      .select('id, type, amount, description, repeat_type, next_date, active, wallet:wallets(currency)')
       .eq('user_id', userId)
       .eq('active', true)
       .order('next_date', { ascending: true }),
@@ -151,12 +153,13 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
       .eq('user_id', userId)
       .eq('achieved', false)
       .order('target_date', { ascending: true, nullsFirst: false }),
+    getExchangeRates(),
   ])
 
   const wallets = (walletsRes.data ?? []) as WalletSummary[]
   const transactions = (transactionsRes.data ?? []) as unknown as FinanceTransaction[]
   const rawBudgets = (budgetsRes.data ?? []) as unknown as Omit<BudgetSummary, 'spent'>[]
-  const recurring = (recurringRes.data ?? []) as RecurringSummary[]
+  const recurring = (recurringRes.data ?? []) as unknown as RecurringSummary[]
   const goals = (goalsRes.data ?? []) as SavingGoalSummary[]
 
   const budgetCategoryIds = rawBudgets.map(b => b.category_id).filter(Boolean)
@@ -165,7 +168,7 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
   if (budgetCategoryIds.length > 0) {
     const { data: spentRows } = await supabase
       .from('transactions')
-      .select('category_id, amount')
+      .select('category_id, amount, wallet:wallets(currency)')
       .eq('user_id', userId)
       .eq('type', 'gasto')
       .is('deleted_at', null)
@@ -173,11 +176,13 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
       .gte('date', monthStart)
       .lte('date', monthEnd)
 
-    spentByCategory = (spentRows ?? []).reduce<Record<string, number>>((acc, row) => {
-      if (!row.category_id) return acc
-      acc[row.category_id] = (acc[row.category_id] ?? 0) + Number(row.amount)
-      return acc
-    }, {})
+    spentByCategory = ((spentRows ?? []) as unknown as { category_id: string | null; amount: number; wallet: { currency: string } | null }[])
+      .reduce<Record<string, number>>((acc, row) => {
+        if (!row.category_id) return acc
+        const ars = convertToARS(Number(row.amount), row.wallet?.currency ?? 'ARS', rates)
+        acc[row.category_id] = (acc[row.category_id] ?? 0) + ars
+        return acc
+      }, {})
   }
 
   const budgets = rawBudgets.map(b => ({
@@ -185,7 +190,7 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
     spent: spentByCategory[b.category_id] ?? 0,
   })) as BudgetSummary[]
 
-  return { wallets, transactions, budgets, recurring, goals, monthStart, monthEnd, month, year }
+  return { wallets, transactions, budgets, recurring, goals, monthStart, monthEnd, month, year, rates }
 }
 
 function getFormattedDate(): string {
@@ -211,7 +216,9 @@ export default async function DashboardPage() {
     getDashboardData(supabase, user.id),
   ])
 
-  const { wallets, transactions, budgets, recurring, goals, monthStart, monthEnd } = dashboardData
+  const { wallets, transactions, budgets, recurring, goals, monthStart, monthEnd, rates } = dashboardData
+  const toARS = (amount: number, currency: string) => convertToARS(amount, currency, rates)
+  const hasForeignCurrency = wallets.some(w => (w.currency ?? 'ARS') !== 'ARS')
 
   const firstName = (profileRes.data?.name ?? 'Usuario').split(' ')[0]
   const date = getFormattedDate()
@@ -223,8 +230,8 @@ export default async function DashboardPage() {
   const monthTransactions = transactions.filter(t => t.date >= monthStart && t.date <= monthEnd)
   const expenses = monthTransactions.filter(t => t.type === 'gasto')
   const incomes = monthTransactions.filter(t => t.type === 'ingreso')
-  const monthExpenses = expenses.reduce((sum, t) => sum + Number(t.amount), 0)
-  const monthIncome = incomes.reduce((sum, t) => sum + Number(t.amount), 0)
+  const monthExpenses = expenses.reduce((sum, t) => sum + toARS(Number(t.amount), t.wallet?.currency ?? 'ARS'), 0)
+  const monthIncome = incomes.reduce((sum, t) => sum + toARS(Number(t.amount), t.wallet?.currency ?? 'ARS'), 0)
   const monthBalance = monthIncome - monthExpenses
   const dailyBurn = monthExpenses / daysElapsed
   const projectedExpenses = dailyBurn * daysInMonth
@@ -235,27 +242,32 @@ export default async function DashboardPage() {
     return acc
   }, {})
   const arsBalance = balanceByCurrency.ARS ?? 0
+  // Patrimonio total (todas las billeteras, convertidas a ARS) — para que la
+  // autonomía compare el gasto total contra la plata total, no solo la de un wallet
+  const totalBalanceARS = Object.entries(balanceByCurrency)
+    .reduce((sum, [currency, amount]) => sum + toARS(amount, currency), 0)
 
   const totalBudget = budgets.reduce((sum, b) => sum + Number(b.amount), 0)
   const totalBudgetSpent = budgets.reduce((sum, b) => sum + Number(b.spent), 0)
   const budgetRemaining = totalBudget - totalBudgetSpent
   const budgetUsage = totalBudget > 0 ? Math.round((totalBudgetSpent / totalBudget) * 100) : 0
-  const runwayDays = dailyBurn > 0 ? Math.floor(Math.max(0, arsBalance) / dailyBurn) : null
+  const runwayDays = dailyBurn > 0 ? Math.floor(Math.max(0, totalBalanceARS) / dailyBurn) : null
 
   const categoryTotals = Array.from(
     expenses.reduce<Map<string, { name: string; color: string; total: number; count: number }>>((map, tx) => {
       const key = tx.category_id ?? 'sin-categoria'
       const current = map.get(key)
       const category = tx.category
+      const amountARS = toARS(Number(tx.amount), tx.wallet?.currency ?? 'ARS')
       if (!current) {
         map.set(key, {
           name: category?.name ?? 'Sin categoría',
           color: category?.color ?? '#94a3b8',
-          total: Number(tx.amount),
+          total: amountARS,
           count: 1,
         })
       } else {
-        current.total += Number(tx.amount)
+        current.total += amountARS
         current.count += 1
       }
       return map
@@ -269,7 +281,7 @@ export default async function DashboardPage() {
     .slice(0, 4)
 
   const monthlyFixedExpenses = recurring.filter(r => r.type === 'gasto').reduce(
-    (sum, rec) => sum + normalizeRecurringMonthlyAmount(Number(rec.amount), rec.repeat_type),
+    (sum, rec) => sum + toARS(normalizeRecurringMonthlyAmount(Number(rec.amount), rec.repeat_type), rec.wallet?.currency ?? 'ARS'),
     0
   )
   const upcomingRecurring = recurring
@@ -299,14 +311,14 @@ export default async function DashboardPage() {
     {
       label: 'Gastos del mes',
       value: formatMoney(monthExpenses),
-      detail: `${expenses.length} movimiento${expenses.length === 1 ? '' : 's'}`,
+      detail: `${expenses.length} movimiento${expenses.length === 1 ? '' : 's'}${hasForeignCurrency ? ' · conv. a ARS' : ''}`,
       icon: TrendingDown,
       color: '#ef4444',
     },
     {
       label: 'Ingresos del mes',
       value: formatMoney(monthIncome),
-      detail: `${incomes.length} entrada${incomes.length === 1 ? '' : 's'}`,
+      detail: `${incomes.length} entrada${incomes.length === 1 ? '' : 's'}${hasForeignCurrency ? ' · conv. a ARS' : ''}`,
       icon: TrendingUp,
       color: '#22c55e',
     },
@@ -412,7 +424,7 @@ export default async function DashboardPage() {
                 </p>
               </div>
               <div>
-                <p className="text-[0.65rem] uppercase tracking-wider text-[var(--text-muted)]">Autonomía ARS</p>
+                <p className="text-[0.65rem] uppercase tracking-wider text-[var(--text-muted)]">Autonomía</p>
                 <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">
                   {runwayDays === null ? 'Sin gasto' : `${runwayDays} días`}
                 </p>
@@ -469,7 +481,7 @@ export default async function DashboardPage() {
                         className="text-sm font-semibold"
                         style={{ color: rec.type === 'gasto' ? 'var(--danger)' : 'var(--success)' }}
                       >
-                        {rec.type === 'gasto' ? '-' : '+'}{formatMoney(rec.amount)}
+                        {rec.type === 'gasto' ? '-' : '+'}{formatMoney(rec.amount, rec.wallet?.currency ?? 'ARS')}
                       </p>
                       <p className="text-[0.62rem] text-[var(--text-muted)]">{formatDate(rec.next_date)}</p>
                     </div>
@@ -570,7 +582,7 @@ export default async function DashboardPage() {
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-semibold" style={{ color }}>
-                      {isExpense ? '-' : isIncome ? '+' : ''}{formatMoney(tx.amount)}
+                      {isExpense ? '-' : isIncome ? '+' : ''}{formatMoney(tx.amount, tx.wallet?.currency ?? 'ARS')}
                     </span>
                   </div>
                 )

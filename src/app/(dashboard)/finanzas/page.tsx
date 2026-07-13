@@ -34,7 +34,7 @@ export default async function FinanzasPage() {
       .from('transactions')
       .select(`
         id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at,
-        wallet:wallets(id, name, color),
+        wallet:wallets(id, name, color, currency),
         category:finance_categories(id, name, color, icon)
       `)
       .eq('user_id', user.id)

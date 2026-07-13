@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { ExchangeRates } from '@/app/api/finance/exchange-rates/route'
+import { convertToARS, type ExchangeRates } from '@/lib/finance/exchange-rates'
 
 // Caché en memoria por sesión del navegador
 let sessionCache: ExchangeRates | null = null
@@ -31,8 +31,7 @@ export function useExchangeRates() {
 
   function toARS(amount: number, currency: string): number {
     if (currency === 'ARS' || !rates) return amount
-    const rate = rates[currency as keyof Pick<ExchangeRates, 'USD' | 'EUR'>]
-    return rate ? amount * rate : amount
+    return convertToARS(amount, currency, rates)
   }
 
   return { rates, loading, toARS }

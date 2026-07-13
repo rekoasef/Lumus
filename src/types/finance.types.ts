@@ -39,7 +39,7 @@ export interface Transaction {
   created_at: string
   updated_at: string
   deleted_at: string | null
-  wallet?: Pick<Wallet, 'id' | 'name' | 'color'>
+  wallet?: Pick<Wallet, 'id' | 'name' | 'color' | 'currency'>
   category?: Pick<FinanceCategory, 'id' | 'name' | 'color' | 'icon'>
 }
 

@@ -13,6 +13,7 @@ type RawTx = {
   date: string
   category_id: string | null
   category: { id: string; name: string; color: string } | null
+  wallet: { currency: string } | null
 }
 
 export default async function ReportesPage({
@@ -49,7 +50,7 @@ export default async function ReportesPage({
 
   const { data: rawTx } = await supabase
     .from('transactions')
-    .select('type, amount, date, category_id, category:finance_categories(id, name, color)')
+    .select('type, amount, date, category_id, category:finance_categories(id, name, color), wallet:wallets(currency)')
     .eq('user_id', user.id)
     .is('deleted_at', null)
     .gte('date', rangeStart)
@@ -57,6 +58,15 @@ export default async function ReportesPage({
     .in('type', ['gasto', 'ingreso'])
 
   const transactions = (rawTx ?? []) as unknown as RawTx[]
+
+  // Suma montos por moneda (billetera puede ser ARS o USD) — la conversión
+  // a un único total se hace en el cliente con la cotización vigente
+  const sumByCurrency = (txs: RawTx[]): Record<string, number> =>
+    txs.reduce<Record<string, number>>((acc, t) => {
+      const currency = t.wallet?.currency ?? 'ARS'
+      acc[currency] = (acc[currency] ?? 0) + Number(t.amount)
+      return acc
+    }, {})
 
   // Evolución mensual
   const monthlyEvolution: MonthStat[] = months.map(({ month, year }) => {
@@ -66,8 +76,8 @@ export default async function ReportesPage({
     })
     return {
       label: MONTH_ABBR[month - 1],
-      gastos:   monthTx.filter(t => t.type === 'gasto')   .reduce((s, t) => s + Number(t.amount), 0),
-      ingresos: monthTx.filter(t => t.type === 'ingreso') .reduce((s, t) => s + Number(t.amount), 0),
+      gastos:   sumByCurrency(monthTx.filter(t => t.type === 'gasto')),
+      ingresos: sumByCurrency(monthTx.filter(t => t.type === 'ingreso')),
     }
   })
 
@@ -77,30 +87,18 @@ export default async function ReportesPage({
     return d.getMonth() + 1 === selectedMonth && d.getFullYear() === selectedYear && t.type === 'gasto'
   })
 
-  const byCat: Record<string, { name: string; color: string; amount: number }> = {}
+  const byCat: Record<string, { name: string; color: string; amounts: Record<string, number> }> = {}
   for (const tx of currentTx) {
     const catId    = tx.category_id    ?? '__none__'
     const catName  = tx.category?.name  ?? 'Sin categoría'
     const catColor = tx.category?.color ?? '#64748b'
-    if (!byCat[catId]) byCat[catId] = { name: catName, color: catColor, amount: 0 }
-    byCat[catId].amount += Number(tx.amount)
+    const currency = tx.wallet?.currency ?? 'ARS'
+    if (!byCat[catId]) byCat[catId] = { name: catName, color: catColor, amounts: {} }
+    byCat[catId].amounts[currency] = (byCat[catId].amounts[currency] ?? 0) + Number(tx.amount)
   }
 
-  const totalExpenses = Object.values(byCat).reduce((s, c) => s + c.amount, 0)
   const expensesByCategory: CategoryStat[] = Object.entries(byCat)
-    .map(([id, data]) => ({
-      id,
-      ...data,
-      pct: totalExpenses > 0 ? (data.amount / totalExpenses) * 100 : 0,
-    }))
-    .sort((a, b) => b.amount - a.amount)
-
-  const current = monthlyEvolution[monthlyEvolution.length - 1]
-  const currentMonthStats = {
-    gastos:   current?.gastos   ?? 0,
-    ingresos: current?.ingresos ?? 0,
-    balance:  (current?.ingresos ?? 0) - (current?.gastos ?? 0),
-  }
+    .map(([id, data]) => ({ id, ...data }))
 
   const { data: aiReportsData } = await supabase
     .from('finance_reports')
@@ -115,7 +113,6 @@ export default async function ReportesPage({
     <ReportsDashboard
       expensesByCategory={expensesByCategory}
       monthlyEvolution={monthlyEvolution}
-      currentMonth={currentMonthStats}
       monthLabel={`${MONTH_FULL[selectedMonth - 1]} ${selectedYear}`}
       aiReports={aiReports}
       selectedMonth={selectedMonth}
