@@ -8,24 +8,31 @@ Este documento lista issues detectados en la revision actual del proyecto. La id
 
 ## Prioridad inmediata
 
-### S1. RLS sin policies en tablas de modulos removidos
+### S3. Tabla `subscriptions` huerfana
 
-Estado: abierto (reclasificado — antes "Alta", ahora "Baja")
+Estado: abierto (nuevo, detectado 2026-08-18 durante la limpieza de `S1`)
 
-Impacto: bajo hoy, media si se decide revivir esos modulos
+Impacto: bajo (sin exposicion — RLS con policy, solo el dueno puede leer sus filas — pero es historial financiero real, no descartarlo sin mirar)
 
-Tablas con RLS habilitado y sin ninguna `create policy`:
-
-- `task_label_assignments`
-- `workout_routine_exercises`
-- `workout_session_logs`
-
-Estas tablas pertenecen a los modulos de organizacion/fit que se borraron del codigo en el pivot a "Lumus Finanzas". Importante: en Postgres, RLS habilitado sin policies es **deny-all por default** — nadie puede leer ni escribir esas filas via la API de Supabase (ni siquiera el dueno), asi que no hay exposicion de datos activa. La revision anterior las marcaba "Impacto: alto" asumiendo que el codigo todavia las tocaba; ya no es el caso.
+`00010_recurring_transactions.sql` no migro ni renombro la tabla `subscriptions` — creo `recurring_transactions` como tabla nueva y separada. `subscriptions` sigue en el schema, sin ningun endpoint que la use (las rutas `finance/subscriptions/*` se borraron en el pivot a "Lumus Finanzas"), pero tiene **3 filas de datos reales**: vencimientos cargados antes de la reescritura a `recurring_transactions`.
 
 Accion sugerida:
 
-- No es urgente arreglar las policies (nada las usa).
-- Decidir si estas tablas se van a usar de nuevo (revivir organizacion/fit) o si conviene una migracion de limpieza que las borre junto con el resto del schema muerto (ver seccion "Schema muerto" en `docs/ESTADO_ACTUAL.md`).
+- Revisar esas 3 filas a mano — si son vencimientos que siguen vigentes, migrarlos a `recurring_transactions` antes de tocar la tabla.
+- Si ya no aplican, hacer backup (igual que se hizo para `00013_drop_unused_modules.sql`) y despues dropear la tabla en una migration separada.
+
+### S4. Tablas `marketing_*` inesperadas en el proyecto de Supabase
+
+Estado: abierto (nuevo, detectado 2026-08-18)
+
+Impacto: medio — no es un bug de Lumus, pero conviene resolverlo antes de que el schema compartido crezca mas
+
+El proyecto de Supabase de Lumus (`ccixixskklovvvikiwbq`) tiene 6 tablas que no estan en ninguna migracion de este repo: `marketing_brand`, `marketing_business_ideas`, `marketing_content_ideas`, `marketing_content_messages`, `marketing_scheduled_posts`, `marketing_slides`. No pertenecen a Lumus — parecen ser de otra aplicacion (algo de marketing/contenido) que esta usando el mismo proyecto de Supabase. `supabase gen types typescript --linked` las trae igual, asi que van a seguir apareciendo en `src/types/database.types.ts` mientras compartan el proyecto — no es un error de la generacion, es fiel a lo que hay en la base.
+
+Accion sugerida:
+
+- Confirmar si el proyecto se comparte a proposito (dos apps del mismo dueno ahorrando un proyecto de Supabase) o si fue sin querer.
+- Si es sin querer, mover esas tablas a un proyecto de Supabase propio antes de que la otra app crezca — RLS mal configurado en una podria en teoria exponer datos de la otra si comparten el mismo `anon key`/politica de conexion.
 
 ### F1. RPC de seed con `any`
 
@@ -55,7 +62,7 @@ Hay deletes fisicos en:
 
 - `finance/categories/[id]`
 - `finance/budgets/[id]`
-- `finance/recurring-transactions/[id]` (antes `finance/subscriptions/[id]`, renombrado en `00010_recurring_transactions.sql`)
+- `finance/recurring-transactions/[id]` (reemplazo de `finance/subscriptions/[id]`, que se borro sin migrar sus datos — ver `S3`)
 - `finance/saving-goals/[id]`
 
 `finance/transactions/[id]` y `finance/wallets/[id]` si hacen soft delete (`deleted_at`). Esto no rompe el schema actual, pero contradice la regla general de `CLAUDE.md` ("Nunca borrar fisicamente — siempre soft delete") y es inconsistente entre endpoints hermanos.
@@ -130,11 +137,11 @@ El paywall de Mercado Pago tiene su propio checklist de pendientes en `docs/BILL
 
 ## Orden recomendado de trabajo
 
-1. `S1` — decidir el destino del schema muerto (revivir modulos o migracion de limpieza). No es urgente pero desbloquea la decision de si vale la pena arreglar las policies.
-2. `F4` — manejo de errores en reportes IA, es el endpoint de IA que queda vivo y el usuario ya paga por la app.
-3. `F3` — consistencia de soft delete entre entidades financieras.
+1. `F4` — manejo de errores en reportes IA, es el endpoint de IA que queda vivo y el usuario ya paga por la app.
+2. `S4` — confirmar el origen de las tablas `marketing_*` antes de que el proyecto de Supabase compartido crezca mas.
+3. `F3` — consistencia de soft delete entre entidades financieras (de paso, revisar `S3` — la migracion de `subscriptions` a `recurring_transactions` que quedo a medias).
 4. `F5` — revisar UX de presupuestos autocopiados.
-5. Limpieza menor: `F1` (`as any`), `F7` (campo vestigial).
+5. Limpieza menor: `F1` (`as any`), `F7` (campo vestigial), `S3` (tabla `subscriptions` huerfana).
 6. `D1` — alinear documentacion de producto con el alcance real, cuando haya tiempo.
 
 ## Issues cerrados
@@ -146,6 +153,7 @@ El paywall de Mercado Pago tiene su propio checklist de pendientes en `docs/BILL
 | Sin verificacion de email | Cerrado — flujo de codigo de 6 digitos por Resend, ver `docs/ESTADO_ACTUAL.md` |
 | Sin recuperacion de contrasena | Cerrado — `/forgot-password` + `/reset-password` |
 | Sin paywall | Cerrado — Mercado Pago Suscripciones, ver `docs/BILLING.md` |
+| `S1` RLS sin policies en tablas de modulos removidos | Cerrado — se dropearon las 28 tablas sin uso en `00013_drop_unused_modules.sql`, con backup previo de las 13 que tenian datos reales (`~/lumus-dropped-modules-backup-2026-08-18/`, fuera del repo) |
 
 ### Cerrados en esta revision (2026-08-18) — moot por borrado de codigo
 
