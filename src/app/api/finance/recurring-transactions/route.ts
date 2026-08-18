@@ -16,8 +16,7 @@ export async function GET(req: NextRequest) {
 
   const onlyActive = req.nextUrl.searchParams.get('active') !== 'false'
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase as any)
+  let query = supabase
     .from('recurring_transactions')
     .select(SELECT)
     .eq('user_id', user.id)
@@ -43,8 +42,7 @@ export async function POST(req: NextRequest) {
   }
 
   const d = result.data
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('recurring_transactions')
     .insert({
       user_id:     user.id,

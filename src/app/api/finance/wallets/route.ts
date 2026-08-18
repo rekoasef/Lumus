@@ -50,8 +50,7 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Seed categorías default si es la primera billetera del usuario
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.rpc as any)('seed_default_finance_categories', { p_user_id: user.id })
+  await supabase.rpc('seed_default_finance_categories', { p_user_id: user.id })
 
   if (Math.abs(initialBalance) > 0.01) {
     const { error: txError } = await supabase.from('transactions').insert({
@@ -62,7 +61,6 @@ export async function POST(req: NextRequest) {
       description:     'Balance inicial',
       date:            new Date().toISOString().slice(0, 10),
       category_id:     null,
-      auto_classified: false,
       deleted_at:      null,
     })
 

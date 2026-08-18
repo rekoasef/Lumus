@@ -36,7 +36,6 @@ export interface Transaction {
   amount: number
   description: string | null
   date: string
-  auto_classified: boolean
   created_at: string
   updated_at: string
   deleted_at: string | null

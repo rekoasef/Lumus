@@ -33,8 +33,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const result = updateRecurringTransactionSchema.safeParse(body)
   if (!result.success) return NextResponse.json({ error: result.error.flatten() }, { status: 400 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('recurring_transactions')
     .update({ ...result.data, updated_at: new Date().toISOString() })
     .eq('id', id)
@@ -52,8 +51,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('recurring_transactions')
     .delete()
     .eq('id', id)
@@ -72,8 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const body = await req.json()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rec, error: recErr } = await (supabase as any)
+  const { data: rec, error: recErr } = await supabase
     .from('recurring_transactions')
     .select('*')
     .eq('id', id)
@@ -104,21 +101,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       amount:         rec.amount,
       description:    rec.description ?? null,
       date:           txDate,
-      auto_classified: false,
       deleted_at:     null,
     })
-    .select(`id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at, wallet:wallets(id, name, color), category:finance_categories(id, name, color, icon)`)
+    .select(`id, wallet_id, category_id, type, amount, description, date, created_at, updated_at, wallet:wallets(id, name, color), category:finance_categories(id, name, color, icon)`)
     .single()
 
   if (txErr) return NextResponse.json({ error: txErr.message }, { status: 500 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.rpc as any)('recompute_wallet_balance', { p_wallet_id: rec.wallet_id })
+  await supabase.rpc('recompute_wallet_balance', { p_wallet_id: rec.wallet_id })
 
   // Avanzar next_date
   const newNext = nextOccurrence(rec.repeat_type, rec.repeat_day, rec.next_date)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any)
+  await supabase
     .from('recurring_transactions')
     .update({ next_date: newNext, updated_at: new Date().toISOString() })
     .eq('id', id)

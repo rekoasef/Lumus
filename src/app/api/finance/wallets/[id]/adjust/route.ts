@@ -78,7 +78,6 @@ export async function POST(
       description:     'Balance inicial',
       date:            (wallet.created_at ?? today).slice(0, 10),
       category_id:     null,
-      auto_classified: false,
       deleted_at:      null,
     })
   }
@@ -95,7 +94,6 @@ export async function POST(
     description,
     date:            today,
     category_id:     null,
-    auto_classified: false,
     deleted_at:      null,
   })
 

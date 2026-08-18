@@ -33,7 +33,7 @@ export async function PATCH(
     .eq('user_id', user.id)
     .is('deleted_at', null)
     .select(`
-      id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at,
+      id, wallet_id, category_id, type, amount, description, date, created_at, updated_at,
       wallet:wallets(id, name, color, currency),
       category:finance_categories(id, name, color, icon)
     `)
@@ -46,8 +46,7 @@ export async function PATCH(
   if (existing?.wallet_id) walletIds.add(existing.wallet_id)
 
   for (const wid of walletIds) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.rpc as any)('recompute_wallet_balance', { p_wallet_id: wid })
+    await supabase.rpc('recompute_wallet_balance', { p_wallet_id: wid })
   }
 
   const { data: wallets } = await supabase
@@ -89,8 +88,7 @@ export async function DELETE(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   if (existing?.wallet_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.rpc as any)('recompute_wallet_balance', { p_wallet_id: existing.wallet_id })
+    await supabase.rpc('recompute_wallet_balance', { p_wallet_id: existing.wallet_id })
 
     const { data: wallet } = await supabase
       .from('wallets')

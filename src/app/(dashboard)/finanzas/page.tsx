@@ -14,9 +14,6 @@ export default async function FinanzasPage() {
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
   const monthEnd = new Date(year, month, 0).toISOString().slice(0, 10)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = supabase as any
-
   const [walletsRes, categoriesRes, transactionsRes, budgetsRes, goalsRes, recurringRes] = await Promise.all([
     supabase
       .from('wallets')
@@ -34,7 +31,7 @@ export default async function FinanzasPage() {
     supabase
       .from('transactions')
       .select(`
-        id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at,
+        id, wallet_id, category_id, type, amount, description, date, created_at, updated_at,
         wallet:wallets(id, name, color, currency),
         category:finance_categories(id, name, color, icon)
       `)
@@ -56,7 +53,7 @@ export default async function FinanzasPage() {
       .eq('user_id', user.id)
       .order('achieved', { ascending: true })
       .order('created_at', { ascending: true }),
-    sb
+    supabase
       .from('recurring_transactions')
       .select(`id, wallet_id, category_id, type, amount, description, repeat_type, repeat_day, next_date, active, created_at, updated_at, wallet:wallets(id, name, color), category:finance_categories(id, name, color, icon)`)
       .eq('user_id', user.id)

@@ -628,7 +628,6 @@ export type Database = {
       transactions: {
         Row: {
           amount: number
-          auto_classified: boolean | null
           category_id: string | null
           created_at: string | null
           date: string
@@ -642,7 +641,6 @@ export type Database = {
         }
         Insert: {
           amount: number
-          auto_classified?: boolean | null
           category_id?: string | null
           created_at?: string | null
           date?: string
@@ -656,7 +654,6 @@ export type Database = {
         }
         Update: {
           amount?: number
-          auto_classified?: boolean | null
           category_id?: string | null
           created_at?: string | null
           date?: string

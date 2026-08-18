@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('transactions')
     .select(`
-      id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at,
+      id, wallet_id, category_id, type, amount, description, date, created_at, updated_at,
       wallet:wallets(id, name, color, currency),
       category:finance_categories(id, name, color, icon)
     `)
@@ -84,10 +84,9 @@ export async function POST(req: NextRequest) {
           amount: d.amount,
           description: desc,
           date: d.date,
-          auto_classified: false,
           deleted_at: null,
         })
-        .select(`id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at, wallet:wallets(id, name, color, currency), category:finance_categories(id, name, color, icon)`)
+        .select(`id, wallet_id, category_id, type, amount, description, date, created_at, updated_at, wallet:wallets(id, name, color, currency), category:finance_categories(id, name, color, icon)`)
         .single(),
       supabase
         .from('transactions')
@@ -99,10 +98,9 @@ export async function POST(req: NextRequest) {
           amount: d.amount,
           description: desc,
           date: d.date,
-          auto_classified: false,
           deleted_at: null,
         })
-        .select(`id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at, wallet:wallets(id, name, color, currency), category:finance_categories(id, name, color, icon)`)
+        .select(`id, wallet_id, category_id, type, amount, description, date, created_at, updated_at, wallet:wallets(id, name, color, currency), category:finance_categories(id, name, color, icon)`)
         .single(),
     ])
 
@@ -110,11 +108,9 @@ export async function POST(req: NextRequest) {
     if (ingreso.error) return NextResponse.json({ error: ingreso.error.message }, { status: 500 })
 
     // Recomputar balances de ambas billeteras
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rpc = supabase.rpc as any
     await Promise.all([
-      rpc('recompute_wallet_balance', { p_wallet_id: d.wallet_id }),
-      rpc('recompute_wallet_balance', { p_wallet_id: d.to_wallet_id }),
+      supabase.rpc('recompute_wallet_balance', { p_wallet_id: d.wallet_id }),
+      supabase.rpc('recompute_wallet_balance', { p_wallet_id: d.to_wallet_id! }),
     ])
 
     const { data: wallets } = await supabase
@@ -141,11 +137,10 @@ export async function POST(req: NextRequest) {
       amount: d.amount,
       description: d.description ?? null,
       date: d.date,
-      auto_classified: body.auto_classified === true,
       deleted_at: null,
     })
     .select(`
-      id, wallet_id, category_id, type, amount, description, date, auto_classified, created_at, updated_at,
+      id, wallet_id, category_id, type, amount, description, date, created_at, updated_at,
       wallet:wallets(id, name, color, currency),
       category:finance_categories(id, name, color, icon)
     `)
@@ -153,8 +148,7 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.rpc as any)('recompute_wallet_balance', { p_wallet_id: d.wallet_id })
+  await supabase.rpc('recompute_wallet_balance', { p_wallet_id: d.wallet_id })
 
   const { data: wallet } = await supabase
     .from('wallets')
