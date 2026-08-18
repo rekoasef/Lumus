@@ -16,10 +16,21 @@ Impacto: bajo (sin exposicion — RLS con policy, solo el dueno puede leer sus f
 
 `00010_recurring_transactions.sql` no migro ni renombro la tabla `subscriptions` — creo `recurring_transactions` como tabla nueva y separada. `subscriptions` sigue en el schema, sin ningun endpoint que la use (las rutas `finance/subscriptions/*` se borraron en el pivot a "Lumus Finanzas"), pero tiene **3 filas de datos reales**: vencimientos cargados antes de la reescritura a `recurring_transactions`.
 
+**Revisadas el 2026-08-18** — las 3 filas:
+
+| Nombre | Monto | Ciclo | Proximo vencimiento | Activo |
+|---|---|---|---|---|
+| Seguro moto | $12.500 ARS | mensual | *(sin fecha)* | true |
+| Definitiva | $30.000 ARS | mensual | 2026-07-05 | true |
+| Credito Computadora | $205.000 ARS | mensual | 2026-08-01 | true |
+
+Las 3 tienen pinta de ser obligaciones reales, pero **las fechas de "proximo vencimiento" ya pasaron** (hoy es 2026-08-18) y una ni siquiera tiene fecha. No hay forma de saber desde el codigo si ya se pagaron por fuera de la app durante los meses que este sistema quedo abandonado, si siguen vigentes, o si ya terminaron (sobre todo "Credito Computadora", que suena a un credito con final). Migrarlas a `recurring_transactions` a ciegas podria inventar vencimientos pendientes falsos en el dashboard financiero del usuario — no es una decision tecnica, es una pregunta sobre datos financieros reales. **No se toco la tabla.**
+
 Accion sugerida:
 
-- Revisar esas 3 filas a mano — si son vencimientos que siguen vigentes, migrarlos a `recurring_transactions` antes de tocar la tabla.
-- Si ya no aplican, hacer backup (igual que se hizo para `00013_drop_unused_modules.sql`) y despues dropear la tabla en una migration separada.
+- Preguntarle al usuario, con esta tabla de datos en mano, si estas 3 siguen vigentes.
+- Si siguen vigentes: migrarlas a `recurring_transactions` con una fecha de proximo vencimiento corregida (no la vieja, que ya paso).
+- Si no: hacer backup (mismo patron que `00013_drop_unused_modules.sql`) y dropear `subscriptions` en una migration separada.
 
 ### S4. Tablas `marketing_*` inesperadas en el proyecto de Supabase
 
@@ -36,21 +47,17 @@ Accion sugerida:
 
 ### F1. RPC de seed con `any`
 
-Estado: abierto
+Estado: cerrado
 
-Impacto: bajo/medio
+Commit/fecha: 2026-08-18
 
-En `src/app/api/finance/wallets/route.ts`:
+Verificacion:
+- `npx tsc --noEmit`, `npm run lint`, `npm run build` — pasan (0 errores, 14 warnings)
+- `grep -rn "as any" src/` sin resultados
 
-```ts
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-await (supabase.rpc as any)('seed_default_finance_categories', { p_user_id: user.id })
-```
-
-Accion sugerida:
-
-- Regenerar tipos Supabase incluyendo funciones RPC (`supabase gen types typescript` con el proyecto linkeado trae las firmas de funciones).
-- Quitar `as any` y el disable de ESLint.
+Notas:
+- Se regeneraron los tipos de Supabase (`supabase gen types typescript --linked`), que ya traen las firmas de `seed_default_finance_categories` y `recompute_wallet_balance` en `Functions`.
+- Se aprovecho para sacar **todos** los `as any` del proyecto, no solo el de `wallets/route.ts`: quedaban varios mas en `recurring-transactions/route.ts`, `recurring-transactions/[id]/route.ts`, `transactions/route.ts`, `transactions/[id]/route.ts` y `finanzas/page.tsx` (`recompute_wallet_balance` y consultas a `recurring_transactions`), todos por el mismo motivo — tipos desactualizados al momento de escribirlos.
 
 ### F3. Borrados fisicos en entidades financieras
 
@@ -84,30 +91,31 @@ Notas:
 
 ### F5. Presupuestos autocopiados
 
-Estado: revisar
+Estado: cerrado (los dos riesgos reales resultaron ya cubiertos, no hizo falta cambiar codigo)
 
-Impacto: medio
+Commit/fecha: 2026-08-18 (solo investigacion, sin commit — nada que cambiar)
 
-`/api/finance/budgets` (`GET`) autocopia presupuestos del mes mas reciente si el mes pedido no tiene presupuestos propios y es actual/futuro — sigue asi, sin cambios desde la revision anterior.
+Verificacion:
+- Lectura de `src/hooks/use-budgets.ts` y `src/components/modules/finanzas/finanzas-dashboard.tsx:497-502`
+- Confirmado `unique(user_id, category_id, month, year)` en `budgets` desde `00001_initial_schema.sql`
 
-Accion sugerida:
-
-- Verificar UX: el usuario debe entender cuando un presupuesto fue copiado (hoy no hay ninguna senal visual de que un presupuesto es "heredado" vs. creado a mano ese mes).
-- Confirmar si esta logica debe ejecutarse en `GET` (side-effect en una lectura) o si conviene una accion explicita ("copiar presupuestos del mes anterior").
-- Revisar si puede insertar duplicados ante requests simultaneos (dos `GET` en paralelo al mismo mes sin presupuestos podrian copiar dos veces).
+Notas:
+- **Senal visual**: ya existe. `finanzas-dashboard.tsx` muestra un banner ("✦ Presupuestos copiados del mes anterior...") cuando `auto_copied` viene en `true` desde la API — la revision anterior de este doc lo daba por no implementado sin verificar la UI, error mio al reescribir el documento la vez pasada.
+- **Insercion duplicada ante requests concurrentes**: no es un riesgo real. La constraint unica en `budgets` hace que, si dos `GET` concurrentes intentan auto-copiar el mismo mes, el segundo insert falla (el codigo ignora ese error a proposito) y el re-fetch posterior devuelve los presupuestos ya copiados por el primero — sin duplicados.
+- **Side-effect en un `GET`**: sigue siendo asi (es una eleccion de diseño, no un bug) — queda anotado por si en algun momento se prefiere una accion explicita, pero no amerita cambio sin que el usuario lo pida.
 
 ### F7. Campo `auto_classified` vestigial
 
-Estado: abierto (nuevo, detectado 2026-08-18)
+Estado: cerrado
 
-Impacto: bajo
+Commit/fecha: 2026-08-18
 
-`transactions.auto_classified` sigue en el schema, el tipo `Transaction` y los selects de la API, pero desde que se borro el modulo de IA (clasificacion automatica via `gpt-4o-mini`) ningun endpoint lo pone en `true` — solo queda el `false` explicito al crear transacciones manuales. La UI que mostraba el iconito de "clasificado por IA" (`Sparkles` en `transaction-item.tsx`) tambien se saco.
+Verificacion:
+- `npx tsc --noEmit`, `npm run lint`, `npm run build` — pasan (0 errores, 14 warnings)
+- `grep -rn "auto_classified" src/` sin resultados fuera de comentarios/docs
 
-Accion sugerida:
-
-- Si no se va a revivir la clasificacion automatica (el usuario prefiere carga manual — ver memoria del proyecto), sacar la columna en una migration y limpiar el campo de `Transaction`, los selects y el `POST` de `transactions/route.ts`.
-- Si se deja para el futuro, al menos anotarlo como "reservado, sin uso actual" en `docs/SCHEMA.md`.
+Notas:
+- Columna borrada (`00015_drop_auto_classified.sql`) y limpiada de `Transaction`, los selects y los inserts en `transactions`, `wallets` (balance inicial) y `wallets/[id]/adjust`.
 
 ## Documentacion desactualizada
 
@@ -131,10 +139,11 @@ El paywall de Mercado Pago tiene su propio checklist de pendientes en `docs/BILL
 
 ## Orden recomendado de trabajo
 
+Queda solo lo que necesita una respuesta del usuario (no es trabajo de codigo pendiente):
+
 1. `S4` — confirmar el origen de las tablas `marketing_*` antes de que el proyecto de Supabase compartido crezca mas.
-2. `F5` — revisar UX de presupuestos autocopiados.
-3. Limpieza menor: `F1` (`as any`), `F7` (campo vestigial), `S3` (tabla `subscriptions` huerfana).
-4. `D1` — alinear documentacion de producto con el alcance real, cuando haya tiempo.
+2. `S3` — confirmar si las 3 filas de `subscriptions` siguen vigentes, para migrarlas o dropear la tabla.
+3. `D1` — alinear documentacion de producto con el alcance real, cuando haya tiempo.
 
 ## Issues cerrados
 
@@ -148,6 +157,9 @@ El paywall de Mercado Pago tiene su propio checklist de pendientes en `docs/BILL
 | `S1` RLS sin policies en tablas de modulos removidos | Cerrado — se dropearon las 28 tablas sin uso en `00013_drop_unused_modules.sql`, con backup previo de las 13 que tenian datos reales (`~/lumus-dropped-modules-backup-2026-08-18/`, fuera del repo) |
 | `F4` Reportes IA sin manejo robusto de errores | Cerrado — ver detalle en la seccion `F4` mas arriba |
 | `F3` Borrados fisicos en entidades financieras | Cerrado — soft delete solo para `finance_categories` (era la unica con riesgo real de cascada/orfandad), fisico documentado como excepcion a proposito para el resto — ver detalle en la seccion `F3` mas arriba |
+| `F1` RPC de seed con `any` | Cerrado — tipos regenerados, sacados todos los `as any` del proyecto — ver detalle en la seccion `F1` mas arriba |
+| `F5` Presupuestos autocopiados | Cerrado — investigado, los dos riesgos reales ya estaban cubiertos (banner de aviso existente, constraint unica evita duplicados) — ver detalle en la seccion `F5` mas arriba |
+| `F7` Campo `auto_classified` vestigial | Cerrado — columna borrada (`00015_drop_auto_classified.sql`) y limpiada del codigo — ver detalle en la seccion `F7` mas arriba |
 
 ### Cerrados en esta revision (2026-08-18) — moot por borrado de codigo
 

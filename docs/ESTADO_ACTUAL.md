@@ -188,11 +188,10 @@ Ver `docs/ISSUES_PENDIENTES.md` para detalle y acciones sugeridas.
 
 | ID | Issue | Prioridad |
 |---|---|---|
-| `F1` | RPC de seed con `any` en `wallets/route.ts` | Baja |
-| `F5` | Presupuestos autocopiados — UX a revisar | Media |
-| `F7` | `transactions.auto_classified` quedó vestigial | Baja |
-| `S3` | Tabla `subscriptions` huérfana con 3 filas reales, sin código que la use | Baja |
+| `S3` | Tabla `subscriptions` huérfana con 3 filas reales (revisadas, valores concretos en `ISSUES_PENDIENTES.md`) — necesita que el usuario confirme si siguen vigentes | Media |
 | `S4` | Tablas `marketing_*` inesperadas en el mismo proyecto de Supabase — no son de Lumus | Media — confirmar si el proyecto debe separarse |
+
+Todo lo demás del backlog técnico (`F1`, `F3`, `F4`, `F5`, `F7`) se cerró en esta revisión. Solo quedan `S3` y `S4`, y ninguna de las dos es trabajo de código — ambas necesitan una respuesta del usuario sobre datos/infraestructura que no están documentados en ningún lado del repo.
 
 ### Issues cerrados desde la última revisión
 
@@ -208,6 +207,9 @@ Ver `docs/ISSUES_PENDIENTES.md` para detalle y acciones sugeridas.
 | Auth sin verificación de email | Cerrado — flujo de código de 6 dígitos + Resend |
 | Sin recuperación de contraseña | Cerrado — `/forgot-password` + `/reset-password` |
 | Sin paywall | Cerrado — Mercado Pago Suscripciones, ver `docs/BILLING.md` |
+| `F1` RPC de seed con `any` | Cerrado — tipos regenerados, sacados todos los `as any` del proyecto (no solo el de `wallets/route.ts`) |
+| `F5` Presupuestos autocopiados | Cerrado — investigado, ya estaba bien: banner de aviso existente y constraint única evita duplicados por requests concurrentes |
+| `F7` `transactions.auto_classified` vestigial | Cerrado — columna borrada (`00015_drop_auto_classified.sql`) y limpiada del código |
 
 ---
 
@@ -218,8 +220,9 @@ Ordenado por impacto, asumiendo que el producto es "app de finanzas con paywall"
 1. **Precio real del plan** — hoy `SUBSCRIPTION_PRICE_ARS = 1000` es precio de prueba (`src/lib/billing/plan.ts`).
 2. **Probar el caso `paused`** de una suscripción — solo se validó `authorized → cancelled`.
 3. **Edición de perfil** — hoy es solo lectura.
-4. **`S4` — confirmar si el proyecto de Supabase se comparte a propósito con otra app** (las tablas `marketing_*`) o si conviene separar antes de que crezca más.
-5. Deuda menor: `F1` (`as any`), `F7` (campo vestigial), `S3` (tabla `subscriptions` huérfana), y actualizar `README.md` / `CLAUDE.md` / `LUMUS_OVERVIEW.md` / `ARQUITECTURA.md` / `FASES.md`, que todavía describen el alcance de "Sistema Operativo Personal" completo en vez del producto real de hoy (Finanzas + paywall).
+4. **`S3` — confirmar si las 3 filas de `subscriptions` siguen vigentes** (detalle en `ISSUES_PENDIENTES.md`), para migrarlas a `recurring_transactions` o dropear la tabla.
+5. **`S4` — confirmar si el proyecto de Supabase se comparte a propósito con otra app** (las tablas `marketing_*`) o si conviene separar antes de que crezca más.
+6. Actualizar `README.md` / `CLAUDE.md` / `LUMUS_OVERVIEW.md` / `ARQUITECTURA.md` / `FASES.md`, que todavía describen el alcance de "Sistema Operativo Personal" completo en vez del producto real de hoy (Finanzas + paywall).
 
 ---
 
@@ -227,6 +230,4 @@ Ordenado por impacto, asumiendo que el producto es "app de finanzas con paywall"
 
 **Opción A — Cerrar el paywall**: precio real + probar `paused` antes de considerar esto lanzable de verdad.
 
-**Opción B — Aclarar el proyecto de Supabase compartido**: confirmar el origen de las tablas `marketing_*` (`S4`) antes de seguir asumiendo que `ccixixskklovvvikiwbq` es exclusivo de Lumus.
-
-**Opción C — Seguir con la deuda menor**: `F1`, `F7`, `S3`, y alinear la documentación de producto con el alcance real.
+**Opción B — Resolver los dos pendientes de datos**: confirmar `S3` (vencimientos de `subscriptions`) y `S4` (origen de las tablas `marketing_*`) — son las únicas dos cosas que quedan en el backlog técnico, y ninguna es código.
