@@ -190,7 +190,6 @@ Ver `docs/ISSUES_PENDIENTES.md` para detalle y acciones sugeridas.
 |---|---|---|
 | `F1` | RPC de seed con `any` en `wallets/route.ts` | Baja |
 | `F3` | Deletes físicos en categorías/presupuestos/vencimientos/metas | Media |
-| `F4` | Reportes IA sin manejo robusto de errores | Media |
 | `F5` | Presupuestos autocopiados — UX a revisar | Media |
 | `F7` | `transactions.auto_classified` quedó vestigial | Baja |
 | `S3` | Tabla `subscriptions` huérfana con 3 filas reales, sin código que la use | Baja |
@@ -203,6 +202,7 @@ Ver `docs/ISSUES_PENDIENTES.md` para detalle y acciones sugeridas.
 | `#3` Rutas sin página | Los links a `/journal`, `/relaciones`, `/estudio` (y ahora también `/comidas`, `/fit`, `/habitos`, `/organizacion`) se sacaron de la navegación en vez de crear placeholders |
 | `F2` Endpoint legacy `/api/ai/classify` | Moot — todo el módulo de clasificación por IA se borró |
 | `S1` RLS sin policies en tablas de módulos removidos | Cerrado — las 28 tablas se borraron en `00013_drop_unused_modules.sql` (con backup previo) |
+| `F4` Reportes IA sin manejo robusto de errores | Cerrado — `try/catch` alrededor de Anthropic, validación de `ANTHROPIC_API_KEY`, y no se guardan informes vacíos |
 | `S2` Endpoints sin Zod (`shopping-list`, `fit/sessions`) | Moot — esos endpoints ya no existen |
 | `AI1`–`AI7` | Moot — todo el módulo de chat/voz/clasificación por IA se borró (2026-08-18) |
 | Auth sin verificación de email | Cerrado — flujo de código de 6 dígitos + Resend |
@@ -217,11 +217,10 @@ Ordenado por impacto, asumiendo que el producto es "app de finanzas con paywall"
 
 1. **Precio real del plan** — hoy `SUBSCRIPTION_PRICE_ARS = 1000` es precio de prueba (`src/lib/billing/plan.ts`).
 2. **Probar el caso `paused`** de una suscripción — solo se validó `authorized → cancelled`.
-3. **F4 — manejo de errores en reportes IA** — hoy un fallo de Anthropic tira 500 sin mensaje claro al usuario que paga.
-4. **F3 — decidir soft delete vs. físico** por entidad financiera y ser consistente.
-5. **Edición de perfil** — hoy es solo lectura.
-6. **`S4` — confirmar si el proyecto de Supabase se comparte a propósito con otra app** (las tablas `marketing_*`) o si conviene separar antes de que crezca más.
-7. Deuda menor: `F1` (`as any`), `F7` (campo vestigial), `S3` (tabla `subscriptions` huérfana), y actualizar `README.md` / `CLAUDE.md` / `LUMUS_OVERVIEW.md` / `ARQUITECTURA.md` / `FASES.md`, que todavía describen el alcance de "Sistema Operativo Personal" completo en vez del producto real de hoy (Finanzas + paywall).
+3. **F3 — decidir soft delete vs. físico** por entidad financiera y ser consistente.
+4. **Edición de perfil** — hoy es solo lectura.
+5. **`S4` — confirmar si el proyecto de Supabase se comparte a propósito con otra app** (las tablas `marketing_*`) o si conviene separar antes de que crezca más.
+6. Deuda menor: `F1` (`as any`), `F7` (campo vestigial), `S3` (tabla `subscriptions` huérfana), y actualizar `README.md` / `CLAUDE.md` / `LUMUS_OVERVIEW.md` / `ARQUITECTURA.md` / `FASES.md`, que todavía describen el alcance de "Sistema Operativo Personal" completo en vez del producto real de hoy (Finanzas + paywall).
 
 ---
 

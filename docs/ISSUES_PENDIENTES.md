@@ -75,18 +75,18 @@ Accion sugerida:
 
 ### F4. Reportes IA sin manejo robusto de errores
 
-Estado: abierto
+Estado: cerrado
 
-Impacto: medio-alto (es el unico endpoint de IA que queda activo, y el usuario ya paga por la app)
+Commit/fecha: 2026-08-18
 
-`/api/finance/ai-report` llama a Anthropic (`claude-sonnet-4-5`) y guarda el informe en `finance_reports`, pero no valida `ANTHROPIC_API_KEY` antes de llamar ni envuelve la llamada en `try/catch`.
+Verificacion:
+- `npx tsc --noEmit`, `npm run lint`, `npm run build` — los tres pasan igual que antes (0 errores, 14 warnings)
+- Revision manual del diff, sin correr el flujo real contra Anthropic (no hay test suite en el proyecto)
 
-Accion sugerida:
-
-- Validar `ANTHROPIC_API_KEY` antes de llamar.
-- Envolver la llamada en `try/catch`.
-- Devolver errores claros para la UI (hoy un fallo de proveedor tira 500 generico).
-- Considerar guardar estado de generacion si en algun momento se vuelve asincronico.
+Notas:
+- `/api/finance/ai-report` ahora valida `ANTHROPIC_API_KEY` antes de llamar, envuelve `anthropic.messages.create` en `try/catch` (devuelve 502 con mensaje claro en vez de dejar escalar la excepcion), y rechaza con 502 si la respuesta no trae contenido de texto en vez de guardar un informe vacio en `finance_reports`.
+- De paso se corrigieron `use-finance-report.ts` y `reports-dashboard.tsx`: ambos tiraban un string generico hardcodeado ante cualquier respuesta no-ok, descartando el `error` real del body — sin este cambio, los mensajes nuevos de la API nunca hubieran llegado a la UI.
+- No probado en vivo con Anthropic caido/rate-limited — la verificacion fue tipos + build + lectura de codigo.
 
 ### F5. Presupuestos autocopiados
 
@@ -137,12 +137,11 @@ El paywall de Mercado Pago tiene su propio checklist de pendientes en `docs/BILL
 
 ## Orden recomendado de trabajo
 
-1. `F4` — manejo de errores en reportes IA, es el endpoint de IA que queda vivo y el usuario ya paga por la app.
-2. `S4` — confirmar el origen de las tablas `marketing_*` antes de que el proyecto de Supabase compartido crezca mas.
-3. `F3` — consistencia de soft delete entre entidades financieras (de paso, revisar `S3` — la migracion de `subscriptions` a `recurring_transactions` que quedo a medias).
-4. `F5` — revisar UX de presupuestos autocopiados.
-5. Limpieza menor: `F1` (`as any`), `F7` (campo vestigial), `S3` (tabla `subscriptions` huerfana).
-6. `D1` — alinear documentacion de producto con el alcance real, cuando haya tiempo.
+1. `S4` — confirmar el origen de las tablas `marketing_*` antes de que el proyecto de Supabase compartido crezca mas.
+2. `F3` — consistencia de soft delete entre entidades financieras (de paso, revisar `S3` — la migracion de `subscriptions` a `recurring_transactions` que quedo a medias).
+3. `F5` — revisar UX de presupuestos autocopiados.
+4. Limpieza menor: `F1` (`as any`), `F7` (campo vestigial), `S3` (tabla `subscriptions` huerfana).
+5. `D1` — alinear documentacion de producto con el alcance real, cuando haya tiempo.
 
 ## Issues cerrados
 
@@ -154,6 +153,7 @@ El paywall de Mercado Pago tiene su propio checklist de pendientes en `docs/BILL
 | Sin recuperacion de contrasena | Cerrado — `/forgot-password` + `/reset-password` |
 | Sin paywall | Cerrado — Mercado Pago Suscripciones, ver `docs/BILLING.md` |
 | `S1` RLS sin policies en tablas de modulos removidos | Cerrado — se dropearon las 28 tablas sin uso en `00013_drop_unused_modules.sql`, con backup previo de las 13 que tenian datos reales (`~/lumus-dropped-modules-backup-2026-08-18/`, fuera del repo) |
+| `F4` Reportes IA sin manejo robusto de errores | Cerrado — ver detalle en la seccion `F4` mas arriba |
 
 ### Cerrados en esta revision (2026-08-18) — moot por borrado de codigo
 
