@@ -24,6 +24,7 @@ export interface FinanceCategory {
   icon: string | null
   color: string
   is_default: boolean
+  deleted_at: string | null
 }
 
 export interface Transaction {

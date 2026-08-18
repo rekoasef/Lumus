@@ -117,7 +117,7 @@ El proyecto hoy es: **auth → onboarding → paywall → dashboard de finanzas*
 
 #### Deuda conocida
 
-Ver `docs/ISSUES_PENDIENTES.md` — resumen: deletes físicos en categorías/presupuestos/vencimientos/metas (contradice la regla de soft delete), `as any` en el seed de categorías, reportes IA sin manejo de errores de proveedor, y el campo `transactions.auto_classified` quedó vestigial (nada lo pone en `true` desde que se borró el clasificador).
+Ver `docs/ISSUES_PENDIENTES.md` — resumen: `as any` en el seed de categorías, y el campo `transactions.auto_classified` quedó vestigial (nada lo pone en `true` desde que se borró el clasificador). Las categorías ahora tienen soft delete (`deleted_at`, igual que `transactions` y `wallets`); presupuestos, vencimientos y metas de ahorro se borran físicamente a propósito, documentado en `CLAUDE.md`.
 
 ---
 
@@ -142,7 +142,7 @@ Con el chat/voz borrado, el único uso de IA que queda en la app es:
 
 | Endpoint | Modelo | Estado |
 |---|---|---|
-| `/api/finance/ai-report` | claude-sonnet-4-5 | Funcional, sin manejo robusto de errores de proveedor (ver F4 en `ISSUES_PENDIENTES.md`) |
+| `/api/finance/ai-report` | claude-sonnet-4-5 | Funcional, con manejo de errores de proveedor (`F4`, cerrado) |
 
 Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cache de IA en `lib/ai/cache.ts`, clasificación de transacciones, TTS, voice-stream) se eliminó el 2026-08-18, junto con las tablas `ai_cache`, `ai_conversations` y `user_context_cache` (`00013_drop_unused_modules.sql`). `ai-report` guarda directo en `finance_reports`, sin cache propia.
 
@@ -189,7 +189,6 @@ Ver `docs/ISSUES_PENDIENTES.md` para detalle y acciones sugeridas.
 | ID | Issue | Prioridad |
 |---|---|---|
 | `F1` | RPC de seed con `any` en `wallets/route.ts` | Baja |
-| `F3` | Deletes físicos en categorías/presupuestos/vencimientos/metas | Media |
 | `F5` | Presupuestos autocopiados — UX a revisar | Media |
 | `F7` | `transactions.auto_classified` quedó vestigial | Baja |
 | `S3` | Tabla `subscriptions` huérfana con 3 filas reales, sin código que la use | Baja |
@@ -203,6 +202,7 @@ Ver `docs/ISSUES_PENDIENTES.md` para detalle y acciones sugeridas.
 | `F2` Endpoint legacy `/api/ai/classify` | Moot — todo el módulo de clasificación por IA se borró |
 | `S1` RLS sin policies en tablas de módulos removidos | Cerrado — las 28 tablas se borraron en `00013_drop_unused_modules.sql` (con backup previo) |
 | `F4` Reportes IA sin manejo robusto de errores | Cerrado — `try/catch` alrededor de Anthropic, validación de `ANTHROPIC_API_KEY`, y no se guardan informes vacíos |
+| `F3` Deletes físicos en entidades financieras | Cerrado — soft delete agregado solo a `finance_categories` (`00014_finance_categories_soft_delete.sql`, única con riesgo real de cascada/orfandad); presupuestos, vencimientos y metas quedan con delete físico a propósito, documentado en `CLAUDE.md` |
 | `S2` Endpoints sin Zod (`shopping-list`, `fit/sessions`) | Moot — esos endpoints ya no existen |
 | `AI1`–`AI7` | Moot — todo el módulo de chat/voz/clasificación por IA se borró (2026-08-18) |
 | Auth sin verificación de email | Cerrado — flujo de código de 6 dígitos + Resend |
@@ -217,10 +217,9 @@ Ordenado por impacto, asumiendo que el producto es "app de finanzas con paywall"
 
 1. **Precio real del plan** — hoy `SUBSCRIPTION_PRICE_ARS = 1000` es precio de prueba (`src/lib/billing/plan.ts`).
 2. **Probar el caso `paused`** de una suscripción — solo se validó `authorized → cancelled`.
-3. **F3 — decidir soft delete vs. físico** por entidad financiera y ser consistente.
-4. **Edición de perfil** — hoy es solo lectura.
-5. **`S4` — confirmar si el proyecto de Supabase se comparte a propósito con otra app** (las tablas `marketing_*`) o si conviene separar antes de que crezca más.
-6. Deuda menor: `F1` (`as any`), `F7` (campo vestigial), `S3` (tabla `subscriptions` huérfana), y actualizar `README.md` / `CLAUDE.md` / `LUMUS_OVERVIEW.md` / `ARQUITECTURA.md` / `FASES.md`, que todavía describen el alcance de "Sistema Operativo Personal" completo en vez del producto real de hoy (Finanzas + paywall).
+3. **Edición de perfil** — hoy es solo lectura.
+4. **`S4` — confirmar si el proyecto de Supabase se comparte a propósito con otra app** (las tablas `marketing_*`) o si conviene separar antes de que crezca más.
+5. Deuda menor: `F1` (`as any`), `F7` (campo vestigial), `S3` (tabla `subscriptions` huérfana), y actualizar `README.md` / `CLAUDE.md` / `LUMUS_OVERVIEW.md` / `ARQUITECTURA.md` / `FASES.md`, que todavía describen el alcance de "Sistema Operativo Personal" completo en vez del producto real de hoy (Finanzas + paywall).
 
 ---
 
@@ -228,6 +227,6 @@ Ordenado por impacto, asumiendo que el producto es "app de finanzas con paywall"
 
 **Opción A — Cerrar el paywall**: precio real + probar `paused` antes de considerar esto lanzable de verdad.
 
-**Opción B — Calidad técnica de Finanzas**: `F4` (errores IA) + `F3` (soft delete) antes de sumar más features.
+**Opción B — Aclarar el proyecto de Supabase compartido**: confirmar el origen de las tablas `marketing_*` (`S4`) antes de seguir asumiendo que `ccixixskklovvvikiwbq` es exclusivo de Lumus.
 
-**Opción C — Aclarar el proyecto de Supabase compartido**: confirmar el origen de las tablas `marketing_*` (`S4`) antes de seguir asumiendo que `ccixixskklovvvikiwbq` es exclusivo de Lumus.
+**Opción C — Seguir con la deuda menor**: `F1`, `F7`, `S3`, y alinear la documentación de producto con el alcance real.

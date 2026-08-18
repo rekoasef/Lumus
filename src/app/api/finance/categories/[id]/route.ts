@@ -22,6 +22,7 @@ export async function PATCH(
     .update(result.data)
     .eq('id', id)
     .eq('user_id', user.id)
+    .is('deleted_at', null)
     .select('id, name, type, icon, color, is_default')
     .single()
 
@@ -46,6 +47,7 @@ export async function DELETE(
     .select('is_default')
     .eq('id', id)
     .eq('user_id', user.id)
+    .is('deleted_at', null)
     .single()
 
   if (cat?.is_default) {
@@ -54,9 +56,10 @@ export async function DELETE(
 
   const { error } = await supabase
     .from('finance_categories')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
     .eq('user_id', user.id)
+    .is('deleted_at', null)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

@@ -87,9 +87,10 @@ if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 - `SUPABASE_SERVICE_ROLE_KEY` nunca en el cliente
 
 ### Soft delete
-- Tablas con `deleted_at`: `tasks`, `transactions`, `wallets`
+- Tablas con `deleted_at`: `transactions`, `wallets`, `finance_categories`
 - Nunca borrar físicamente — siempre `update({ deleted_at: new Date() })`
 - Siempre filtrar: `.is('deleted_at', null)`
+- Excepción explícita: `budgets`, `recurring_transactions` y `saving_goals` (y su tabla puente `saving_goal_wallets`) sí se borran físicamente a propósito — ninguna otra tabla las referencia para mostrar historial, así que no hay riesgo de perder datos ajenos al borrar. Si en algún momento algo empieza a depender de ellas para historial, sumarles `deleted_at` como se hizo con `finance_categories`.
 
 ---
 

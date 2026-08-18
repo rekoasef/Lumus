@@ -54,24 +54,18 @@ Accion sugerida:
 
 ### F3. Borrados fisicos en entidades financieras
 
-Estado: abierto
+Estado: cerrado
 
-Impacto: medio
+Commit/fecha: 2026-08-18
 
-Hay deletes fisicos en:
+Verificacion:
+- `npx tsc --noEmit`, `npm run lint`, `npm run build` — pasan (0 errores, 14 warnings, sin cambios)
+- Revision manual: `finance_categories` referenciada desde `budgets` (`on delete cascade`) y desde `transactions`/`recurring_transactions` (`on delete set null`) — confirmado en `00001_initial_schema.sql` antes de decidir
 
-- `finance/categories/[id]`
-- `finance/budgets/[id]`
-- `finance/recurring-transactions/[id]` (reemplazo de `finance/subscriptions/[id]`, que se borro sin migrar sus datos — ver `S3`)
-- `finance/saving-goals/[id]`
-
-`finance/transactions/[id]` y `finance/wallets/[id]` si hacen soft delete (`deleted_at`). Esto no rompe el schema actual, pero contradice la regla general de `CLAUDE.md` ("Nunca borrar fisicamente — siempre soft delete") y es inconsistente entre endpoints hermanos.
-
-Accion sugerida:
-
-- Decidir por entidad si requiere historial (ej: una categoria borrada que tenia transacciones asociadas — se pierde el nombre/color al hacer delete fisico si no hay `ON DELETE SET NULL` o similar; verificar el comportamiento actual antes de decidir).
-- Si se necesita historial, agregar `deleted_at` en una migration y migrar esos 4 endpoints a soft delete.
-- Si se mantiene delete fisico para alguna, dejarlo documentado como excepcion explicita en `CLAUDE.md` para no repetir la regla falsa.
+Notas:
+- Se investigo entidad por entidad en vez de aplicar soft delete a las 4 por igual. Solo `finance_categories` tenia un riesgo real: borrarla fisicamente cascadeaba el borrado de **todos** los presupuestos de esa categoria (`budgets.category_id on delete cascade`) y dejaba transacciones/vencimientos historicos sin nombre/color (`on delete set null`). Se le agrego `deleted_at` (`00014_finance_categories_soft_delete.sql`) y el endpoint `DELETE /api/finance/categories/[id]` ahora hace `update({ deleted_at })` en vez de `delete()`, mismo patron que `wallets`/`transactions`. Los joins que muestran categoria en transacciones/presupuestos/vencimientos no se tocaron — al no filtrar por `deleted_at` en el embed, siguen mostrando nombre/color aunque la categoria este "borrada".
+- `budgets`, `recurring_transactions` y `saving_goals` (+ `saving_goal_wallets`) se dejaron con delete fisico **a proposito** — ninguna otra tabla las referencia para mostrar historial, asi que no hay riesgo de perder datos ajenos al borrarlas. Documentado como excepcion explicita en `CLAUDE.md` para que no se vuelva a marcar como bug.
+- No se toco la tabla `subscriptions` huerfana (`S3`) — es un problema distinto (datos historicos sin migrar), no de esta decision.
 
 ### F4. Reportes IA sin manejo robusto de errores
 
@@ -138,10 +132,9 @@ El paywall de Mercado Pago tiene su propio checklist de pendientes en `docs/BILL
 ## Orden recomendado de trabajo
 
 1. `S4` — confirmar el origen de las tablas `marketing_*` antes de que el proyecto de Supabase compartido crezca mas.
-2. `F3` — consistencia de soft delete entre entidades financieras (de paso, revisar `S3` — la migracion de `subscriptions` a `recurring_transactions` que quedo a medias).
-3. `F5` — revisar UX de presupuestos autocopiados.
-4. Limpieza menor: `F1` (`as any`), `F7` (campo vestigial), `S3` (tabla `subscriptions` huerfana).
-5. `D1` — alinear documentacion de producto con el alcance real, cuando haya tiempo.
+2. `F5` — revisar UX de presupuestos autocopiados.
+3. Limpieza menor: `F1` (`as any`), `F7` (campo vestigial), `S3` (tabla `subscriptions` huerfana).
+4. `D1` — alinear documentacion de producto con el alcance real, cuando haya tiempo.
 
 ## Issues cerrados
 
@@ -154,6 +147,7 @@ El paywall de Mercado Pago tiene su propio checklist de pendientes en `docs/BILL
 | Sin paywall | Cerrado — Mercado Pago Suscripciones, ver `docs/BILLING.md` |
 | `S1` RLS sin policies en tablas de modulos removidos | Cerrado — se dropearon las 28 tablas sin uso en `00013_drop_unused_modules.sql`, con backup previo de las 13 que tenian datos reales (`~/lumus-dropped-modules-backup-2026-08-18/`, fuera del repo) |
 | `F4` Reportes IA sin manejo robusto de errores | Cerrado — ver detalle en la seccion `F4` mas arriba |
+| `F3` Borrados fisicos en entidades financieras | Cerrado — soft delete solo para `finance_categories` (era la unica con riesgo real de cascada/orfandad), fisico documentado como excepcion a proposito para el resto — ver detalle en la seccion `F3` mas arriba |
 
 ### Cerrados en esta revision (2026-08-18) — moot por borrado de codigo
 

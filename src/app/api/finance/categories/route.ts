@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     .from('finance_categories')
     .select('id, name, type, icon, color, is_default')
     .eq('user_id', user.id)
+    .is('deleted_at', null)
     .order('is_default', { ascending: false })
     .order('name', { ascending: true })
 

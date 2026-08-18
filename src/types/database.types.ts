@@ -116,6 +116,7 @@ export type Database = {
       finance_categories: {
         Row: {
           color: string | null
+          deleted_at: string | null
           icon: string | null
           id: string
           is_default: boolean | null
@@ -125,6 +126,7 @@ export type Database = {
         }
         Insert: {
           color?: string | null
+          deleted_at?: string | null
           icon?: string | null
           id?: string
           is_default?: boolean | null
@@ -134,6 +136,7 @@ export type Database = {
         }
         Update: {
           color?: string | null
+          deleted_at?: string | null
           icon?: string | null
           id?: string
           is_default?: boolean | null
