@@ -187,7 +187,7 @@ Warnings que quedan (no bloquean, bajaron de ~25 a 14 tras el borrado del chat/v
 
 ## Issues abiertos
 
-Ver `docs/ISSUES_PENDIENTES.md` para detalle. Todo el backlog técnico de esta revisión (`F1`, `F3`, `F4`, `F5`, `F7`, `S1`, `S3`, `S4`) quedó cerrado. Solo queda `D1` (alinear la documentación de producto con el alcance real), sin urgencia.
+Ver `docs/ISSUES_PENDIENTES.md` para detalle. Todo el backlog técnico de esta revisión (`F1`, `F3`, `F4`, `F5`, `F7`, `S1`, `S3`, `S4`, `D1`) quedó cerrado. No queda nada pendiente en el backlog técnico — solo los dos pendientes propios de `docs/BILLING.md` (precio real, probar `paused`).
 
 `S3` y `S4` se cerraron por decisión del usuario, no con cambios de código en el primer caso: `subscriptions` (tabla huérfana con 3 filas reales — Seguro moto, Definitiva, Credito Computadora) queda intacta, sin tocar; las 6 tablas `marketing_*` eran un módulo de Lumus que nunca llegó a tener migración en este repo y ya no corresponde, así que se borraron (`00016_drop_marketing_module.sql`, con backup previo de la única fila con datos).
 
@@ -210,6 +210,7 @@ Ver `docs/ISSUES_PENDIENTES.md` para detalle. Todo el backlog técnico de esta r
 | `F7` `transactions.auto_classified` vestigial | Cerrado — columna borrada (`00015_drop_auto_classified.sql`) y limpiada del código |
 | `S4` Tablas `marketing_*` inesperadas | Cerrado — confirmado por el usuario que era un módulo de Lumus sin migración en el repo; borradas en `00016_drop_marketing_module.sql` con backup previo de la única fila con datos |
 | `S3` Tabla `subscriptions` huérfana | Cerrado — el usuario decidió no eliminar las 3 filas; tabla intacta, sin tocar |
+| `D1` Docs de producto vs. alcance real | Cerrado — `README.md`, `CLAUDE.md`, `LUMUS_OVERVIEW.md`, `ARQUITECTURA.md`, `FASES.md` y `FINANZAS.md` reescritos para reflejar solo Finanzas (decisión del usuario, no "pausa" de la visión original) |
 
 ---
 
@@ -220,12 +221,11 @@ Ordenado por impacto, asumiendo que el producto es "app de finanzas con paywall"
 1. **Precio real del plan** — hoy `SUBSCRIPTION_PRICE_ARS = 1000` es precio de prueba (`src/lib/billing/plan.ts`).
 2. **Probar el caso `paused`** de una suscripción — solo se validó `authorized → cancelled`.
 3. **Edición de perfil** — hoy es solo lectura.
-4. Actualizar `README.md` / `CLAUDE.md` / `LUMUS_OVERVIEW.md` / `ARQUITECTURA.md` / `FASES.md`, que todavía describen el alcance de "Sistema Operativo Personal" completo en vez del producto real de hoy (Finanzas + paywall).
+
+Con `D1` cerrado, no queda deuda de documentación pendiente.
 
 ---
 
 ## Próximo foco recomendado
 
-**Opción A — Cerrar el paywall**: precio real + probar `paused` antes de considerar esto lanzable de verdad.
-
-**Opción B — Alinear la documentación de producto** (`D1`): es lo único que queda del backlog técnico, sin urgencia.
+**Cerrar el paywall**: precio real + probar `paused` antes de considerar esto lanzable de verdad. Es lo único que queda en todo el backlog.

@@ -110,17 +110,19 @@ Notas:
 
 ### D1. Docs de producto vs. alcance real
 
-Estado: abierto
+Estado: cerrado
 
-Impacto: medio
+Commit/fecha: 2026-08-18
 
-`CLAUDE.md`, `LUMUS_OVERVIEW.md`, `ARQUITECTURA.md` y `FASES.md` todavia describen a Lumus como el "Sistema Operativo Personal" original (organizacion, finanzas, comidas, salud, habitos, journal, relaciones, estudio + IA contextual en cada modulo). El producto real desde el 2026-06-29 es una app de finanzas personales con paywall — sin esos otros modulos ni el chat/voz de IA.
+Verificacion:
+- Lectura completa de los 6 archivos reescritos
+- `npx tsc --noEmit`, `npm run lint`, `npm run build` — pasan (los cambios fueron solo de documentacion, no debian afectar nada)
 
-`docs/ESTADO_ACTUAL.md` (actualizado junto con este archivo) ya refleja el estado real y puede usarse como fuente de verdad mientras tanto.
-
-Accion sugerida:
-
-- Actualizar `README.md`, `CLAUDE.md`, `LUMUS_OVERVIEW.md`, `ARQUITECTURA.md` y `FASES.md` para que el alcance de producto coincida con lo que existe, o decidir explicitamente "esto es una pausa, el plan sigue siendo el OS completo" y dejarlo anotado.
+Notas:
+- Decision del usuario: reescribir para reflejar solo Finanzas, no mantener la vision de 8 modulos como "pausada". Esa vision queda accesible en el historial de git si algun dia se retoma.
+- Reescritos de punta a punta: `README.md`, `CLAUDE.md`, `docs/LUMUS_OVERVIEW.md`, `docs/ARQUITECTURA.md`, `docs/FASES.md`, y de paso `docs/FINANZAS.md` (no estaba en la lista original de D1, pero `CLAUDE.md` lo referencia como lectura obligatoria y tenia las mismas inconsistencias — clasificacion automatica por IA, metas vinculadas a una sola billetera, `subscriptions` en vez de `recurring_transactions`).
+- `docs/SCHEMA.md` no se reescribio (es largo, 712 lineas, y no estaba en el alcance pedido) — se le agrego un banner de aviso al principio marcandolo desactualizado y apuntando a `supabase/migrations/`/`database.types.ts` como fuente real.
+- Los docs de modulos removidos (`AI_ARCHITECTURE.md`, `ORGANIZACION.md`, `COMIDAS.md`, `COMIDAS_V2.md`, `FIT.md`, `HABITOS.md`, `JOURNAL.md`, `RELACIONES.md`, `ESTUDIO.md`) se dejaron sin tocar, pero `README.md` ahora los marca como "históricos" en el mapa de documentacion para que no se lean como vigentes.
 
 ## Billing — items propios, no duplicados aca
 
@@ -128,9 +130,7 @@ El paywall de Mercado Pago tiene su propio checklist de pendientes en `docs/BILL
 
 ## Orden recomendado de trabajo
 
-Todo el backlog tecnico de esta revision esta cerrado. Lo unico que queda:
-
-1. `D1` — alinear documentacion de producto (`README.md`, `CLAUDE.md`, `LUMUS_OVERVIEW.md`, `ARQUITECTURA.md`, `FASES.md`) con el alcance real, cuando haya tiempo. No es urgente.
+Todo el backlog de esta revision esta cerrado. No queda nada pendiente registrado en este documento — lo que sigue son los pendientes de `docs/BILLING.md` (precio real del plan, probar suscripcion `paused`), que no se duplican aca.
 
 ## Issues cerrados
 
@@ -149,6 +149,7 @@ Todo el backlog tecnico de esta revision esta cerrado. Lo unico que queda:
 | `F7` Campo `auto_classified` vestigial | Cerrado — columna borrada (`00015_drop_auto_classified.sql`) y limpiada del codigo — ver detalle en la seccion `F7` mas arriba |
 | `S4` Tablas `marketing_*` inesperadas | Cerrado — confirmado por el usuario que era un modulo de Lumus que no correspondia mas; dropeadas en `00016_drop_marketing_module.sql` con backup previo de la unica fila con datos |
 | `S3` Tabla `subscriptions` huerfana | Cerrado — el usuario decidio no eliminar las 3 filas; la tabla queda intacta, sin tocar |
+| `D1` Docs de producto vs. alcance real | Cerrado — `README.md`, `CLAUDE.md`, `LUMUS_OVERVIEW.md`, `ARQUITECTURA.md`, `FASES.md` y `FINANZAS.md` reescritos para reflejar solo Finanzas — ver detalle en la seccion `D1` mas arriba |
 
 ### Cerrados en esta revision (2026-08-18) — moot por borrado de codigo
 

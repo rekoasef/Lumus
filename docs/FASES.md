@@ -1,321 +1,98 @@
 # LUMUS — Fases de Desarrollo
 
+> Reescrito 2026-08-18. La versión anterior era un checklist de "por construir" para los 8 módulos de la visión original, todo marcado `[ ]` aunque buena parte ya se había construido y después se borró. Esta versión documenta en retrospectiva lo que existe hoy y lo que queda, para un producto de un solo módulo (Finanzas + paywall).
+
 ## Resumen
 
-| Fase | Nombre | Prioridad |
+| Fase | Nombre | Estado |
 |---|---|---|
-| 0 | Setup & Fundación | Crítica |
-| 1 | Core & Auth | Crítica |
-| 2 | Módulo Organización | Alta |
-| 3 | Módulo Finanzas | Alta |
-| 4 | Módulo Comidas & Nutrición | Media |
-| 5 | Módulo Fit & Salud | Media |
-| 6 | Módulos Restantes | Media-Baja |
-| 7 | IA Proactiva & Contexto Cruzado | Alta |
-| 8 | Polish & Producción | Crítica al final |
+| 0 | Setup & Fundación | ✅ Hecho |
+| 1 | Core & Auth | ✅ Hecho |
+| 2 | Módulo Finanzas | ✅ Hecho |
+| 3 | Paywall (Mercado Pago) | ✅ Hecho, con pendientes menores |
+| 4 | Limpieza de deuda técnica | ✅ Hecho (2026-08-18) |
+| 5 | Pulido y lanzamiento real | 🔲 Pendiente |
+
+Las fases de organización, comidas, fit, hábitos, journal, relaciones, estudio e IA proactiva/contexto cruzado de la versión original **no están en este roadmap** — se descartaron en el pivot a Finanzas del 2026-06-29. Si se retoman algún día, hay que reconstruirlas desde cero (código y tablas borrados).
 
 ---
 
-## FASE 0 — Setup & Fundación
+## FASE 0 — Setup & Fundación ✅
 
-> Objetivo: proyecto listo para desarrollar, sin funcionalidad aún
-
-### 0.1 Inicialización del proyecto
-- [ ] `npx create-next-app@latest lumus --typescript --tailwind --app --src-dir`
-- [ ] Configurar `tsconfig.json` con `strict: true` y path aliases (`@/*`)
-- [ ] Instalar y configurar shadcn/ui (`npx shadcn@latest init`)
-- [ ] Instalar Framer Motion, Zustand, React Hook Form, Zod
-- [ ] Instalar Supabase client (`@supabase/supabase-js`, `@supabase/ssr`)
-- [ ] Instalar Anthropic SDK y OpenAI SDK
-- [ ] Instalar Vitest + Testing Library
-
-### 0.2 Supabase
-- [ ] Crear proyecto en Supabase
-- [ ] Correr migrations del schema completo (ver `docs/SCHEMA.md`)
-- [ ] Configurar variables de entorno
-- [ ] Verificar que RLS esté activo en todas las tablas
-
-### 0.3 Vercel
-- [ ] Conectar repositorio a Vercel
-- [ ] Configurar variables de entorno en Vercel
-- [ ] Configurar preview deployments para PRs
-
-### 0.4 Design System
-- [ ] Definir paleta de colores (dark/light) en `globals.css` y `tailwind.config.ts`
-- [ ] Definir tipografía (Geist Sans como fuente principal)
-- [ ] Definir border-radius, shadows, spacing tokens
-- [ ] Crear componentes base: Button, Input, Card, Badge, Avatar
-
-### 0.5 Estructura de carpetas
-- [ ] Crear toda la estructura de carpetas según `docs/ARQUITECTURA.md`
-- [ ] Crear archivos de tipos base en `src/types/`
-- [ ] Crear clientes de Supabase en `src/lib/supabase/`
-
-### 0.6 Configurar Vitest
-- [ ] `vitest.config.ts` con setup para Next.js
-- [ ] Crear `tests/mocks/supabase.ts`
-- [ ] Primer test de sanidad para verificar que funciona
+- [x] Next.js 16 App Router + TypeScript strict
+- [x] Tailwind CSS v4 + shadcn/ui + Framer Motion
+- [x] Supabase (proyecto `ccixixskklovvvikiwbq`) con RLS en todas las tablas
+- [x] Deploy en Vercel
 
 ---
 
-## FASE 1 — Core & Auth
+## FASE 1 — Core & Auth ✅
 
-> Objetivo: usuario puede registrarse, loguearse y completar el onboarding
-
-### 1.1 Autenticación
-- [ ] Configurar Supabase Auth en el proyecto
-- [ ] Página de Login (`/login`) con email + password
-- [ ] Página de Registro (`/register`)
-- [ ] Logout desde el sidebar
-- [ ] Middleware de rutas protegidas (`src/middleware.ts`)
-- [ ] Redirección: si no está logueado → `/login`, si no completó onboarding → `/onboarding`
-- [ ] Manejo de errores de auth (email ya registrado, contraseña incorrecta, etc.)
-- [ ] Tests unitarios para funciones de auth
-
-### 1.2 Onboarding
-- [ ] Layout de onboarding con stepper visual (3 pasos)
-- [ ] **Paso 1 — Bienvenida:** Pantalla de presentación de Lumus con animación
-- [ ] **Paso 2 — Tu perfil:**
-  - Nombre completo
-  - Fecha de nacimiento
-  - Peso actual (kg) y altura (cm)
-  - Ocupación y estudios
-  - Salario mensual aproximado
-  - Objetivos económicos (dropdown + custom)
-  - Objetivos de salud (dropdown + custom)
-  - Planes de vida (campo de texto)
-- [ ] **Paso 3 — Contale a Lumus:**
-  - Campo libre de texto grande
-  - Placeholder: "Contame todo lo que quieras sobre vos — tus metas, tu día a día, lo que querés mejorar, tu estilo de vida..."
-  - Botón "Comenzar con Lumus"
-- [ ] Guardar datos en `user_profiles` y `user_life_summary`
-- [ ] Marcar `onboarding_done = true` al finalizar
-- [ ] Generar `user_context_cache` inicial
-- [ ] Tests unitarios del flujo de onboarding
-
-### 1.3 Layout Principal
-- [ ] Layout con sidebar para desktop
-- [ ] Layout con bottom navigation bar para mobile
-- [ ] Sidebar: logo Lumus, links de navegación por módulo, avatar + nombre de usuario, toggle dark/light
-- [ ] Bottom nav mobile: iconos de módulos principales + dashboard
-- [ ] Componente de campanita de notificaciones (UI base)
-- [ ] Página de error 404 personalizada
-
-### 1.4 Dashboard Base
-- [ ] Página dashboard (`/dashboard`)
-- [ ] Saludo personalizado: "Buenos días, [nombre]" según hora del día
-- [ ] Grid de widgets (vacíos inicialmente, se llenan con cada fase)
-- [ ] Widgets: tareas del día, balance financiero, hábitos del día, mood de hoy
-- [ ] Responsive: 1 columna mobile, 2-3 columnas desktop
-
-### 1.5 Perfil de Usuario
-- [ ] Página de perfil (`/perfil`)
-- [ ] Ver y editar datos del perfil
-- [ ] Editar resumen de vida (campo libre)
-- [ ] Al guardar cambios → invalidar `user_context_cache`
+- [x] Login y registro con Supabase Auth
+- [x] Verificación de email por código de 6 dígitos (no el link default de Supabase)
+- [x] Recuperación de contraseña por código
+- [x] SMTP propio vía Resend con templates custom (`supabase/templates/`)
+- [x] `src/proxy.ts` — gate de rutas protegidas (Next 16 renombró `middleware.ts` a `proxy.ts`)
+- [x] Onboarding de 3 pasos (bienvenida, perfil, campo libre) → `user_profiles` + `user_life_summary`
+- [x] Dashboard base con widgets (reloj, clima, cotización) y resumen de billeteras/presupuestos/vencimientos/metas
+- [x] Perfil de usuario — **pendiente:** hoy es solo lectura, falta edición
 
 ---
 
-## FASE 2 — Módulo Organización
+## FASE 2 — Módulo Finanzas ✅
 
-> Objetivo: gestión completa de tareas, calendario, rutinas y objetivos
+Ver `docs/FINANZAS.md` para el detalle funcional completo. Resumen de lo implementado:
 
-### 2.1 Tareas
-- [ ] Página principal del módulo (`/organizacion`)
-- [ ] Lista de tareas con filtros (estado, prioridad, etiqueta)
-- [ ] Crear tarea: título, descripción, prioridad, fecha de vencimiento, etiquetas
-- [ ] Editar tarea inline o en modal
-- [ ] Marcar tarea como completada (checkbox con animación)
-- [ ] Subtareas: agregar y completar desde la tarea padre
-- [ ] Archivar/eliminar tarea (soft delete)
-- [ ] Tests unitarios para CRUD de tareas
+- [x] Billeteras — CRUD, balance por trigger SQL, soft delete
+- [x] Categorías — seed de defaults, CRUD custom, soft delete
+- [x] Transacciones — CRUD, transferencias, ajustes de balance, soft delete, filtros
+- [x] Presupuestos — límite mensual por categoría, autocopia del mes anterior con aviso visual
+- [x] Vencimientos recurrentes — CRUD, aplicar y avanzar fecha
+- [x] Metas de ahorro — múltiples billeteras por meta, aportes manuales, progreso
+- [x] Reportes — gráficos + resumen mensual por IA (Claude), export a PDF
+- [x] Cotizaciones para sumar billeteras en distinta moneda
 
-### 2.2 Etiquetas
-- [ ] CRUD de etiquetas con color personalizable
-- [ ] Asignar múltiples etiquetas a una tarea
-- [ ] Filtrar tareas por etiqueta
-
-### 2.3 Calendario
-- [ ] Vista mensual con tareas del día marcadas
-- [ ] Vista semanal con time blocks
-- [ ] Vista diaria con agenda del día
-- [ ] Click en día → ver tareas de ese día
-- [ ] Crear evento de calendario desde el calendario
-
-### 2.4 Rutinas
-- [ ] CRUD de rutinas (mañana, noche, trabajo, estudio, custom)
-- [ ] Asociar tareas existentes a una rutina
-- [ ] Activar/desactivar rutina
-
-### 2.5 Objetivos
-- [ ] CRUD de objetivos mensuales y anuales
-- [ ] Seguimiento de progreso (slider 0-100%)
-- [ ] Marcar objetivo como alcanzado
-
-### 2.6 Chat Lumus — Organización
-- [ ] Panel de chat lateral o modal por módulo
-- [ ] Historial de conversación (últimos 10 mensajes)
-- [ ] Enviar mensaje → llamar `/api/ai/chat` con `module: 'organizacion'`
-- [ ] Mostrar estado "Lumus está escribiendo..."
-- [ ] Sugerencias rápidas: "Organizame la semana", "¿Qué priorizo hoy?", "Tengo demasiado trabajo"
-
-### 2.7 Estadísticas Organización
-- [ ] Widget en dashboard: tareas completadas esta semana
-- [ ] Gráfico de productividad semanal
-- [ ] % de cumplimiento de objetivos del mes
+**Descartado de la visión original:** clasificación automática de gastos por IA — el usuario prefiere carga manual, no reproponerla.
 
 ---
 
-## FASE 3 — Módulo Finanzas
+## FASE 3 — Paywall (Mercado Pago) ✅ con pendientes menores
 
-> Objetivo: control financiero personal completo
+Ver `docs/BILLING.md` para el detalle completo.
 
-### 3.1 Billeteras
-- [ ] CRUD de billeteras (efectivo, banco, virtual)
-- [ ] Balance de cada billetera
-- [ ] Color e ícono por billetera
+- [x] Tabla `billing_subscriptions` + RLS
+- [x] Gate en `(dashboard)/layout.tsx` y `src/proxy.ts`
+- [x] `create-subscription`, `webhook` (valida firma HMAC), `status`
+- [x] `/suscripcion` con polling hasta confirmación del webhook
+- [x] Probado con pagos y cancelación reales
 
-### 3.2 Categorías
-- [ ] Categorías default pre-cargadas (comida, transporte, ocio, etc.)
-- [ ] CRUD de categorías custom
-- [ ] Color e ícono por categoría
-
-### 3.3 Transacciones
-- [ ] Registrar gasto con: monto, billetera, categoría, descripción, fecha
-- [ ] Registrar ingreso
-- [ ] Clasificación automática por IA (GPT-4o mini) al ingresar descripción
-- [ ] Listado con filtros: tipo, categoría, billetera, rango de fechas
-- [ ] Editar y eliminar transacción (soft delete)
-- [ ] Tests unitarios para transacciones
-
-### 3.4 Presupuestos
-- [ ] Definir límite mensual por categoría
-- [ ] Indicador visual de % usado del presupuesto
-- [ ] Alerta cuando supera el 80% del límite
-
-### 3.5 Suscripciones
-- [ ] CRUD de suscripciones recurrentes
-- [ ] Próxima fecha de cobro
-- [ ] Resumen del gasto mensual en suscripciones
-
-### 3.6 Metas de Ahorro
-- [ ] Crear meta con nombre, monto objetivo, fecha objetivo
-- [ ] Registrar aportes a la meta
-- [ ] Barra de progreso visual
-- [ ] Marcar meta como alcanzada
-
-### 3.7 Reportes
-- [ ] Vista de reportes (`/finanzas/reportes`)
-- [ ] Gráfico de gastos por categoría (pie chart)
-- [ ] Evolución de gastos vs ingresos por mes (line chart)
-- [ ] Top 5 categorías del mes
-
-### 3.8 Chat Lumus — Finanzas
-- [ ] Chat contextual con datos financieros en el snapshot
-- [ ] Sugerencias rápidas: "¿En qué gasto de más?", "¿Puedo ahorrar más?", "Analizá mis gastos"
+Pendiente antes de un lanzamiento de verdad:
+- [ ] Subir `SUBSCRIPTION_PRICE_ARS` (`src/lib/billing/plan.ts`) del precio de prueba al precio real
+- [ ] Probar el caso de suscripción `paused` (solo se probó `authorized → cancelled`)
 
 ---
 
-## FASE 4 — Módulo Comidas & Nutrición
+## FASE 4 — Limpieza de deuda técnica ✅
 
-### 4.1 Registro de Comidas
-- [ ] Registrar comida por momento del día
-- [ ] Asociar receta o ingresar nombre manual
-- [ ] Historial semanal de comidas
+Completada el 2026-08-18 — ver `docs/ISSUES_PENDIENTES.md` para el detalle de cada issue:
 
-### 4.2 Recetas
-- [ ] CRUD de recetas con ingredientes e instrucciones
-- [ ] Info nutricional (calorías, proteínas, grasas, carbos)
-- [ ] Marcar como favorita
-- [ ] Recetas generadas por IA (se guardan con `ai_generated: true`)
+- [x] Borrado del chat/voz de IA (módulo entero, con toda su deuda asociada)
+- [x] RLS sin policies en tablas de módulos removidos → tablas borradas (`00013`)
+- [x] Soft delete en `finance_categories` (evitaba cascada de borrado de presupuestos)
+- [x] Manejo de errores en el reporte de IA
+- [x] `as any` en llamadas a RPC de Supabase
+- [x] Campo `transactions.auto_classified` vestigial → columna borrada
+- [x] Tablas `marketing_*` de un módulo descartado → borradas
+- [x] Esta reescritura de docs (`D1`)
 
-### 4.3 Lista del Supermercado
-- [ ] Lista manual con items y categorías
-- [ ] Generación automática desde menú semanal (IA)
-- [ ] Marcar items como comprados
-- [ ] Limpiar lista
-
-### 4.4 Chat Lumus — Comidas
-- [ ] Sugerencias rápidas: "¿Qué cocino hoy?", "Armame un meal prep", "Algo alto en proteínas"
+Quedó sin resolver a propósito, por decisión del usuario: la tabla huérfana `subscriptions` (3 filas reales de vencimientos viejos) se deja intacta, sin migrar ni borrar.
 
 ---
 
-## FASE 5 — Módulo Fit & Salud
+## FASE 5 — Pulido y lanzamiento real 🔲
 
-### 5.1 Seguimiento Corporal
-- [ ] Registrar peso, medidas, % grasa
-- [ ] Subir foto de progreso (Supabase Storage)
-- [ ] Gráfico de evolución de peso
-
-### 5.2 Entrenamientos
-- [ ] CRUD de ejercicios con grupo muscular
-- [ ] Crear rutinas de entrenamiento
-- [ ] Registrar sesión: qué hiciste, cuántos sets, reps, peso
-- [ ] Historial de sesiones
-
-### 5.3 Hábitos de Salud
-- [ ] Registro diario: agua (ml), sueño (horas), pasos
-- [ ] Integración con módulo de hábitos
-
-### 5.4 Chat Lumus — Fit
-- [ ] Sugerencias: "Rutina para hipertrofia", "Analizá mi progreso", "¿Estoy mejorando?"
-
----
-
-## FASE 6 — Módulos Restantes
-
-### 6.1 Hábitos
-- [ ] CRUD de hábitos (positivos y negativos)
-- [ ] Check diario de cada hábito
-- [ ] Streaks con visualización
-- [ ] Heatmap de consistencia (estilo GitHub)
-- [ ] Chat Lumus: detectar patrones, recomendar mejoras
-
-### 6.2 Journal
-- [ ] Editor de texto enriquecido para entradas diarias
-- [ ] Registro de estado de ánimo (mood 1-5 con emojis)
-- [ ] Tags por entrada
-- [ ] Resumen semanal generado por IA
-- [ ] Chat Lumus: análisis emocional, patrones
-
-### 6.3 Relaciones
-- [ ] CRUD de contactos con tipo de relación
-- [ ] Registrar fechas importantes (cumpleaños, aniversarios)
-- [ ] Recordatorios automáticos (notificaciones)
-- [ ] Chat Lumus: sugerencias de actividades, ideas de regalos
-
-### 6.4 Estudio & Aprendizaje
-- [ ] CRUD de temas/cursos con estado y progreso
-- [ ] Notas asociadas a cada tema con editor
-- [ ] Tags y búsqueda
-- [ ] Chat Lumus: tutor personalizado, explicar conceptos, generar ejercicios
-
----
-
-## FASE 7 — IA Proactiva & Contexto Cruzado
-
-> Esta fase es el diferencial real de Lumus
-
-- [ ] User Snapshot global conectando todos los módulos
-- [ ] Resumen semanal automático (Supabase Edge Function o Vercel Cron)
-- [ ] Notificaciones inteligentes basadas en contexto cruzado
-  - Ejemplo: "Dormiste poco y tu productividad bajó — ¿querés ajustar el plan de hoy?"
-- [ ] Recomendaciones cruzadas entre módulos
-- [ ] Widget "Lumus sugiere" en el dashboard
-- [ ] Invalidación inteligente del caché al registrar nuevos datos
-
----
-
-## FASE 8 — Polish & Producción
-
-- [ ] Unit tests al 80%+ de cobertura en funciones críticas
-- [ ] Optimización de queries de Supabase (índices, selects específicos)
-- [ ] Error boundary global
-- [ ] Toast notifications para acciones (crear, editar, eliminar)
-- [ ] Loading skeletons en todos los componentes async
-- [ ] Animaciones de entrada/salida con Framer Motion
-- [ ] Rate limiting en API routes de IA
-- [ ] Review completa de RLS policies
-- [ ] Agregar segundo usuario
-- [ ] Optimización mobile: touch targets, scroll, gestos
-- [ ] Performance: Lighthouse score > 90
+- [ ] Precio real del plan
+- [ ] Probar suscripción `paused`
+- [ ] Edición de perfil
+- [ ] Consistencia de soft delete si en algún momento otra tabla financiera empieza a necesitarlo
+- [ ] Revisar si el proyecto de Supabase debería separarse si vuelve a compartirse con otra app

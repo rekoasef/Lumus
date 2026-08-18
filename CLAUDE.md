@@ -7,22 +7,25 @@ Seguí todas las instrucciones de este archivo en cada tarea.
 
 ## ¿Qué es este proyecto?
 
-**Lumus** es un Sistema Operativo Personal impulsado por IA.
-Una plataforma web fullstack donde el usuario centraliza organización, finanzas, comidas, salud, hábitos, journal, relaciones y estudio — con una IA contextual integrada en cada módulo.
+**Lumus** es una app de finanzas personales con IA y paywall.
+El usuario se registra (con verificación de email por código), completa un onboarding breve, se suscribe vía Mercado Pago, y a partir de ahí gestiona billeteras, transacciones, presupuestos, vencimientos recurrentes y metas de ahorro, con reportes mensuales generados por Claude.
 
-Documentación completa en `/docs/`. Empezá siempre por `docs/LUMUS_OVERVIEW.md`.
+Lumus arrancó como un proyecto más ambicioso ("Sistema Operativo Personal" con módulos de organización, comidas, fit, hábitos, journal, relaciones y estudio, más un chat de IA transversal). El 2026-06-29 el alcance se redujo a propósito solo a Finanzas, y el chat/voz de IA se eliminó del código el 2026-08-18. Si en algún doc viejo o comentario aparece esa visión más amplia, no representa el estado actual — este archivo y `docs/ESTADO_ACTUAL.md` son la fuente de verdad.
+
+Documentación completa en `/docs/`. Empezá siempre por `docs/ESTADO_ACTUAL.md` para el estado real, y `docs/LUMUS_OVERVIEW.md` para la visión de producto.
 
 ---
 
 ## Stack
 
 ```
-Next.js 14+ App Router + TypeScript strict
-Tailwind CSS + shadcn/ui + Framer Motion
-Supabase (PostgreSQL + Auth + Storage)
+Next.js 16 App Router + TypeScript strict
+Tailwind CSS v4 + shadcn/ui + Framer Motion
+Supabase (PostgreSQL + Auth) — sin Storage ni Realtime en uso
 Zustand + React Hook Form + Zod
-Claude API (claude-sonnet-4-5) + OpenAI API (gpt-4o-mini)
-Vitest (unit tests)
+Claude API (claude-sonnet-4-5) — único proveedor de IA, solo para el reporte mensual
+Mercado Pago (Suscripciones) — paywall
+Resend (SMTP de Supabase Auth) — mails de verificación y recuperación de contraseña
 Vercel (deploy)
 ```
 
@@ -42,11 +45,11 @@ Ver setup completo en `docs/TOOLS_AND_SKILLS.md`.
 
 ## Antes de escribir cualquier código
 
-1. Leer el doc del módulo en `docs/modulos/` si la tarea involucra un módulo
-2. Revisar el schema en `docs/SCHEMA.md` para las tablas involucradas
-3. Consultar `docs/ARQUITECTURA.md` para saber dónde va cada archivo
-4. Respetar el design system de `docs/DESIGN_SYSTEM.md`
-5. Si la tarea involucra IA, leer `docs/AI_ARCHITECTURE.md` completo
+1. Leer `docs/FINANZAS.md` si la tarea involucra el módulo de finanzas
+2. Leer `docs/BILLING.md` si la tarea involucra el paywall de Mercado Pago
+3. Para el schema real, no uses `docs/SCHEMA.md` (quedó desactualizado, describe módulos que ya no existen) — mirá directamente `supabase/migrations/` o `src/types/database.types.ts` (se regenera con `supabase gen types typescript --linked`)
+4. Consultar `docs/ARQUITECTURA.md` para saber dónde va cada archivo
+5. Respetar el design system de `docs/DESIGN_SYSTEM.md`
 
 ---
 
@@ -96,29 +99,12 @@ if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
 ## Reglas de IA
 
-### Modelo correcto para cada tarea
-| Tarea | Modelo |
-|---|---|
-| Chat de Lumus | `claude-sonnet-4-5` |
-| Análisis, resúmenes, journal | `claude-sonnet-4-5` |
-| Clasificar gastos | `gpt-4o-mini` |
-| Sentimiento simple | `gpt-4o-mini` |
-| Generar listas cortas | `gpt-4o-mini` |
+El único uso de IA en la app hoy es el reporte financiero mensual (`/api/finance/ai-report`, `claude-sonnet-4-5`). No hay chat, no hay clasificación automática de gastos (el usuario prefiere cargar todo a mano — no proponerla salvo que la pida explícitamente), no hay `ai_cache`/`ai_conversations`/context builder — todo eso se borró el 2026-08-18.
 
-### Caché obligatorio
-Antes de llamar cualquier API de IA, verificar `ai_cache` en Supabase:
-```typescript
-const cached = await getCachedResponse(supabase, userId, cacheKey)
-if (cached) return cached
-```
-
-### Context Builder
-Nunca mandar raw data a la IA. Siempre usar `buildUserSnapshot()` de `src/lib/ai/context-builder.ts`.
-
-### Guardar siempre
-Después de cada llamada exitosa a la IA:
-1. Guardar en `ai_cache` con TTL apropiado
-2. Guardar en `ai_conversations` para historial
+Si se agrega una nueva feature de IA:
+- Nunca llamar al proveedor sin chequear antes si ya existe un resultado guardado para ese pedido — `ai-report` lo hace consultando `finance_reports` por mes antes de generar de nuevo (patrón a repetir, no una tabla de caché genérica).
+- Envolver la llamada en `try/catch` y devolver un error claro a la UI si falla (ver `ai-report` como referencia — valida la env var, atrapa errores del SDK, y rechaza respuestas sin contenido de texto en vez de guardarlas vacías).
+- Validar la env var de la API key antes de llamar.
 
 ---
 
@@ -126,33 +112,39 @@ Después de cada llamada exitosa a la IA:
 
 | Elemento | Convención | Ejemplo |
 |---|---|---|
-| Archivos de componentes | kebab-case | `task-card.tsx` |
+| Archivos de componentes | kebab-case | `wallet-card.tsx` |
 | Funciones y variables | camelCase | `getUserProfile` |
 | Tipos e interfaces | PascalCase | `UserProfile` |
-| Constantes globales | UPPER_SNAKE_CASE | `MAX_TOKENS` |
-| Tablas de DB | snake_case plural | `task_labels` |
-| Rutas API | kebab-case | `/api/ai/classify` |
+| Constantes globales | UPPER_SNAKE_CASE | `SUBSCRIPTION_PRICE_ARS` |
+| Tablas de DB | snake_case plural | `finance_categories` |
+| Rutas API | kebab-case | `/api/finance/recurring-transactions` |
 
 ---
 
 ## Estructura de carpetas clave
 
 ```
-src/app/(dashboard)/     → páginas de la app (protegidas)
-src/app/(auth)/          → login, register
-src/app/api/             → API routes
+src/app/(dashboard)/     → páginas protegidas por auth + onboarding + suscripción (dashboard, finanzas, perfil)
+src/app/(auth)/          → login, register, verify, forgot/reset password
+src/app/(onboarding)/    → onboarding de 3 pasos
+src/app/suscripcion/     → paywall (fuera de (dashboard), no requiere suscripción activa)
+src/app/api/finance/     → API routes del módulo de finanzas
+src/app/api/billing/     → API routes del paywall de Mercado Pago
 src/components/ui/       → shadcn/ui (no modificar)
-src/components/shared/   → componentes globales reutilizables
-src/components/modules/  → componentes por módulo
-src/components/lumus/    → componentes del chat IA
-src/lib/supabase/        → clientes de Supabase
-src/lib/ai/              → context builder, caché, prompts
+src/components/shared/   → nav, sidebar, diálogos globales
+src/components/modules/  → componentes por módulo (finanzas/, billing/, dashboard/)
+src/components/lumus/    → solo el orbe decorativo (lumus-orb.tsx) — ya no hay chat de IA
+src/lib/supabase/        → clientes de Supabase (client/server/service) + helper del proxy de auth
+src/lib/billing/         → constantes del plan de Mercado Pago
+src/lib/finance/         → cotizaciones, parseo/PDF de reportes
 src/lib/utils/           → funciones utilitarias puras
-src/hooks/               → custom hooks
-src/stores/              → Zustand stores
+src/hooks/               → custom hooks (todos de finanzas, más use-user)
+src/stores/              → Zustand — solo ui-store.ts (sidebar, tema)
 src/types/               → tipos TypeScript globales
-tests/unit/              → unit tests con Vitest
+src/proxy.ts             → el "middleware" de Next 16 (gate de auth/onboarding/billing)
 ```
+
+No hay `src/lib/ai/` ni `tests/` — se borraron junto con el chat de IA (nunca hubo test suite).
 
 ---
 
@@ -187,10 +179,7 @@ Referenciala explícitamente en el prompt: *"Usando la skill de frontend-design,
 
 ## Testing
 
-- Unit tests en `tests/unit/` con Vitest
-- Testear toda función en `src/lib/` y hooks
-- Usar mocks en `tests/mocks/supabase.ts` y `tests/mocks/ai.ts`
-- Nunca testear componentes de UI en esta etapa — solo lógica
+No hay test suite en este proyecto (no hay Vitest instalado ni carpeta `tests/`). Verificar cambios con `npx tsc --noEmit`, `npm run lint` y `npm run build` antes de darlos por terminados.
 
 ---
 
@@ -198,10 +187,11 @@ Referenciala explícitamente en el prompt: *"Usando la skill de frontend-design,
 
 - ❌ No usar `any` en TypeScript
 - ❌ No hacer `select('*')` en Supabase en producción
-- ❌ No llamar la IA sin verificar caché primero
+- ❌ No llamar a la IA sin chequear antes si ya hay un resultado guardado (ver `ai-report`)
+- ❌ No proponer ni implementar clasificación automática de gastos por IA — el usuario prefiere carga manual
 - ❌ No hardcodear strings de texto de la UI — usar variables
 - ❌ No poner lógica de negocio en los componentes — va en hooks o lib
-- ❌ No borrar registros físicamente en tablas con soft delete
+- ❌ No borrar registros físicamente en tablas con soft delete (`transactions`, `wallets`, `finance_categories`)
 - ❌ No usar `service_role` en código del cliente
 - ❌ No agregar `'use client'` si el componente no lo necesita
 - ❌ No crear componentes en `components/ui/` — esos son de shadcn
@@ -210,12 +200,12 @@ Referenciala explícitamente en el prompt: *"Usando la skill de frontend-design,
 
 ## Flujo de trabajo sugerido para una feature
 
-1. Identificar en qué fase está (`docs/FASES.md`)
-2. Leer el doc del módulo correspondiente
-3. Crear o modificar schema si hace falta (nueva migration en `supabase/migrations/`)
-4. Crear los tipos TypeScript en `src/types/`
+1. Ver `docs/ESTADO_ACTUAL.md` e `docs/ISSUES_PENDIENTES.md` para no repetir análisis ya hecho
+2. Leer `docs/FINANZAS.md` o `docs/BILLING.md` según corresponda
+3. Crear o modificar schema si hace falta (nueva migration en `supabase/migrations/`, aplicarla con `supabase db query --linked -f <archivo>` y regenerar tipos con `supabase gen types typescript --linked`)
+4. Actualizar los tipos TypeScript en `src/types/`
 5. Crear el componente de UI
-6. Crear el hook o server action
+6. Crear el hook o la API route
 7. Conectar con Supabase
-8. Agregar unit test si hay lógica de negocio
+8. Verificar con `npx tsc --noEmit`, `npm run lint` y `npm run build`
 9. Verificar que se ve bien en mobile y desktop

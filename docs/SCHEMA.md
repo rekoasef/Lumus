@@ -1,5 +1,7 @@
 # LUMUS — Schema de Base de Datos
 
+> ⚠️ **Desactualizado desde 2026-08-18.** Este documento describe el schema original de los 8 módulos ("Sistema Operativo Personal"), incluyendo tablas que ya se borraron de la base (organización, comidas, fit, hábitos, journal, relaciones, estudio, y el módulo de IA con `ai_cache`/`ai_conversations`). El producto real hoy es solo Finanzas + auth + billing. Para el schema actual, usar `supabase/migrations/` (fuente de verdad) o `src/types/database.types.ts` (generado con `supabase gen types typescript --linked`). Se deja este archivo sin reescribir por ahora — es una referencia histórica de la visión original, no del estado actual.
+
 ## Convenciones
 
 - Todos los IDs son `UUID` generados con `gen_random_uuid()`

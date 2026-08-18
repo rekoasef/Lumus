@@ -1,16 +1,17 @@
 # LUMUS — Documentación General del Proyecto
 
+> Reescrito 2026-08-18 para reflejar el producto real. La versión anterior de este documento describía la visión original de "Sistema Operativo Personal" con 8 módulos — esa visión se abandonó el 2026-06-29 a favor de un producto enfocado solo en Finanzas. Si necesitás esa visión original por referencia histórica, está en el historial de git de este archivo.
+
 ## Visión
 
-Lumus es una plataforma personal impulsada por IA diseñada para centralizar y optimizar distintos aspectos de la vida cotidiana en una sola aplicación.
+Lumus es una app de finanzas personales con IA y paywall.
 
 **Lumus NO es:**
-- Una app de tareas
-- Una app de finanzas
-- Una app fitness
+- Un sistema operativo personal con múltiples módulos de vida
+- Una app con chat conversacional de IA
 
 **Lumus ES:**
-> Un Sistema Operativo Personal con IA — una plataforma inteligente que organiza la vida del usuario, entiende contexto global, ayuda en la toma de decisiones, analiza hábitos, automatiza planificación y funciona como un asistente personal integral.
+> Una app de finanzas personales donde el usuario registra billeteras, transacciones, presupuestos, vencimientos recurrentes y metas de ahorro, con un resumen mensual generado por IA, detrás de una suscripción paga.
 
 ---
 
@@ -19,9 +20,9 @@ Lumus es una plataforma personal impulsada por IA diseñada para centralizar y o
 | Item | Detalle |
 |---|---|
 | Nombre | Lumus |
-| Estado actual | En desarrollo — uso personal (1 usuario inicial) |
-| Usuarios objetivo | 1-2 usuarios (escalable a futuro) |
-| Plataforma | Web app responsive (40% desktop / 60% mobile) |
+| Estado actual | En producción, con paywall activo y probado con pagos reales (precio todavía de prueba) |
+| Usuarios objetivo | 1-2 usuarios por ahora, pensado para escalar a más vía el paywall |
+| Plataforma | Web app responsive |
 | Idioma | Español |
 | Deploy | Vercel |
 
@@ -31,92 +32,62 @@ Lumus es una plataforma personal impulsada por IA diseñada para centralizar y o
 
 | Capa | Tecnología | Motivo |
 |---|---|---|
-| Framework | Next.js 14+ App Router + TypeScript | Fullstack, SSR, API routes, escalable |
-| UI Base | Tailwind CSS + shadcn/ui | Rápido, customizable, premium |
-| Animaciones | Framer Motion | UX fluida y moderna |
-| Estado global | Zustand | Simple, sin boilerplate |
+| Framework | Next.js 16 App Router + TypeScript | Fullstack, SSR, API routes |
+| UI Base | Tailwind CSS v4 + shadcn/ui | Rápido, customizable |
+| Animaciones | Framer Motion | UX fluida |
+| Estado global | Zustand | Solo para UI (sidebar, tema) |
 | Forms | React Hook Form + Zod | Validación tipada |
-| Base de datos | Supabase (PostgreSQL) | BaaS completo, RLS, Realtime |
-| Auth | Supabase Auth | Integrado con la DB |
-| Storage | Supabase Storage | Fotos de progreso, assets |
-| IA Principal | Claude API (Anthropic) | Contexto largo, razonamiento, personalidad |
-| IA Secundaria | GPT-4o mini | Clasificaciones simples, tareas baratas |
-| Testing | Vitest (unit tests) | Rápido, integrado con Next.js |
-| Deploy | Vercel | CI/CD automático desde GitHub |
+| Base de datos | Supabase (PostgreSQL) | BaaS, RLS |
+| Auth | Supabase Auth + Resend (SMTP) | Verificación por código, recuperación de contraseña |
+| IA | Claude API (Anthropic) | Único proveedor — resumen financiero mensual |
+| Paywall | Mercado Pago Suscripciones | Cobro recurrente en ARS |
+| Deploy | Vercel | CI/CD desde GitHub |
+
+No hay testing framework instalado, no hay Supabase Storage ni Realtime en uso, no hay OpenAI (se usaba para clasificación automática y TTS, ambos removidos).
 
 ---
 
 ## Filosofía de Producto
 
-### 1. Modularidad
-Cada sección funciona como un módulo independiente. Esto permite escalar progresivamente, mantener arquitectura limpia, activar/desactivar módulos, crear versiones premium y facilitar mantenimiento.
+### 1. Un solo módulo, bien hecho
+Ya no hay modularidad entre distintas áreas de vida — todo el esfuerzo de producto va a Finanzas.
 
-### 2. Contexto Global de IA
-La IA entiende múltiples aspectos de la vida del usuario — estado financiero, hábitos, descanso, productividad, alimentación, objetivos — y puede tomar decisiones cruzadas.
-
-### 3. IA como Complemento (NO como motor)
+### 2. IA como Complemento (NO como motor)
 ```
 Si se puede resolver con lógica      → lógica
 Si se puede resolver con una query   → query SQL
 Si necesita comprensión / lenguaje   → IA
 ```
-Ejemplo: "¿Cuánto gasté este mes?" → SQL query. "¿En qué estoy gastando de más?" → IA.
+El único caso de uso real hoy: el resumen mensual de `/finanzas/reportes`, que sí necesita que un modelo lea los números y escriba un análisis en lenguaje natural.
 
-### 4. Ahorro de Tokens
-- Nunca se manda raw data a la IA — siempre un User Snapshot comprimido
-- Caché de respuestas con TTL en Supabase
-- IA activada por triggers específicos, no en tiempo real
-- Modelo correcto para cada tarea (Claude para análisis, GPT-4o mini para clasificaciones)
+### 3. Sin desperdicio de tokens
+- No se manda raw data completo al modelo — `ai-report` arma un resumen del mes antes de llamar a Claude
+- Antes de generar de nuevo, se chequea si ya existe un informe guardado para ese mes (`finance_reports`)
+- Un solo modelo (`claude-sonnet-4-5`) para el único caso de uso — no hace falta selector de modelo
 
-### 5. UX Premium
+### 4. UX Premium
 El enfoque visual es minimalista, premium, moderno, fluido y elegante.
-Inspiraciones: Linear, Notion, Apple, Arc Browser, Raycast.
-
----
-
-## Módulos
-
-| # | Módulo | Rol de Lumus IA |
-|---|---|---|
-| 1 | Organización | Asistente de productividad |
-| 2 | Finanzas | Asesor financiero |
-| 3 | Comidas & Nutrición | Chef + nutricionista |
-| 4 | Fit & Salud | Entrenador personal |
-| 5 | Hábitos | Coach de hábitos |
-| 6 | Journal | Acompañamiento emocional |
-| 7 | Relaciones | Gestor de vínculos |
-| 8 | Estudio & Aprendizaje | Tutor personalizado |
 
 ---
 
 ## Onboarding
 
-El onboarding tiene dos partes:
+Tres pasos, sin cambios respecto al diseño original:
 
-**Parte 1 — Formulario guiado estructurado:**
-- Nombre, fecha de nacimiento
-- Peso, altura
-- Ocupación, estudios
-- Salario aproximado
-- Objetivos económicos
-- Objetivos de salud
-- Planes de vida
+1. **Bienvenida** — presentación breve
+2. **Perfil** — nombre, fecha de nacimiento, peso/altura, ocupación, estudios, salario aproximado
+3. **Campo libre** — "Contale a Lumus lo que quieras sobre vos"
 
-**Parte 2 — Campo libre:**
-> "Contale a Lumus lo que quieras sobre vos — tus metas, tu estilo de vida, lo que quieras mejorar."
-
-Este input se procesa y se guarda como `user_context` inicial en la base de datos. Es el punto de partida del contexto de IA para ese usuario.
+Se guarda en `user_profiles` y `user_life_summary`, y marca `onboarding_done = true`. Después del onboarding, si no hay una suscripción `authorized`, el usuario cae en `/suscripcion` antes de llegar al dashboard.
 
 ---
 
 ## UX / UI
 
-- **Temas:** Dark mode y Light mode con toggle
-- **Responsive:** Mobile-first, con layout adaptado para desktop
-- **Mobile:** Bottom navigation bar
-- **Desktop:** Sidebar navigation
-- **Fuentes:** Sans-serif moderna (Inter o Geist)
-- **Estilo:** Minimalista, oscuro, premium — sin elementos genéricos
+- **Tema:** dark mode por default
+- **Responsive:** mobile-first
+- **Estilo:** minimalista, oscuro, premium
+- Ver paleta y tokens completos en `docs/DESIGN_SYSTEM.md`
 
 ---
 
@@ -125,39 +96,25 @@ Este input se procesa y se guarda como `user_context` inicial en la base de dato
 1. TypeScript estricto en todo el proyecto (`strict: true`)
 2. Zod para validación de schemas en forms y API routes
 3. RLS habilitado en todas las tablas de Supabase
-4. Unit tests para toda función de utilidad y lógica de negocio
-5. Variables de entorno en `.env.local`, nunca hardcodeadas
-6. Comentarios en español en el código
-7. Nombres de variables y funciones en inglés (convención estándar)
-8. Commits en inglés con conventional commits (`feat:`, `fix:`, `chore:`)
+4. Variables de entorno en `.env.local`, nunca hardcodeadas
+5. Comentarios en español en el código
+6. Nombres de variables y funciones en inglés
+7. Commits en inglés con conventional commits (`feat:`, `fix:`, `chore:`)
+8. Sin test suite todavía — verificar con `tsc`, `lint` y `build`
 
 ---
 
-## Roadmap de Fases
+## Roadmap
 
-| Fase | Nombre | Estado |
-|---|---|---|
-| 0 | Setup & Fundación | Pendiente |
-| 1 | Core & Auth | Pendiente |
-| 2 | Módulo Organización | Pendiente |
-| 3 | Módulo Finanzas | Pendiente |
-| 4 | Módulo Comidas & Nutrición | Pendiente |
-| 5 | Módulo Fit & Salud | Pendiente |
-| 6 | Módulos Restantes | Pendiente |
-| 7 | IA Proactiva & Contexto Cruzado | Pendiente |
-| 8 | Polish & Producción | Pendiente |
-
-Ver detalle completo en `docs/FASES.md`.
+Ver `docs/FASES.md` para el detalle de qué se construyó y qué queda. En resumen: auth, onboarding, paywall y el módulo de Finanzas ya están en producción. Lo que queda es afinar detalles del paywall (precio real, probar el caso `paused`) y deuda técnica menor — no hay más módulos planeados en el corto plazo.
 
 ---
 
-## Futuro del Producto
+## Futuro del producto (sin comprometer nada, solo ideas)
 
-- Modo pareja / familia con espacios compartidos
-- IA proactiva (Lumus te habla antes de que le preguntes)
-- Integraciones bancarias
-- Integración con smartwatch / salud
 - OCR de tickets para gastos automáticos
-- Gamificación
-- Marketplace de módulos
-- Modelo freemium / suscripción mensual
+- Integraciones bancarias (lectura de movimientos)
+- Modo pareja/familia con billeteras compartidas
+- Precio real del plan (hoy es precio de prueba)
+
+Todo lo demás de la visión original (organización, comidas, fit, hábitos, journal, relaciones, estudio, chat de IA transversal, gamificación, marketplace de módulos) está descartado del plan actual. Si en algún momento se retoma, hay que reconstruirlo — el código y las tablas se borraron.

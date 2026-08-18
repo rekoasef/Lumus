@@ -1,228 +1,135 @@
 # LUMUS — Arquitectura Técnica
 
+> Reescrito 2026-08-18 a partir de la estructura real del repo — la versión anterior describía una estructura planeada que nunca coincidió del todo con el código, y menos ahora tras el pivot a Finanzas.
+
 ## Stack Completo
 
 ```
-Next.js 14+ (App Router) + TypeScript
-Tailwind CSS + shadcn/ui + Framer Motion
-Supabase (PostgreSQL + Auth + Storage + Realtime)
-Zustand (estado global)
-React Hook Form + Zod (formularios y validación)
-Anthropic SDK (Claude) + OpenAI SDK (GPT-4o mini)
-Vitest (unit testing)
+Next.js 16 (App Router) + TypeScript strict
+Tailwind CSS v4 + shadcn/ui + Framer Motion
+Supabase (PostgreSQL + Auth) — sin Storage ni Realtime en uso
+Zustand (estado global — solo UI)
+React Hook Form + Zod
+Anthropic SDK (Claude) — único proveedor de IA
+Mercado Pago (API REST directa, sin SDK) — paywall
 Vercel (deploy)
 ```
 
+Sin Vitest, sin `tests/`, sin `tailwind.config.ts` (Tailwind v4 se configura vía `@theme` en `globals.css`).
+
 ---
 
-## Estructura de Carpetas
+## Estructura de Carpetas (real, 2026-08-18)
 
 ```
 lumus/
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/
-│   │   │   ├── login/
-│   │   │   │   └── page.tsx
-│   │   │   ├── register/
-│   │   │   │   └── page.tsx
-│   │   │   └── layout.tsx
+│   │   │   ├── layout.tsx
+│   │   │   ├── login/page.tsx
+│   │   │   ├── register/page.tsx
+│   │   │   ├── verify/page.tsx              → confirmación por código de 6 dígitos
+│   │   │   ├── forgot-password/page.tsx
+│   │   │   └── reset-password/page.tsx
 │   │   │
 │   │   ├── (onboarding)/
-│   │   │   ├── onboarding/
-│   │   │   │   └── page.tsx
-│   │   │   └── layout.tsx
+│   │   │   ├── layout.tsx
+│   │   │   └── onboarding/page.tsx
 │   │   │
 │   │   ├── (dashboard)/
-│   │   │   ├── layout.tsx            → Layout con sidebar/bottom nav
-│   │   │   ├── dashboard/
-│   │   │   │   └── page.tsx
-│   │   │   ├── organizacion/
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── [taskId]/
-│   │   │   │       └── page.tsx
+│   │   │   ├── layout.tsx                    → gate de onboarding + suscripción (server component, redirect)
+│   │   │   ├── dashboard/page.tsx
 │   │   │   ├── finanzas/
 │   │   │   │   ├── page.tsx
-│   │   │   │   └── reportes/
-│   │   │   │       └── page.tsx
-│   │   │   ├── comidas/
-│   │   │   │   └── page.tsx
-│   │   │   ├── fit/
-│   │   │   │   └── page.tsx
-│   │   │   ├── habitos/
-│   │   │   │   └── page.tsx
-│   │   │   ├── journal/
-│   │   │   │   └── page.tsx
-│   │   │   ├── relaciones/
-│   │   │   │   └── page.tsx
-│   │   │   ├── estudio/
-│   │   │   │   └── page.tsx
-│   │   │   └── perfil/
-│   │   │       └── page.tsx
+│   │   │   │   └── reportes/page.tsx
+│   │   │   └── perfil/page.tsx
+│   │   │
+│   │   ├── suscripcion/page.tsx               → paywall, fuera de (dashboard) a propósito
 │   │   │
 │   │   ├── api/
-│   │   │   ├── ai/
-│   │   │   │   ├── chat/
-│   │   │   │   │   └── route.ts      → POST: chat por módulo
-│   │   │   │   ├── classify/
-│   │   │   │   │   └── route.ts      → POST: clasificar gasto
-│   │   │   │   ├── summary/
-│   │   │   │   │   └── route.ts      → POST: resumen semanal
-│   │   │   │   └── context/
-│   │   │   │       └── route.ts      → GET: user snapshot
-│   │   │   ├── organizacion/
-│   │   │   │   ├── tasks/
-│   │   │   │   │   └── route.ts
-│   │   │   │   └── ...
-│   │   │   └── finanzas/
-│   │   │       ├── transactions/
-│   │   │       │   └── route.ts
-│   │   │       └── ...
+│   │   │   ├── billing/
+│   │   │   │   ├── create-subscription/route.ts
+│   │   │   │   ├── status/route.ts
+│   │   │   │   └── webhook/route.ts           → pública, valida firma HMAC de Mercado Pago
+│   │   │   └── finance/
+│   │   │       ├── wallets/route.ts, [id]/route.ts, [id]/adjust/route.ts
+│   │   │       ├── categories/route.ts, [id]/route.ts
+│   │   │       ├── transactions/route.ts, [id]/route.ts
+│   │   │       ├── budgets/route.ts, [id]/route.ts
+│   │   │       ├── recurring-transactions/route.ts, [id]/route.ts
+│   │   │       ├── saving-goals/route.ts, [id]/route.ts, [id]/contribute/route.ts
+│   │   │       ├── exchange-rates/route.ts
+│   │   │       └── ai-report/route.ts         → único endpoint de IA que queda
 │   │   │
-│   │   ├── layout.tsx                → Root layout (fonts, providers)
-│   │   ├── globals.css               → Variables CSS, tokens del design system
-│   │   └── not-found.tsx
+│   │   ├── layout.tsx                         → root layout (fonts, providers)
+│   │   ├── page.tsx                           → redirect según sesión/onboarding/suscripción
+│   │   └── globals.css                        → tokens del design system, Tailwind v4
 │   │
 │   ├── components/
-│   │   ├── ui/                       → Componentes shadcn/ui (no tocar)
-│   │   ├── shared/                   → Componentes globales reutilizables
-│   │   │   ├── sidebar.tsx
-│   │   │   ├── bottom-nav.tsx
-│   │   │   ├── notifications-bell.tsx
-│   │   │   ├── theme-toggle.tsx
-│   │   │   ├── user-avatar.tsx
-│   │   │   ├── page-header.tsx
-│   │   │   ├── empty-state.tsx
-│   │   │   └── loading-skeleton.tsx
-│   │   ├── modules/                  → Componentes específicos por módulo
-│   │   │   ├── organizacion/
-│   │   │   │   ├── task-card.tsx
-│   │   │   │   ├── task-form.tsx
-│   │   │   │   ├── task-list.tsx
-│   │   │   │   ├── calendar-view.tsx
-│   │   │   │   └── objective-card.tsx
-│   │   │   ├── finanzas/
-│   │   │   │   ├── transaction-form.tsx
-│   │   │   │   ├── transaction-list.tsx
-│   │   │   │   ├── wallet-card.tsx
-│   │   │   │   ├── budget-meter.tsx
-│   │   │   │   └── charts/
-│   │   │   │       ├── expenses-pie.tsx
-│   │   │   │       └── balance-line.tsx
-│   │   │   └── ...
-│   │   ├── lumus/                    → Componentes del chat IA
-│   │   │   ├── lumus-chat.tsx        → Contenedor principal del chat
-│   │   │   ├── lumus-message.tsx     → Burbuja de mensaje
-│   │   │   ├── lumus-input.tsx       → Input del chat
-│   │   │   └── lumus-suggestions.tsx → Sugerencias rápidas
-│   │   └── dashboard/
-│   │       ├── welcome-widget.tsx
-│   │       ├── tasks-widget.tsx
-│   │       ├── finance-widget.tsx
-│   │       └── habits-widget.tsx
+│   │   ├── ui/                                → shadcn/ui (no tocar) — solo button.tsx por ahora
+│   │   ├── shared/                            → top-nav, sidebar, bottom-nav, confirm-dialog
+│   │   ├── modules/
+│   │   │   ├── finanzas/                      → la gran mayoría de los componentes de la app
+│   │   │   ├── billing/                       → subscribe-button.tsx
+│   │   │   └── dashboard/                     → hero, widgets (clima, reloj, cotización)
+│   │   └── lumus/
+│   │       └── lumus-orb.tsx                  → solo el orbe decorativo, sin chat detrás
 │   │
 │   ├── lib/
 │   │   ├── supabase/
-│   │   │   ├── client.ts             → Cliente browser
-│   │   │   ├── server.ts             → Cliente server (RSC y API routes)
-│   │   │   └── middleware.ts         → Helper para middleware.ts
-│   │   ├── ai/
-│   │   │   ├── context-builder.ts    → Construye User Snapshot
-│   │   │   ├── cache.ts              → Lógica de caché de respuestas
-│   │   │   ├── model-selector.ts     → Selecciona Claude vs GPT
-│   │   │   └── prompts/
-│   │   │       ├── base.ts
-│   │   │       ├── organizacion.ts
-│   │   │       ├── finanzas.ts
-│   │   │       ├── comidas.ts
-│   │   │       ├── fit.ts
-│   │   │       ├── habitos.ts
-│   │   │       ├── journal.ts
-│   │   │       ├── relaciones.ts
-│   │   │       └── estudio.ts
-│   │   └── utils/
-│   │       ├── format-currency.ts
-│   │       ├── format-date.ts
-│   │       ├── cn.ts                 → classnames helper
-│   │       └── calculate-streak.ts
+│   │   │   ├── client.ts                      → cliente browser
+│   │   │   ├── server.ts                      → cliente server (RSC y API routes)
+│   │   │   ├── service.ts                     → cliente service_role — solo para el webhook de billing
+│   │   │   └── middleware.ts                  → updateSession(), la usa src/proxy.ts
+│   │   ├── billing/
+│   │   │   └── plan.ts                        → precio, moneda, frecuencia del plan
+│   │   ├── finance/
+│   │   │   ├── exchange-rates.ts
+│   │   │   ├── report-parser.ts
+│   │   │   └── report-pdf.ts
+│   │   ├── validations/
+│   │   │   └── finance.ts                     → todos los schemas Zod
+│   │   ├── utils/
+│   │   │   ├── format-currency.ts
+│   │   │   ├── format-date.ts
+│   │   │   ├── category-icons.tsx
+│   │   │   └── animations.ts
+│   │   └── utils.ts                           → helper `cn()` de shadcn
 │   │
-│   ├── hooks/
-│   │   ├── use-user.ts               → Hook para obtener usuario actual
-│   │   ├── use-notifications.ts
-│   │   ├── use-tasks.ts
-│   │   ├── use-transactions.ts
-│   │   └── use-habits.ts
+│   ├── hooks/                                 → todos de finanzas (use-wallets, use-transactions,
+│   │                                             use-budgets, use-recurring-transactions,
+│   │                                             use-saving-goals, use-finance-report,
+│   │                                             use-finance-categories, use-exchange-rates)
+│   │                                             + use-user.ts
 │   │
 │   ├── stores/
-│   │   ├── ui-store.ts               → Estado UI (sidebar open, tema, etc.)
-│   │   ├── notifications-store.ts
-│   │   └── ai-store.ts               → Estado del chat de Lumus
+│   │   └── ui-store.ts                        → único store: sidebar, tema
 │   │
 │   ├── types/
-│   │   ├── database.types.ts         → Generado por Supabase CLI
-│   │   ├── ai.types.ts               → UserSnapshot, AIMessage, etc.
-│   │   ├── modules.types.ts          → Tipos por módulo
-│   │   └── index.ts                  → Re-exports
+│   │   ├── database.types.ts                  → generado por Supabase CLI, no editar a mano
+│   │   ├── finance.types.ts
+│   │   ├── billing.types.ts
+│   │   └── index.ts                           → re-exports
 │   │
-│   ├── styles/
-│   │   └── globals.css
-│   │
-│   └── middleware.ts                 → Auth middleware
+│   └── proxy.ts                                → el "middleware" de Next 16 — gate de auth/onboarding/billing
 │
 ├── supabase/
-│   ├── migrations/
-│   │   ├── 00001_initial_schema.sql
-│   │   ├── 00002_organizacion.sql
-│   │   └── ...
-│   ├── functions/
-│   │   └── weekly-summary/
-│   │       └── index.ts
-│   └── seed.sql                      → Datos iniciales (categorías default, etc.)
+│   ├── migrations/                             → 00001 a 00016, ver docs/ESTADO_ACTUAL.md para el detalle
+│   └── templates/                              → templates de mail de Resend (confirmation.html, recovery.html)
 │
-├── tests/
-│   ├── unit/
-│   │   ├── lib/
-│   │   │   ├── ai/
-│   │   │   │   ├── context-builder.test.ts
-│   │   │   │   └── cache.test.ts
-│   │   │   └── utils/
-│   │   │       ├── format-currency.test.ts
-│   │   │       └── calculate-streak.test.ts
-│   │   └── hooks/
-│   │       └── use-tasks.test.ts
-│   └── mocks/
-│       ├── supabase.ts
-│       └── ai.ts
+├── docs/                                       → ver README.md para el mapa completo con vigencia de cada doc
 │
-├── docs/
-│   ├── LUMUS_OVERVIEW.md
-│   ├── ARQUITECTURA.md               → Este archivo
-│   ├── SCHEMA.md
-│   ├── AI_ARCHITECTURE.md
-│   ├── FASES.md
-│   ├── DESIGN_SYSTEM.md
-│   └── modulos/
-│       ├── ORGANIZACION.md
-│       ├── FINANZAS.md
-│       ├── COMIDAS.md
-│       ├── FIT.md
-│       ├── HABITOS.md
-│       ├── JOURNAL.md
-│       ├── RELACIONES.md
-│       └── ESTUDIO.md
+├── skills/
+│   └── frontend-design/SKILL.md
 │
-├── public/
-│   └── icons/
-│
-├── .env.local                        → Variables de entorno (no commitear)
-├── .env.example                      → Template de variables
-├── middleware.ts                     → Next.js middleware
+├── .env.example
 ├── next.config.ts
-├── tailwind.config.ts
 ├── tsconfig.json
-├── vitest.config.ts
 └── package.json
 ```
+
+No existen: `src/lib/ai/`, `src/components/lumus/lumus-chat.tsx` (ni fullscreen ni voice-modal), `src/stores/ai-store.ts`, `src/types/ai.types.ts`, `tests/`, `tailwind.config.ts`. Se borraron el 2026-08-18 junto con el chat/voz de IA.
 
 ---
 
@@ -233,24 +140,25 @@ lumus/
 - Funciones y variables: `camelCase`
 - Tipos e interfaces: `PascalCase`
 - Constantes globales: `UPPER_SNAKE_CASE`
-- Tablas de DB: `snake_case`
+- Tablas de DB: `snake_case` plural
 
 ### Componentes
 ```typescript
 // Server Component por default en App Router
 // Agregar 'use client' solo cuando necesario (interactividad, hooks, estado)
 
-// Ejemplo de componente de servidor
-async function TaskList({ userId }: { userId: string }) {
-  const tasks = await getTasks(userId)  // fetch directo, sin useEffect
-  return <ul>...</ul>
+// Ejemplo de componente de servidor — src/app/(dashboard)/finanzas/page.tsx
+export default async function FinanzasPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  // ...fetch directo, sin useEffect
 }
 
-// Ejemplo de componente de cliente
+// Ejemplo de componente de cliente — src/components/modules/finanzas/wallet-card.tsx
 'use client'
-function TaskCard({ task }: { task: Task }) {
-  const [checked, setChecked] = useState(false)
-  return <div onClick={() => setChecked(true)}>...</div>
+export function WalletCard({ wallet }: { wallet: Wallet }) {
+  const [editing, setEditing] = useState(false)
+  return <div onClick={() => setEditing(true)}>...</div>
 }
 ```
 
@@ -258,7 +166,7 @@ function TaskCard({ task }: { task: Task }) {
 ```typescript
 // Siempre verificar auth al inicio
 export async function POST(req: NextRequest) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
@@ -271,21 +179,15 @@ export async function POST(req: NextRequest) {
 }
 ```
 
-### Zustand Stores
+### Zustand
+Un solo store hoy, para estado de UI puro (no para datos de servidor — esos van por hooks que llaman a la API):
 ```typescript
 // src/stores/ui-store.ts
-interface UIStore {
-  sidebarOpen: boolean
-  theme: 'dark' | 'light'
-  setSidebarOpen: (open: boolean) => void
-  setTheme: (theme: 'dark' | 'light') => void
-}
-
 export const useUIStore = create<UIStore>((set) => ({
   sidebarOpen: true,
   theme: 'dark',
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
-  setTheme: (theme) => set({ theme }),
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 }))
 ```
 
@@ -300,10 +202,17 @@ export const useUIStore = create<UIStore>((set) => ({
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=        # Solo en server, nunca en cliente
+SUPABASE_PROJECT_REF=
 
 # IA
 ANTHROPIC_API_KEY=
-OPENAI_API_KEY=
+
+# Auth — SMTP de Resend
+RESEND_API_KEY=
+
+# Paywall — Mercado Pago
+MERCADOPAGO_ACCESS_TOKEN=
+MERCADOPAGO_WEBHOOK_SECRET=
 
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -316,34 +225,45 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 Usuario hace acción en UI
         ↓
-Componente cliente llama hook o server action
+Componente cliente llama un hook (src/hooks/) que hace fetch a una API route
         ↓
-Validación con Zod
-        ↓
-Supabase client (con auth automático via SSR)
+API route verifica auth → valida con Zod → Supabase client (con auth automático via SSR)
         ↓
 PostgreSQL con RLS (solo ve sus propios datos)
         ↓
-Respuesta → actualizar estado (Zustand o revalidación de caché Next.js)
+Respuesta → el hook actualiza su estado local (no hay store global de datos)
         ↓
 UI se actualiza
 ```
 
-Para llamadas a IA:
+Gate de acceso (antes de llegar a cualquier página del dashboard):
 ```
-Componente cliente → fetch /api/ai/chat
+Request → src/proxy.ts (updateSession)
         ↓
-API Route verifica auth
+¿Sesión válida? no → redirect /login
         ↓
-Context Builder → buildUserSnapshot (Supabase queries)
+¿onboarding_done? no → redirect /onboarding
         ↓
-Verificar ai_cache → hit? devolver cached
+¿billing_subscriptions.status === 'authorized'? no → redirect /suscripcion
         ↓
-Llamar Claude API con system prompt + snapshot + mensajes
+(dashboard)/layout.tsx repite el mismo chequeo de onboarding/suscripción (server component)
         ↓
-Guardar en ai_cache y ai_conversations
+Página del dashboard
+```
+
+Para la única llamada de IA que existe:
+```
+Componente cliente → POST /api/finance/ai-report
         ↓
-Streaming response al cliente
+API route verifica auth y valida ANTHROPIC_API_KEY
+        ↓
+¿Ya existe un informe para ese mes en finance_reports? sí (y no se pidió regenerate) → devolverlo
+        ↓
+Armar resumen del mes (queries a Supabase, no raw data completo)
+        ↓
+Llamar a Claude (try/catch — 502 con mensaje claro si falla)
+        ↓
+Guardar en finance_reports
 ```
 
 ---
@@ -365,12 +285,24 @@ export function createClient() {
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-export function createClient() {
-  const cookieStore = cookies()
+export async function createClient() {
+  const cookieStore = await cookies()
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: ... } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+  )
+}
+
+// src/lib/supabase/service.ts — client con service_role, bypassea RLS.
+// Server-only, uso exclusivo: el webhook de billing (ruta pública sin sesión de usuario).
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+
+export function createServiceClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
   )
 }
 ```
