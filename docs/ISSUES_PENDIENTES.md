@@ -1,85 +1,31 @@
 # Lumus - Issues pendientes y backlog tecnico
 
-Fecha: 2026-05-21
+Fecha: 2026-08-18
 
 Este documento lista issues detectados en la revision actual del proyecto. La idea es usarlo como backlog de trabajo: tomar un bloque, resolverlo, verificarlo y marcarlo como cerrado.
 
+> Reescrito de punta a punta en esta fecha. La revision anterior (2026-05-21) describia un proyecto con modulos de organizacion, comidas, fit y habitos que ya no existen en el codigo (pivot a "Lumus Finanzas", commit `cf7bddd` del 2026-06-29), y una capa de chat/voz por IA que se borro por completo el 2026-08-18. La mayoria de los issues de esa revision quedaron moot como consecuencia — se documentan igual en la seccion "Issues cerrados" de mas abajo, con la razon puntual, para no perder el registro.
+
 ## Prioridad inmediata
 
-### 1. Drift de schema en tareas agendadas
+### S1. RLS sin policies en tablas de modulos removidos
 
-Estado: cerrado
+Estado: abierto (reclasificado — antes "Alta", ahora "Baja")
 
-Impacto: alto
+Impacto: bajo hoy, media si se decide revivir esos modulos
 
-El codigo usa `tasks.start_time` y `tasks.duration_minutes` en dashboard, organizacion, tipos y API routes. Al revisar, no existia una migration versionada que agregara esas columnas.
+Tablas con RLS habilitado y sin ninguna `create policy`:
 
-Riesgo:
+- `task_label_assignments`
+- `workout_routine_exercises`
+- `workout_session_logs`
 
-- Resuelto para bases nuevas con `00006_task_time_blocks.sql`.
-
-Accion sugerida:
-
-- Cerrado con `supabase/migrations/00006_task_time_blocks.sql`.
-- La migration agrega:
-  - `tasks.start_time time`
-  - `tasks.duration_minutes int`
-- Tambien agrega un check para `duration_minutes` entre 5 y 480 minutos cuando no es null.
-- Verificado con `npm run lint`, `npx tsc --noEmit` y `npm run build`.
-
-### 2. Lint bloqueante
-
-Estado: cerrado
-
-Impacto: alto
-
-`npm run lint` ya no falla. Quedan warnings no bloqueantes.
-
-Errores principales resueltos:
-
-- Uso de `Date.now()` durante render en pages/componentes/hooks.
-- `setState` sincronico dentro de effects.
-- Comillas sin escapar en JSX.
-
-Archivos destacados:
-
-- `src/app/(dashboard)/comidas/page.tsx`
-- `src/app/(dashboard)/fit/page.tsx`
-- `src/components/modules/comidas/meal-log-section.tsx`
-- `src/hooks/use-workout-sessions.ts`
-- `src/components/lumus/lumus-chat.tsx`
-- `src/components/modules/dashboard/currency-widget.tsx`
-- `src/components/modules/dashboard/live-clock.tsx`
-- `src/components/modules/dashboard/weather-widget.tsx`
-- `src/components/lumus/lumus-fullscreen.tsx`
-- `src/components/lumus/voice-modal.tsx`
+Estas tablas pertenecen a los modulos de organizacion/fit que se borraron del codigo en el pivot a "Lumus Finanzas". Importante: en Postgres, RLS habilitado sin policies es **deny-all por default** — nadie puede leer ni escribir esas filas via la API de Supabase (ni siquiera el dueno), asi que no hay exposicion de datos activa. La revision anterior las marcaba "Impacto: alto" asumiendo que el codigo todavia las tocaba; ya no es el caso.
 
 Accion sugerida:
 
-- Cerrado: errores resueltos.
-- Resultado actual: 0 errores, 25 warnings.
-- Quedan warnings de deuda tecnica, principalmente React Hook Form `watch()` marcado por React Compiler y variables sin usar.
-
-### 3. Rutas enlazadas sin pagina
-
-Estado: abierto
-
-Impacto: medio
-
-La navegacion apunta a rutas no implementadas:
-
-- `/journal`
-- `/relaciones`
-- `/estudio`
-
-Accion sugerida:
-
-- Opcion A: crear paginas placeholder consistentes con `habitos`.
-- Opcion B: ocultar temporalmente esos links hasta implementar los modulos.
-
-## Foco proximo: Finanzas
-
-Estos issues son los mas relevantes si el desarrollo se concentra en el modulo de finanzas.
+- No es urgente arreglar las policies (nada las usa).
+- Decidir si estas tablas se van a usar de nuevo (revivir organizacion/fit) o si conviene una migracion de limpieza que las borre junto con el resto del schema muerto (ver seccion "Schema muerto" en `docs/ESTADO_ACTUAL.md`).
 
 ### F1. RPC de seed con `any`
 
@@ -87,7 +33,7 @@ Estado: abierto
 
 Impacto: bajo/medio
 
-En `src/app/api/finance/wallets/route.ts` se usa:
+En `src/app/api/finance/wallets/route.ts`:
 
 ```ts
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -96,25 +42,8 @@ await (supabase.rpc as any)('seed_default_finance_categories', { p_user_id: user
 
 Accion sugerida:
 
-- Regenerar tipos Supabase incluyendo funciones RPC.
+- Regenerar tipos Supabase incluyendo funciones RPC (`supabase gen types typescript` con el proyecto linkeado trae las firmas de funciones).
 - Quitar `as any` y el disable de ESLint.
-
-### F2. Endpoint legacy de clasificacion
-
-Estado: abierto
-
-Impacto: medio
-
-Existen dos endpoints de clasificacion:
-
-- `/api/ai/classify`: categorias hardcodeadas.
-- `/api/ai/classify-transaction`: categorias reales del usuario con cache.
-
-Accion sugerida:
-
-- Confirmar cual usa la UI actual.
-- Migrar todo a `/api/ai/classify-transaction`.
-- Eliminar o deprecar `/api/ai/classify` para evitar logicas divergentes.
 
 ### F3. Borrados fisicos en entidades financieras
 
@@ -126,31 +55,31 @@ Hay deletes fisicos en:
 
 - `finance/categories/[id]`
 - `finance/budgets/[id]`
-- `finance/subscriptions/[id]`
+- `finance/recurring-transactions/[id]` (antes `finance/subscriptions/[id]`, renombrado en `00010_recurring_transactions.sql`)
 - `finance/saving-goals/[id]`
 
-Esto no rompe el schema actual, pero contradice la regla general documentada de soft delete.
+`finance/transactions/[id]` y `finance/wallets/[id]` si hacen soft delete (`deleted_at`). Esto no rompe el schema actual, pero contradice la regla general de `CLAUDE.md` ("Nunca borrar fisicamente — siempre soft delete") y es inconsistente entre endpoints hermanos.
 
 Accion sugerida:
 
-- Decidir por entidad si requiere historial.
-- Si se necesita historial, agregar `deleted_at` en migrations y migrar endpoints a soft delete.
-- Si se mantiene delete fisico, actualizar docs para no dejar una regla falsa.
+- Decidir por entidad si requiere historial (ej: una categoria borrada que tenia transacciones asociadas — se pierde el nombre/color al hacer delete fisico si no hay `ON DELETE SET NULL` o similar; verificar el comportamiento actual antes de decidir).
+- Si se necesita historial, agregar `deleted_at` en una migration y migrar esos 4 endpoints a soft delete.
+- Si se mantiene delete fisico para alguna, dejarlo documentado como excepcion explicita en `CLAUDE.md` para no repetir la regla falsa.
 
 ### F4. Reportes IA sin manejo robusto de errores
 
 Estado: abierto
 
-Impacto: medio
+Impacto: medio-alto (es el unico endpoint de IA que queda activo, y el usuario ya paga por la app)
 
-`/api/finance/ai-report` llama Anthropic y guarda informe, pero no maneja bien fallos de proveedor, falta de API key o contenido vacio.
+`/api/finance/ai-report` llama a Anthropic (`claude-sonnet-4-5`) y guarda el informe en `finance_reports`, pero no valida `ANTHROPIC_API_KEY` antes de llamar ni envuelve la llamada en `try/catch`.
 
 Accion sugerida:
 
 - Validar `ANTHROPIC_API_KEY` antes de llamar.
-- Envolver llamada en `try/catch`.
-- Devolver errores claros para UI.
-- Considerar guardar estado de generacion si despues se vuelve asincronico.
+- Envolver la llamada en `try/catch`.
+- Devolver errores claros para la UI (hoy un fallo de proveedor tira 500 generico).
+- Considerar guardar estado de generacion si en algun momento se vuelve asincronico.
 
 ### F5. Presupuestos autocopiados
 
@@ -158,228 +87,92 @@ Estado: revisar
 
 Impacto: medio
 
-`/api/finance/budgets` autocopia presupuestos del mes mas reciente si el mes pedido no tiene presupuestos y es actual/futuro.
+`/api/finance/budgets` (`GET`) autocopia presupuestos del mes mas reciente si el mes pedido no tiene presupuestos propios y es actual/futuro — sigue asi, sin cambios desde la revision anterior.
 
 Accion sugerida:
 
-- Verificar UX: el usuario debe entender cuando un presupuesto fue copiado.
-- Confirmar si esta logica debe ejecutarse en `GET` o si conviene accion explicita.
-- Revisar si puede insertar duplicados ante requests simultaneos.
+- Verificar UX: el usuario debe entender cuando un presupuesto fue copiado (hoy no hay ninguna senal visual de que un presupuesto es "heredado" vs. creado a mano ese mes).
+- Confirmar si esta logica debe ejecutarse en `GET` (side-effect en una lectura) o si conviene una accion explicita ("copiar presupuestos del mes anterior").
+- Revisar si puede insertar duplicados ante requests simultaneos (dos `GET` en paralelo al mismo mes sin presupuestos podrian copiar dos veces).
 
-### F6. Balance de billeteras y ajustes
+### F7. Campo `auto_classified` vestigial
 
-Estado: cerrado
-
-Impacto: alto
-
-El balance se recalcula por trigger a partir de transacciones. El ajuste de balance queda como transaccion interna `ajuste` con `amount` firmado: positivo suma saldo, negativo resta saldo. No se clasifica como `ingreso` ni `gasto`, por lo que no impacta KPIs, reportes ni resumen mensual.
-
-Accion sugerida:
-
-- Cerrado con `supabase/migrations/00007_balance_adjustments_not_income_expense.sql`.
-- El endpoint de ajuste y el alta de billeteras con balance inicial ahora crean movimientos `ajuste`.
-- La UI muestra estos movimientos como ajustes de balance y oculta la edicion normal para evitar convertirlos en gastos/ingresos por accidente.
-- La migration convierte ajustes historicos con descripcion `Balance inicial` o `Ajuste de balance%` y sin categoria desde `gasto`/`ingreso` a `ajuste`.
-
-## Foco proximo: Voz e inteligencia de Lumus
-
-Estos issues son relevantes para mejorar voz, chat e IA contextual.
-
-### AI1. Manejo de errores en llamadas a modelos
-
-Estado: abierto
-
-Impacto: alto
-
-Rutas afectadas:
-
-- `/api/ai/chat`
-- `/api/ai/voice-stream`
-- `/api/ai/tts`
-- `/api/ai/classify-transaction`
-- `/api/food/recipes/generate`
-- `/api/finance/ai-report`
-
-Accion sugerida:
-
-- Validar env vars requeridas.
-- Envolver llamadas a proveedores en `try/catch`.
-- Devolver mensajes de error consistentes.
-- Loguear errores de servidor sin exponer secrets.
-
-### AI2. Cache de IA con parseos fragiles
-
-Estado: abierto
-
-Impacto: medio
-
-`classify-transaction` parsea JSON cacheado sin try/catch. Si el cache se corrompe, el endpoint falla.
-
-Accion sugerida:
-
-- Agregar `try/catch`.
-- Si falla el parseo, regenerar respuesta y sobrescribir cache.
-
-### AI3. Cache key de recetas por slice de prompt
-
-Estado: abierto
-
-Impacto: medio
-
-`recipes/generate` usa `recipe_gen_${prompt.slice(0, 100)}` como cache key.
-
-Riesgo:
-
-- Colisiones entre prompts parecidos.
-- Keys largas o con caracteres innecesarios.
-
-Accion sugerida:
-
-- Usar `generateCacheKey(user.id, 'comidas', prompt)` o hash equivalente.
-
-### AI4. Context Builder con `.single()` en datos opcionales
-
-Estado: abierto
-
-Impacto: bajo/medio
-
-`buildUserSnapshot` usa `.single()` para `user_profiles`, `user_life_summary` y `user_context_cache`. Si falta la fila, Supabase devuelve error.
-
-Accion sugerida:
-
-- Usar `.maybeSingle()` en datos opcionales.
-- Manejar explicitamente perfil faltante.
-- Revisar si onboarding debe generar cache inicial.
-
-### AI5. Semana del snapshot mal calculada
-
-Estado: abierto
+Estado: abierto (nuevo, detectado 2026-08-18)
 
 Impacto: bajo
 
-La semana se arma como `hoy-hoy+6` sin considerar fin de mes ni inicio real de semana.
+`transactions.auto_classified` sigue en el schema, el tipo `Transaction` y los selects de la API, pero desde que se borro el modulo de IA (clasificacion automatica via `gpt-4o-mini`) ningun endpoint lo pone en `true` — solo queda el `false` explicito al crear transacciones manuales. La UI que mostraba el iconito de "clasificado por IA" (`Sparkles` en `transaction-item.tsx`) tambien se saco.
 
 Accion sugerida:
 
-- Calcular lunes-domingo o rango real de 7 dias con fechas validas.
-
-### AI6. Voz: estado y streaming
-
-Estado: revisar
-
-Impacto: medio/alto
-
-La voz usa:
-
-- `use-voice-lumus.ts`
-- `/api/ai/voice-stream`
-- `/api/ai/tts`
-- `VoiceModal`
-- `LumusFullscreen`
-
-Issues detectados:
-
-- Lint por dependency faltante en `useVoiceLumus`.
-- `voice-stream` guarda conversacion en background sin esperar resultado.
-- `chat` y `voice-stream` tienen prompts de voz similares pero duplicados.
-
-Accion sugerida:
-
-- Unificar reglas de voz en helper compartido.
-- Revisar cambio de voz por tag `[VOZ:nombre]`.
-- Mejorar fallback si TTS falla.
-- Verificar experiencia end-to-end: microfono -> stream texto -> audio -> cambio de voz.
-
-### AI7. Estado del orb/chat
-
-Estado: cerrado
-
-Impacto: medio
-
-`lumus-chat.tsx` fallaba lint por `setOrbState` dentro de effect.
-
-Accion sugerida:
-
-- Cerrado: el estado del orb ahora se deriva desde `isLoading` y el ultimo mensaje.
-- Verificado con `npm run lint`, `npx tsc --noEmit` y `npm run build`.
-
-## Seguridad y RLS
-
-### S1. Policies faltantes en tablas puente
-
-Estado: abierto
-
-Impacto: alto
-
-Tablas con RLS habilitado y sin policy directa detectada:
-
-- `task_label_assignments`
-- `workout_routine_exercises`
-- `workout_session_logs`
-
-Accion sugerida:
-
-- Crear policies basadas en ownership por join.
-- Verificar inserts/selects anidados en rutinas y labels.
-
-### S2. Endpoints con body libre
-
-Estado: abierto
-
-Impacto: medio
-
-Endpoints afectados:
-
-- `src/app/api/food/shopping-list/[id]/route.ts`
-- `src/app/api/fit/sessions/[id]/route.ts`
-
-Accion sugerida:
-
-- Crear schemas Zod de update.
-- Filtrar solo campos permitidos.
-- Evitar que el cliente mande columnas no esperadas.
+- Si no se va a revivir la clasificacion automatica (el usuario prefiere carga manual — ver memoria del proyecto), sacar la columna en una migration y limpiar el campo de `Transaction`, los selects y el `POST` de `transactions/route.ts`.
+- Si se deja para el futuro, al menos anotarlo como "reservado, sin uso actual" en `docs/SCHEMA.md`.
 
 ## Documentacion desactualizada
 
-### D1. Stack y estructura objetivo vs realidad
+### D1. Docs de producto vs. alcance real
 
 Estado: abierto
 
 Impacto: medio
 
-Docs anteriores mencionan:
+`CLAUDE.md`, `LUMUS_OVERVIEW.md`, `ARQUITECTURA.md` y `FASES.md` todavia describen a Lumus como el "Sistema Operativo Personal" original (organizacion, finanzas, comidas, salud, habitos, journal, relaciones, estudio + IA contextual en cada modulo). El producto real desde el 2026-06-29 es una app de finanzas personales con paywall — sin esos otros modulos ni el chat/voz de IA.
 
-- Next.js 14+ en vez de Next.js 16.
-- Vitest y carpeta `tests/`, que no existen.
-- `tailwind.config.ts`, que no existe.
-- `docs/modulos/*`, pero los docs reales de modulo estan en `docs/*.md`.
-- Rutas de modulos futuros como si ya existieran.
+`docs/ESTADO_ACTUAL.md` (actualizado junto con este archivo) ya refleja el estado real y puede usarse como fuente de verdad mientras tanto.
 
 Accion sugerida:
 
-- Actualizar `README.md`, `CLAUDE.md`, `LUMUS_OVERVIEW.md`, `ARQUITECTURA.md` y `FASES.md`.
-- Mantener `docs/ESTADO_ACTUAL.md` como snapshot y usar este archivo para seguimiento.
+- Actualizar `README.md`, `CLAUDE.md`, `LUMUS_OVERVIEW.md`, `ARQUITECTURA.md` y `FASES.md` para que el alcance de producto coincida con lo que existe, o decidir explicitamente "esto es una pausa, el plan sigue siendo el OS completo" y dejarlo anotado.
+
+## Billing — items propios, no duplicados aca
+
+El paywall de Mercado Pago tiene su propio checklist de pendientes en `docs/BILLING.md` (precio real antes de lanzar, probar el caso `paused`). No se repiten en este documento para no tener dos fuentes de verdad.
 
 ## Orden recomendado de trabajo
 
-Para avanzar con Finanzas + Voz/IA sin arrastrar deuda base:
+1. `S1` — decidir el destino del schema muerto (revivir modulos o migracion de limpieza). No es urgente pero desbloquea la decision de si vale la pena arreglar las policies.
+2. `F4` — manejo de errores en reportes IA, es el endpoint de IA que queda vivo y el usuario ya paga por la app.
+3. `F3` — consistencia de soft delete entre entidades financieras.
+4. `F5` — revisar UX de presupuestos autocopiados.
+5. Limpieza menor: `F1` (`as any`), `F7` (campo vestigial).
+6. `D1` — alinear documentacion de producto con el alcance real, cuando haya tiempo.
 
-1. Resolver `S2` endpoints con body libre.
-2. Revisar rutas faltantes o ajustar la navegacion.
-3. Atacar Finanzas:
-   - F6 balance/ajustes;
-   - F2 clasificacion;
-   - F4 reportes IA;
-   - F5 presupuestos.
-4. Atacar Voz/IA:
-   - AI1 errores de proveedores;
-   - AI6 flujo de voz;
-   - AI4 contexto.
-5. Limpiar warnings no bloqueantes de lint si se quiere salida completamente limpia.
+## Issues cerrados
 
-## Estado de seguimiento
+### Cerrados en esta revision (2026-08-18) — funcionalidad nueva
 
-Formato sugerido al cerrar un issue:
+| ID | Resolucion |
+|---|---|
+| Sin verificacion de email | Cerrado — flujo de codigo de 6 digitos por Resend, ver `docs/ESTADO_ACTUAL.md` |
+| Sin recuperacion de contrasena | Cerrado — `/forgot-password` + `/reset-password` |
+| Sin paywall | Cerrado — Mercado Pago Suscripciones, ver `docs/BILLING.md` |
+
+### Cerrados en esta revision (2026-08-18) — moot por borrado de codigo
+
+| ID original (revision 2026-05-21) | Por que quedo moot |
+|---|---|
+| `#3` Rutas `/journal`, `/relaciones`, `/estudio` sin pagina | Se sacaron los links de la navegacion (y tambien los de `/comidas`, `/fit`, `/habitos`, `/organizacion`, removidos en el pivot de junio) en vez de crear placeholders |
+| `F2` Endpoint legacy `/api/ai/classify` a deprecar | Se borro el modulo de clasificacion por IA completo (`/api/ai/classify` y `/api/ai/classify-transaction` ya no existen) |
+| `AI1` Manejo de errores en llamadas a modelos | Rutas afectadas (`/api/ai/chat`, `/api/ai/voice-stream`, `/api/ai/tts`, `/api/ai/classify-transaction`, `/api/food/recipes/generate`) no existen mas — `/api/finance/ai-report` sigue vivo, ver `F4` |
+| `AI2` Cache de IA con parseos fragiles | `classify-transaction` no existe mas |
+| `AI3` Cache key de recetas por slice de prompt | `/api/food/recipes/generate` no existe mas |
+| `AI4` Context Builder con `.single()` en datos opcionales | `src/lib/ai/context-builder.ts` se borro entero |
+| `AI5` Semana del snapshot mal calculada | Mismo archivo borrado |
+| `AI6` Voz: estado y streaming | `use-voice-lumus.ts`, `voice-stream`, `tts`, `VoiceModal`, `LumusFullscreen` se borraron enteros |
+| `S2` Endpoints con body libre (`shopping-list`, `fit/sessions`) | Los modulos de comidas y fit se borraron enteros, esos archivos no existen |
+
+### Cerrados en revisiones anteriores (sin cambios)
+
+| ID | Resolucion |
+|---|---|
+| `#1` Drift schema tareas | `00006_task_time_blocks.sql` |
+| `#2` Lint bloqueante | Resuelto, 0 errores (hoy 14 warnings, bajaron de ~25 tras el borrado del chat/voz) |
+| `F6` Balance y ajustes | `00007_balance_adjustments_not_income_expense.sql` |
+| `AI7` Estado del orb/chat | Moot ademas — el componente que tenia el bug (`lumus-chat.tsx`) se borro |
+
+---
+
+## Formato para cerrar un issue
 
 ```md
 Estado: cerrado
