@@ -18,6 +18,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!profile?.onboarding_done) redirect('/onboarding')
 
+  const { data: subscription } = await supabase
+    .from('billing_subscriptions')
+    .select('status')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (subscription?.status !== 'authorized') redirect('/suscripcion')
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--bg-base)] text-[var(--text-primary)]">
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>

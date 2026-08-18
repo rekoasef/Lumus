@@ -86,6 +86,42 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_subscriptions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          currency: string
+          id: string
+          mp_preapproval_id: string | null
+          next_payment_date: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          currency?: string
+          id?: string
+          mp_preapproval_id?: string | null
+          next_payment_date?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          currency?: string
+          id?: string
+          mp_preapproval_id?: string | null
+          next_payment_date?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       body_records: {
         Row: {
           body_fat_pct: number | null
