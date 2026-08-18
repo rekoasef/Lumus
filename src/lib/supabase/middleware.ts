@@ -28,7 +28,7 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
-  const publicPaths = ['/login', '/register']
+  const publicPaths = ['/login', '/register', '/verify', '/forgot-password', '/reset-password']
   const isPublicPath = publicPaths.some(p => pathname.startsWith(p))
   const isApiRoute = pathname.startsWith('/api/')
 

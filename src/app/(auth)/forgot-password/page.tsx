@@ -6,10 +6,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 
-export default function RegisterPage() {
+export default function ForgotPasswordPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -19,26 +18,15 @@ export default function RegisterPage() {
     setLoading(true)
 
     const supabase = createClient()
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    const { error } = await supabase.auth.resetPasswordForEmail(email)
 
     if (error) {
-      setError(
-        error.message === 'User already registered'
-          ? 'Este email ya está registrado'
-          : error.message
-      )
+      setError(error.message)
       setLoading(false)
       return
     }
 
-    // Si ya hay sesión (confirmación de mail deshabilitada en el proyecto), entra directo.
-    if (data.session) {
-      router.push('/onboarding')
-      router.refresh()
-      return
-    }
-
-    router.push(`/verify?email=${encodeURIComponent(email)}`)
+    router.push(`/reset-password?email=${encodeURIComponent(email)}`)
   }
 
   return (
@@ -57,8 +45,11 @@ export default function RegisterPage() {
           </div>
           <span className="lumus-heading text-2xl font-semibold text-[#d8d1ff]">LUMUS</span>
         </div>
-        <p className="lumus-label text-[#cfc6ff]">Crear cuenta</p>
-        <h1 className="lumus-heading mt-4 text-3xl font-bold text-[var(--text-primary)]">Inicializa Lumus</h1>
+        <p className="lumus-label text-[#cfc6ff]">Recuperar acceso</p>
+        <h1 className="lumus-heading mt-4 text-3xl font-bold text-[var(--text-primary)]">¿Olvidaste tu contraseña?</h1>
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">
+          Te mandamos un código para que puedas elegir una nueva.
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -76,21 +67,6 @@ export default function RegisterPage() {
           />
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-1.5">
-            Contraseña
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="Mínimo 8 caracteres"
-            minLength={8}
-            required
-            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-all focus:border-[var(--accent-lumus)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-lumus)]/30"
-          />
-        </div>
-
         {error && (
           <div className="bg-[var(--danger-muted)] border border-[var(--danger)]/20 rounded-lg px-3 py-2.5 text-sm text-[var(--danger)]">
             {error}
@@ -103,14 +79,13 @@ export default function RegisterPage() {
           className="w-full rounded-full bg-[var(--accent-lumus)] py-3 text-sm font-bold uppercase text-[#190f5d] transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-50"
           style={{ letterSpacing: '0.08em' }}
         >
-          {loading ? 'Creando...' : 'Crear cuenta'}
+          {loading ? 'Enviando...' : 'Enviar código'}
         </button>
       </form>
 
       <p className="text-center text-sm text-[var(--text-secondary)] mt-6">
-        ¿Ya tenés cuenta?{' '}
         <Link href="/login" className="text-[var(--accent-lumus)] hover:underline">
-          Ingresar
+          Volver a ingresar
         </Link>
       </p>
     </div>

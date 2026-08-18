@@ -12,27 +12,42 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [unconfirmed, setUnconfirmed] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setUnconfirmed(false)
     setLoading(true)
 
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      setError(
-        error.message === 'Invalid login credentials'
-          ? 'Email o contraseña incorrectos'
-          : error.message
-      )
+      if (error.message.toLowerCase().includes('not confirmed')) {
+        setUnconfirmed(true)
+        setError('Todavía no confirmaste tu cuenta.')
+      } else {
+        setError(
+          error.message === 'Invalid login credentials'
+            ? 'Email o contraseña incorrectos'
+            : error.message
+        )
+      }
       setLoading(false)
       return
     }
 
     router.push('/dashboard')
     router.refresh()
+  }
+
+  async function handleResendConfirmation() {
+    setResendLoading(true)
+    const supabase = createClient()
+    await supabase.auth.resend({ type: 'signup', email })
+    router.push(`/verify?email=${encodeURIComponent(email)}`)
   }
 
   return (
@@ -71,9 +86,14 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-1.5">
-            Contraseña
-          </label>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label className="block text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+              Contraseña
+            </label>
+            <Link href="/forgot-password" className="text-xs text-[var(--accent-lumus)] hover:underline">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
           <input
             type="password"
             value={password}
@@ -85,8 +105,18 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <div className="bg-[var(--danger-muted)] border border-[var(--danger)]/20 rounded-lg px-3 py-2.5 text-sm text-[var(--danger)]">
-            {error}
+          <div className="space-y-2 rounded-lg border border-[var(--danger)]/20 bg-[var(--danger-muted)] px-3 py-2.5 text-sm text-[var(--danger)]">
+            <p>{error}</p>
+            {unconfirmed && (
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={resendLoading}
+                className="text-xs font-semibold text-[var(--accent-lumus)] hover:underline disabled:opacity-50"
+              >
+                {resendLoading ? 'Enviando...' : 'Reenviar código de verificación'}
+              </button>
+            )}
           </div>
         )}
 
