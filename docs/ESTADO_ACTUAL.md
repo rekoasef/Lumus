@@ -51,7 +51,7 @@ El proyecto hoy es: **auth → onboarding → paywall → dashboard de finanzas*
 - Componentes en `src/components`: ~32
 - Hooks en `src/hooks`: 9
 - API route handlers: 19
-- Migraciones Supabase: 13
+- Migraciones Supabase: 16
 - Tablas en `public` (Supabase): 20 (bajaron de 48 tras la limpieza de schema muerto del 2026-08-18) — más 6 tablas `marketing_*` inesperadas, ver nota abajo
 
 ---
@@ -165,6 +165,9 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 | `00011_billing_subscriptions.sql` | Tabla `billing_subscriptions` para el paywall de Mercado Pago |
 | `00012_saving_goal_wallets.sql` | Tabla puente `saving_goal_wallets`, reemplaza `saving_goals.wallet_id` |
 | `00013_drop_unused_modules.sql` | Borra las 28 tablas de módulos removidos (organización/comidas/fit/hábitos/journal/relaciones/estudio) y del chat/voz de IA (`ai_cache`, `ai_conversations`, `user_context_cache`) — con backup previo, ver "Limpieza de schema" |
+| `00014_finance_categories_soft_delete.sql` | Agrega `deleted_at` a `finance_categories` |
+| `00015_drop_auto_classified.sql` | Borra `transactions.auto_classified`, vestigial desde que se borró el clasificador por IA |
+| `00016_drop_marketing_module.sql` | Borra las 6 tablas `marketing_*` — un módulo de Lumus que nunca llegó a tener migración en este repo — con backup previo de la única fila con datos |
 
 ---
 
@@ -184,14 +187,9 @@ Warnings que quedan (no bloquean, bajaron de ~25 a 14 tras el borrado del chat/v
 
 ## Issues abiertos
 
-Ver `docs/ISSUES_PENDIENTES.md` para detalle y acciones sugeridas.
+Ver `docs/ISSUES_PENDIENTES.md` para detalle. Todo el backlog técnico de esta revisión (`F1`, `F3`, `F4`, `F5`, `F7`, `S1`, `S3`, `S4`) quedó cerrado. Solo queda `D1` (alinear la documentación de producto con el alcance real), sin urgencia.
 
-| ID | Issue | Prioridad |
-|---|---|---|
-| `S3` | Tabla `subscriptions` huérfana con 3 filas reales (revisadas, valores concretos en `ISSUES_PENDIENTES.md`) — necesita que el usuario confirme si siguen vigentes | Media |
-| `S4` | Tablas `marketing_*` inesperadas en el mismo proyecto de Supabase — no son de Lumus | Media — confirmar si el proyecto debe separarse |
-
-Todo lo demás del backlog técnico (`F1`, `F3`, `F4`, `F5`, `F7`) se cerró en esta revisión. Solo quedan `S3` y `S4`, y ninguna de las dos es trabajo de código — ambas necesitan una respuesta del usuario sobre datos/infraestructura que no están documentados en ningún lado del repo.
+`S3` y `S4` se cerraron por decisión del usuario, no con cambios de código en el primer caso: `subscriptions` (tabla huérfana con 3 filas reales — Seguro moto, Definitiva, Credito Computadora) queda intacta, sin tocar; las 6 tablas `marketing_*` eran un módulo de Lumus que nunca llegó a tener migración en este repo y ya no corresponde, así que se borraron (`00016_drop_marketing_module.sql`, con backup previo de la única fila con datos).
 
 ### Issues cerrados desde la última revisión
 
@@ -210,6 +208,8 @@ Todo lo demás del backlog técnico (`F1`, `F3`, `F4`, `F5`, `F7`) se cerró en 
 | `F1` RPC de seed con `any` | Cerrado — tipos regenerados, sacados todos los `as any` del proyecto (no solo el de `wallets/route.ts`) |
 | `F5` Presupuestos autocopiados | Cerrado — investigado, ya estaba bien: banner de aviso existente y constraint única evita duplicados por requests concurrentes |
 | `F7` `transactions.auto_classified` vestigial | Cerrado — columna borrada (`00015_drop_auto_classified.sql`) y limpiada del código |
+| `S4` Tablas `marketing_*` inesperadas | Cerrado — confirmado por el usuario que era un módulo de Lumus sin migración en el repo; borradas en `00016_drop_marketing_module.sql` con backup previo de la única fila con datos |
+| `S3` Tabla `subscriptions` huérfana | Cerrado — el usuario decidió no eliminar las 3 filas; tabla intacta, sin tocar |
 
 ---
 
@@ -220,9 +220,7 @@ Ordenado por impacto, asumiendo que el producto es "app de finanzas con paywall"
 1. **Precio real del plan** — hoy `SUBSCRIPTION_PRICE_ARS = 1000` es precio de prueba (`src/lib/billing/plan.ts`).
 2. **Probar el caso `paused`** de una suscripción — solo se validó `authorized → cancelled`.
 3. **Edición de perfil** — hoy es solo lectura.
-4. **`S3` — confirmar si las 3 filas de `subscriptions` siguen vigentes** (detalle en `ISSUES_PENDIENTES.md`), para migrarlas a `recurring_transactions` o dropear la tabla.
-5. **`S4` — confirmar si el proyecto de Supabase se comparte a propósito con otra app** (las tablas `marketing_*`) o si conviene separar antes de que crezca más.
-6. Actualizar `README.md` / `CLAUDE.md` / `LUMUS_OVERVIEW.md` / `ARQUITECTURA.md` / `FASES.md`, que todavía describen el alcance de "Sistema Operativo Personal" completo en vez del producto real de hoy (Finanzas + paywall).
+4. Actualizar `README.md` / `CLAUDE.md` / `LUMUS_OVERVIEW.md` / `ARQUITECTURA.md` / `FASES.md`, que todavía describen el alcance de "Sistema Operativo Personal" completo en vez del producto real de hoy (Finanzas + paywall).
 
 ---
 
@@ -230,4 +228,4 @@ Ordenado por impacto, asumiendo que el producto es "app de finanzas con paywall"
 
 **Opción A — Cerrar el paywall**: precio real + probar `paused` antes de considerar esto lanzable de verdad.
 
-**Opción B — Resolver los dos pendientes de datos**: confirmar `S3` (vencimientos de `subscriptions`) y `S4` (origen de las tablas `marketing_*`) — son las únicas dos cosas que quedan en el backlog técnico, y ninguna es código.
+**Opción B — Alinear la documentación de producto** (`D1`): es lo único que queda del backlog técnico, sin urgencia.

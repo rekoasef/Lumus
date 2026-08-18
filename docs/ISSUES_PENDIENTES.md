@@ -10,40 +10,29 @@ Este documento lista issues detectados en la revision actual del proyecto. La id
 
 ### S3. Tabla `subscriptions` huerfana
 
-Estado: abierto (nuevo, detectado 2026-08-18 durante la limpieza de `S1`)
+Estado: cerrado (decision del usuario: no tocar)
 
-Impacto: bajo (sin exposicion — RLS con policy, solo el dueno puede leer sus filas — pero es historial financiero real, no descartarlo sin mirar)
+Commit/fecha: 2026-08-18
 
-`00010_recurring_transactions.sql` no migro ni renombro la tabla `subscriptions` — creo `recurring_transactions` como tabla nueva y separada. `subscriptions` sigue en el schema, sin ningun endpoint que la use (las rutas `finance/subscriptions/*` se borraron en el pivot a "Lumus Finanzas"), pero tiene **3 filas de datos reales**: vencimientos cargados antes de la reescritura a `recurring_transactions`.
-
-**Revisadas el 2026-08-18** — las 3 filas:
-
-| Nombre | Monto | Ciclo | Proximo vencimiento | Activo |
-|---|---|---|---|---|
-| Seguro moto | $12.500 ARS | mensual | *(sin fecha)* | true |
-| Definitiva | $30.000 ARS | mensual | 2026-07-05 | true |
-| Credito Computadora | $205.000 ARS | mensual | 2026-08-01 | true |
-
-Las 3 tienen pinta de ser obligaciones reales, pero **las fechas de "proximo vencimiento" ya pasaron** (hoy es 2026-08-18) y una ni siquiera tiene fecha. No hay forma de saber desde el codigo si ya se pagaron por fuera de la app durante los meses que este sistema quedo abandonado, si siguen vigentes, o si ya terminaron (sobre todo "Credito Computadora", que suena a un credito con final). Migrarlas a `recurring_transactions` a ciegas podria inventar vencimientos pendientes falsos en el dashboard financiero del usuario — no es una decision tecnica, es una pregunta sobre datos financieros reales. **No se toco la tabla.**
-
-Accion sugerida:
-
-- Preguntarle al usuario, con esta tabla de datos en mano, si estas 3 siguen vigentes.
-- Si siguen vigentes: migrarlas a `recurring_transactions` con una fecha de proximo vencimiento corregida (no la vieja, que ya paso).
-- Si no: hacer backup (mismo patron que `00013_drop_unused_modules.sql`) y dropear `subscriptions` en una migration separada.
+Notas:
+- `00010_recurring_transactions.sql` no migro ni renombro la tabla `subscriptions` — creo `recurring_transactions` como tabla nueva y separada. `subscriptions` sigue en el schema, sin ningun endpoint que la use, con 3 filas de datos reales (Seguro moto $12.500 ARS/mes, Definitiva $30.000 ARS/mes, Credito Computadora $205.000 ARS/mes — las tres con "proximo vencimiento" ya pasado).
+- Consultado el usuario: **no eliminar las 3 filas**. La tabla `subscriptions` queda intacta, sin migrar ni dropear. No se toco nada de esto en el codigo ni en la base.
 
 ### S4. Tablas `marketing_*` inesperadas en el proyecto de Supabase
 
-Estado: abierto (nuevo, detectado 2026-08-18)
+Estado: cerrado
 
-Impacto: medio — no es un bug de Lumus, pero conviene resolverlo antes de que el schema compartido crezca mas
+Commit/fecha: 2026-08-18
 
-El proyecto de Supabase de Lumus (`ccixixskklovvvikiwbq`) tiene 6 tablas que no estan en ninguna migracion de este repo: `marketing_brand`, `marketing_business_ideas`, `marketing_content_ideas`, `marketing_content_messages`, `marketing_scheduled_posts`, `marketing_slides`. No pertenecen a Lumus — parecen ser de otra aplicacion (algo de marketing/contenido) que esta usando el mismo proyecto de Supabase. `supabase gen types typescript --linked` las trae igual, asi que van a seguir apareciendo en `src/types/database.types.ts` mientras compartan el proyecto — no es un error de la generacion, es fiel a lo que hay en la base.
+Verificacion:
+- `select table_name from information_schema.tables where table_schema='public'` — confirmado que las 6 tablas `marketing_*` ya no existen
+- `npx tsc --noEmit`, `npm run lint`, `npm run build` — pasan (0 errores, 14 warnings)
+- Tipos de Supabase regenerados sin ninguna tabla `marketing_*`
 
-Accion sugerida:
-
-- Confirmar si el proyecto se comparte a proposito (dos apps del mismo dueno ahorrando un proyecto de Supabase) o si fue sin querer.
-- Si es sin querer, mover esas tablas a un proyecto de Supabase propio antes de que la otra app crezca — RLS mal configurado en una podria en teoria exponer datos de la otra si comparten el mismo `anon key`/politica de conexion.
+Notas:
+- Confirmado por el usuario: no era otra app compartiendo el proyecto — era un modulo de marketing de Lumus que nunca llego a tener migraciones ni codigo en este repo, y que ya no corresponde.
+- Filas encontradas: 5 de las 6 tablas estaban en 0; `marketing_brand` tenia 1 fila (marca "RAdev"). Se hizo backup de esa fila (`~/lumus-dropped-modules-backup-2026-08-18/marketing_brand.json`, fuera del repo) antes de dropear.
+- Dropeadas las 6 tablas en `00016_drop_marketing_module.sql`.
 
 ### F1. RPC de seed con `any`
 
@@ -139,11 +128,9 @@ El paywall de Mercado Pago tiene su propio checklist de pendientes en `docs/BILL
 
 ## Orden recomendado de trabajo
 
-Queda solo lo que necesita una respuesta del usuario (no es trabajo de codigo pendiente):
+Todo el backlog tecnico de esta revision esta cerrado. Lo unico que queda:
 
-1. `S4` — confirmar el origen de las tablas `marketing_*` antes de que el proyecto de Supabase compartido crezca mas.
-2. `S3` — confirmar si las 3 filas de `subscriptions` siguen vigentes, para migrarlas o dropear la tabla.
-3. `D1` — alinear documentacion de producto con el alcance real, cuando haya tiempo.
+1. `D1` — alinear documentacion de producto (`README.md`, `CLAUDE.md`, `LUMUS_OVERVIEW.md`, `ARQUITECTURA.md`, `FASES.md`) con el alcance real, cuando haya tiempo. No es urgente.
 
 ## Issues cerrados
 
@@ -160,6 +147,8 @@ Queda solo lo que necesita una respuesta del usuario (no es trabajo de codigo pe
 | `F1` RPC de seed con `any` | Cerrado — tipos regenerados, sacados todos los `as any` del proyecto — ver detalle en la seccion `F1` mas arriba |
 | `F5` Presupuestos autocopiados | Cerrado — investigado, los dos riesgos reales ya estaban cubiertos (banner de aviso existente, constraint unica evita duplicados) — ver detalle en la seccion `F5` mas arriba |
 | `F7` Campo `auto_classified` vestigial | Cerrado — columna borrada (`00015_drop_auto_classified.sql`) y limpiada del codigo — ver detalle en la seccion `F7` mas arriba |
+| `S4` Tablas `marketing_*` inesperadas | Cerrado — confirmado por el usuario que era un modulo de Lumus que no correspondia mas; dropeadas en `00016_drop_marketing_module.sql` con backup previo de la unica fila con datos |
+| `S3` Tabla `subscriptions` huerfana | Cerrado — el usuario decidio no eliminar las 3 filas; la tabla queda intacta, sin tocar |
 
 ### Cerrados en esta revision (2026-08-18) — moot por borrado de codigo
 
