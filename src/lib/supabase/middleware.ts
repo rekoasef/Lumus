@@ -44,6 +44,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  const isBillingApiRoute = pathname.startsWith('/api/billing/')
+
   if (user && !pathname.startsWith('/onboarding')) {
     const { data: profile } = await supabase
       .from('user_profiles')
@@ -55,6 +57,20 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = '/onboarding'
       return NextResponse.redirect(url)
+    }
+
+    if (profile.onboarding_done && !pathname.startsWith('/suscripcion') && !isBillingApiRoute) {
+      const { data: subscription } = await supabase
+        .from('billing_subscriptions')
+        .select('status')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (subscription?.status !== 'authorized') {
+        const url = request.nextUrl.clone()
+        url.pathname = '/suscripcion'
+        return NextResponse.redirect(url)
+      }
     }
   }
 
