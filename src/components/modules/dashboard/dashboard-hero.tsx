@@ -1,9 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
 import { LumusOrb } from '@/components/lumus/lumus-orb'
-import { LumusFullscreen } from '@/components/lumus/lumus-fullscreen'
 import { LiveClock } from './live-clock'
 import { WeatherWidget } from './weather-widget'
 import { CurrencyWidget } from './currency-widget'
@@ -21,20 +18,18 @@ function getGreeting(): string {
 }
 
 export function DashboardHero({ firstName, date }: DashboardHeroProps) {
-  const [fullscreenOpen, setFullscreenOpen] = useState(false)
   const greeting = getGreeting()
 
   return (
-    <>
-      <section
-        className="relative mx-auto max-w-[1120px] overflow-hidden rounded-[2rem]"
-        style={{
-          background: 'linear-gradient(135deg, rgba(17,17,24,0.95) 0%, rgba(12,10,20,0.98) 100%)',
-          border: '1px solid rgba(124,109,250,0.12)',
-          boxShadow: '0 0 60px rgba(124,109,250,0.08), 0 32px 64px rgba(0,0,0,0.4)',
-        }}
-      >
-        {/* Ambient glow */}
+    <section
+      className="relative mx-auto max-w-[1120px] overflow-hidden rounded-[2rem]"
+      style={{
+        background: 'linear-gradient(135deg, rgba(17,17,24,0.95) 0%, rgba(12,10,20,0.98) 100%)',
+        border: '1px solid rgba(124,109,250,0.12)',
+        boxShadow: '0 0 60px rgba(124,109,250,0.08), 0 32px 64px rgba(0,0,0,0.4)',
+      }}
+    >
+      {/* Ambient glow */}
         <div className="pointer-events-none absolute inset-0">
           <div
             className="absolute rounded-full"
@@ -57,7 +52,7 @@ export function DashboardHero({ firstName, date }: DashboardHeroProps) {
         <div className="relative px-4 py-5 sm:px-6 sm:py-6 md:px-10 md:py-8">
           <div className="grid gap-6 md:grid-cols-[380px_1fr] md:gap-8">
 
-            {/* IZQUIERDA — Orbe (clicable) */}
+            {/* IZQUIERDA — Orbe (decorativo, no clicable) */}
             <div className="relative flex flex-col items-center justify-center gap-3">
               <div
                 className="pointer-events-none absolute rounded-full"
@@ -67,29 +62,12 @@ export function DashboardHero({ firstName, date }: DashboardHeroProps) {
                 }}
               />
 
-              {/* Orbe con hover + click */}
-              <motion.button
-                onClick={() => setFullscreenOpen(true)}
-                className="relative rounded-full focus:outline-none"
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.97 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-                title="Hablar con Lumus"
-              >
-                <motion.div
-                  className="pointer-events-none absolute inset-0 rounded-full"
-                  initial={{ opacity: 0 }}
-                  whileHover={{ opacity: 1 }}
-                  style={{
-                    border: '1.5px solid rgba(124,109,250,0.35)',
-                    boxShadow: '0 0 40px rgba(124,109,250,0.18)',
-                  }}
-                />
-                {/* Tamaño responsivo: 200px mobile, 280px sm, 360px md+ */}
+              {/* Tamaño responsivo: 200px mobile, 260px sm, 300px md+ */}
+              <div className="pointer-events-none">
                 <span className="block md:hidden"><LumusOrb state="idle" size={200} /></span>
                 <span className="hidden sm:block md:hidden"><LumusOrb state="idle" size={260} /></span>
-                <span className="hidden md:block"><LumusOrb state="idle" size={360} /></span>
-              </motion.button>
+                <span className="hidden md:block"><LumusOrb state="idle" size={300} /></span>
+              </div>
 
               <div className="text-center">
                 <p className="text-[0.55rem] uppercase tracking-[0.2em] text-[var(--text-muted)]">
@@ -134,13 +112,5 @@ export function DashboardHero({ firstName, date }: DashboardHeroProps) {
           </div>
         </div>
       </section>
-
-      {/* Fullscreen Lumus */}
-      <AnimatePresence>
-        {fullscreenOpen && (
-          <LumusFullscreen onClose={() => setFullscreenOpen(false)} />
-        )}
-      </AnimatePresence>
-    </>
   )
 }

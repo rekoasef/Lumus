@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Plus, TrendingUp, TrendingDown, Wallet as WalletIcon, ChevronLeft, ChevronRight, BarChart2, Minus } from 'lucide-react'
-import { LumusChat } from '@/components/lumus/lumus-chat'
 import type { Wallet, FinanceCategory, Transaction, Budget, SavingGoal } from '@/types/finance.types'
 import { WalletCard } from './wallet-card'
 import { WalletForm } from './wallet-form'
@@ -85,16 +84,8 @@ export function FinanzasDashboard({
   const [showGoalForm, setShowGoalForm] = useState(false)
   const [editingGoal, setEditingGoal] = useState<SavingGoal | null>(null)
 
-  const [chatOpen, setChatOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const { report, generating, error: reportError, prevMonthLabel, generate } = useFinanceReport()
-
-  const CHAT_SUGGESTIONS = [
-    '¿En qué gasto de más?',
-    '¿Puedo ahorrar más?',
-    'Analizá mis gastos del mes',
-    '¿Cómo estoy financieramente?',
-  ]
 
   // Gastos/ingresos del mes convertidos a ARS — las billeteras pueden estar
   // en distinta moneda (ARS/USD) y no se pueden sumar montos crudos entre sí
@@ -634,17 +625,6 @@ export function FinanzasDashboard({
           monthLabel={prevMonthLabel}
           onGenerate={generate}
           onClose={() => setReportOpen(false)}
-        />
-      )}
-
-
-      {/* Chat panel */}
-      {chatOpen && (
-        <LumusChat
-          module="finanzas"
-          moduleLabel="Finanzas"
-          suggestions={CHAT_SUGGESTIONS}
-          onClose={() => setChatOpen(false)}
         />
       )}
     </div>

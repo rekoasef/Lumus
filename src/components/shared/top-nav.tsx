@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -9,10 +8,8 @@ import {
   Wallet,
   UserCircle,
   LogOut,
-  Mic,
 } from 'lucide-react'
 import { LumusOrbIcon } from '@/components/lumus/lumus-orb'
-import { VoiceModal } from '@/components/lumus/voice-modal'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV_ITEMS = [
@@ -28,7 +25,6 @@ function isActive(pathname: string, href: string) {
 export function TopNav() {
   const pathname = usePathname()
   const router = useRouter()
-  const [voiceOpen, setVoiceOpen] = useState(false)
 
   async function handleLogout() {
     const supabase = createClient()
@@ -38,7 +34,6 @@ export function TopNav() {
   }
 
   return (
-    <>
     <header
       className="fixed inset-x-0 top-0 z-40 h-16"
       style={{
@@ -107,19 +102,6 @@ export function TopNav() {
 
         {/* Right actions */}
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          {/* Botón de voz */}
-          <button
-            onClick={() => setVoiceOpen(true)}
-            title="Hablar con Lumus"
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[var(--text-muted)] transition-colors hover:bg-[rgba(124,109,250,0.12)] hover:text-[#bdb4ff]"
-            style={{ border: '1px solid transparent' }}
-            onMouseEnter={e => (e.currentTarget.style.border = '1px solid rgba(124,109,250,0.25)')}
-            onMouseLeave={e => (e.currentTarget.style.border = '1px solid transparent')}
-          >
-            <Mic size={15} />
-            <span className="hidden xl:block text-[0.72rem] font-medium">Voz financiera</span>
-          </button>
-          <div className="h-5 w-px bg-white/10" />
           <Link
             href="/perfil"
             title="Perfil"
@@ -145,8 +127,5 @@ export function TopNav() {
 
       </div>
     </header>
-
-    {voiceOpen && <VoiceModal onClose={() => setVoiceOpen(false)} />}
-    </>
   )
 }

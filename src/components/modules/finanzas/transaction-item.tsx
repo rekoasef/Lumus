@@ -1,6 +1,6 @@
 'use client'
 
-import { Pencil, Trash2, Sparkles, SlidersHorizontal } from 'lucide-react'
+import { Pencil, Trash2, SlidersHorizontal } from 'lucide-react'
 import type { Transaction } from '@/types/finance.types'
 import { CategoryIcon } from '@/lib/utils/category-icons'
 
@@ -54,9 +54,6 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
           <p className="truncate text-sm font-medium text-[var(--text-primary)]">
             {transaction.description ?? (isAdjustment ? 'Ajuste de balance' : transaction.type)}
           </p>
-          {transaction.auto_classified && (
-            <Sparkles size={11} className="shrink-0 text-[var(--accent-lumus)]" aria-label="Clasificado por IA" />
-          )}
         </div>
         <div className="mt-0.5 flex items-center gap-1.5">
           {isAdjustment && (
