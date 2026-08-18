@@ -39,9 +39,9 @@ export function useFinanceReport() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ month: prevMonth, regenerate: options?.regenerate ?? false }),
       })
-      if (!res.ok) throw new Error('Error al generar el informe')
-      const { report: r } = await res.json() as { report: FinanceReport }
-      setReport(r)
+      const data = await res.json() as { report: FinanceReport } | { error: string }
+      if (!res.ok) throw new Error('error' in data ? data.error : 'Error al generar el informe')
+      setReport((data as { report: FinanceReport }).report)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
     } finally {

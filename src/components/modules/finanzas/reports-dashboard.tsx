@@ -86,9 +86,9 @@ function AIReportCard({ report }: { report: FinanceReport }) {
         body: JSON.stringify({ month: currentReport.month, regenerate: true }),
       })
 
-      if (!res.ok) throw new Error('No se pudo regenerar el informe')
-      const { report: updatedReport } = await res.json() as { report: FinanceReport }
-      setCurrentReport(updatedReport)
+      const data = await res.json() as { report: FinanceReport } | { error: string }
+      if (!res.ok) throw new Error('error' in data ? data.error : 'No se pudo regenerar el informe')
+      setCurrentReport((data as { report: FinanceReport }).report)
       router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')

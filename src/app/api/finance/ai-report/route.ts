@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import Anthropic, { APIError } from '@anthropic-ai/sdk'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 
@@ -239,16 +239,32 @@ RECOMENDACIONES
 
 No uses Markdown: no uses ##, tablas con |, negritas, asteriscos ni bloques de código. Sé directo. No repitas datos obvios. Priorizá insights útiles.`
 
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('ai-report: falta ANTHROPIC_API_KEY')
+    return NextResponse.json({ error: 'El servicio de IA no está disponible en este momento.' }, { status: 500 })
+  }
+
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5',
-    max_tokens: 1500,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userPrompt }],
-  })
+  let response
+  try {
+    response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 1500,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    })
+  } catch (err) {
+    console.error('ai-report: fallo al llamar a Anthropic', err instanceof APIError ? err.message : err)
+    return NextResponse.json({ error: 'No se pudo generar el informe. Probá de nuevo en unos minutos.' }, { status: 502 })
+  }
 
   const content = response.content[0].type === 'text' ? response.content[0].text : ''
+
+  if (!content) {
+    console.error('ai-report: la respuesta de Anthropic no tenía contenido de texto', response.content[0]?.type)
+    return NextResponse.json({ error: 'La IA no devolvió un informe válido. Probá de nuevo.' }, { status: 502 })
+  }
 
   const saveQuery = existing
     ? supabase
