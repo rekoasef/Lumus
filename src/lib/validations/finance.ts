@@ -88,7 +88,7 @@ export type UpdateBudgetInput = z.infer<typeof updateBudgetSchema>
 export const createSavingGoalSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido').max(100),
   target_amount: z.number().positive('El monto objetivo debe ser mayor a 0'),
-  wallet_id: z.string().uuid().nullable().optional(),
+  wallet_ids: z.array(z.string().uuid()).optional(),
   target_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   icon: z.string().max(50).nullable().optional(),
 })
@@ -97,7 +97,7 @@ export const updateSavingGoalSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   target_amount: z.number().positive().optional(),
   current_amount: z.number().min(0).optional(),
-  wallet_id: z.string().uuid().nullable().optional(),
+  wallet_ids: z.array(z.string().uuid()).optional(),
   target_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   icon: z.string().max(50).nullable().optional(),
   achieved: z.boolean().optional(),

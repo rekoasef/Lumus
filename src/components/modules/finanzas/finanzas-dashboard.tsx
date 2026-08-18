@@ -571,6 +571,7 @@ export function FinanzasDashboard({
                     key={goal.id}
                     goal={goal}
                     wallets={wallets}
+                    toARS={toARS}
                     onEdit={handleEditGoal}
                     onDelete={handleDeleteGoal}
                     onContribute={async (id, amount, walletId) => { await contribute(id, amount, walletId) }}

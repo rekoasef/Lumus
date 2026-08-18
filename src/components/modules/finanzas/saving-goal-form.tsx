@@ -17,17 +17,30 @@ export function SavingGoalForm({ wallets, onSave, onClose, initial }: SavingGoal
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateSavingGoalInput>({
     resolver: zodResolver(createSavingGoalSchema),
     defaultValues: {
       name:          initial?.name          ?? '',
       target_amount: initial?.target_amount ?? undefined,
-      wallet_id:     initial?.wallet_id     ?? null,
+      wallet_ids:    initial?.wallet_ids    ?? [],
       target_date:   initial?.target_date   ?? null,
       icon:          initial?.icon          ?? null,
     },
   })
+
+  const selectedWalletIds = watch('wallet_ids') ?? []
+
+  function toggleWallet(id: string) {
+    setValue(
+      'wallet_ids',
+      selectedWalletIds.includes(id)
+        ? selectedWalletIds.filter(w => w !== id)
+        : [...selectedWalletIds, id],
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center p-0 bg-black/60 backdrop-blur-sm sm:items-center sm:p-4">
@@ -91,18 +104,28 @@ export function SavingGoalForm({ wallets, onSave, onClose, initial }: SavingGoal
           {wallets.length > 0 && (
             <div>
               <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-                BILLETERA{' '}
-                <span className="normal-case font-normal text-[var(--text-muted)]">(opcional)</span>
+                BILLETERAS{' '}
+                <span className="normal-case font-normal text-[var(--text-muted)]">
+                  (opcional — el progreso será la suma de las que elijas)
+                </span>
               </label>
-              <select
-                {...register('wallet_id')}
-                className="w-full rounded-lg border border-white/10 bg-[#111118] px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none"
-              >
-                <option value="">Sin billetera</option>
+              <div className="space-y-1.5">
                 {wallets.map(w => (
-                  <option key={w.id} value={w.id}>{w.name}</option>
+                  <button
+                    key={w.id}
+                    type="button"
+                    onClick={() => toggleWallet(w.id)}
+                    className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors ${
+                      selectedWalletIds.includes(w.id)
+                        ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
+                        : 'border-white/10 bg-white/5 text-[var(--text-secondary)] hover:border-white/20'
+                    }`}
+                  >
+                    <span>{w.name}</span>
+                    <span className="text-xs text-[var(--text-muted)]">{w.currency}</span>
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
           )}
 

@@ -846,7 +846,6 @@ export type Database = {
           target_date: string | null
           updated_at: string | null
           user_id: string
-          wallet_id: string | null
         }
         Insert: {
           achieved?: boolean | null
@@ -859,7 +858,6 @@ export type Database = {
           target_date?: string | null
           updated_at?: string | null
           user_id: string
-          wallet_id?: string | null
         }
         Update: {
           achieved?: boolean | null
@@ -872,11 +870,32 @@ export type Database = {
           target_date?: string | null
           updated_at?: string | null
           user_id?: string
-          wallet_id?: string | null
+        }
+        Relationships: []
+      }
+      saving_goal_wallets: {
+        Row: {
+          goal_id: string
+          wallet_id: string
+        }
+        Insert: {
+          goal_id: string
+          wallet_id: string
+        }
+        Update: {
+          goal_id?: string
+          wallet_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "saving_goals_wallet_id_fkey"
+            foreignKeyName: "saving_goal_wallets_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "saving_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saving_goal_wallets_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
             referencedRelation: "wallets"

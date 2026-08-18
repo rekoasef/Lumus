@@ -22,22 +22,25 @@ function daysUntil(dateStr: string | null): { label: string; urgent: boolean } |
 interface SavingGoalCardProps {
   goal: SavingGoal
   wallets: WalletType[]
+  toARS: (amount: number, currency: string) => number
   onEdit: (g: SavingGoal) => void
   onDelete: (id: string) => void
   onContribute: (id: string, amount: number, walletId?: string | null) => Promise<void>
   onMarkAchieved: (id: string) => Promise<void>
 }
 
-export function SavingGoalCard({ goal, wallets, onEdit, onDelete, onContribute, onMarkAchieved }: SavingGoalCardProps) {
+export function SavingGoalCard({ goal, wallets, toARS, onEdit, onDelete, onContribute, onMarkAchieved }: SavingGoalCardProps) {
   const [contributing, setContributing] = useState(false)
   const [amount, setAmount]             = useState('')
-  const [walletId, setWalletId]         = useState<string | null>(goal.wallet_id)
+  const [walletId, setWalletId]         = useState<string | null>(goal.wallet_ids[0] ?? null)
   const [saving, setSaving]             = useState(false)
 
-  const associatedWallet = wallets.find(w => w.id === goal.wallet_id)
+  const associatedWallets = wallets.filter(w => goal.wallet_ids.includes(w.id))
 
-  // Si hay billetera vinculada, su balance actual ES el progreso de la meta
-  const currentAmount = associatedWallet ? associatedWallet.balance : goal.current_amount
+  // Si hay billeteras vinculadas, la suma de sus balances (convertidos a ARS) ES el progreso de la meta
+  const currentAmount = associatedWallets.length > 0
+    ? associatedWallets.reduce((sum, w) => sum + toARS(w.balance, w.currency), 0)
+    : goal.current_amount
 
   const pct       = goal.target_amount > 0 ? Math.min(currentAmount / goal.target_amount, 1) : 0
   const remaining = Math.max(goal.target_amount - currentAmount, 0)
@@ -68,7 +71,7 @@ export function SavingGoalCard({ goal, wallets, onEdit, onDelete, onContribute, 
   }
 
   function openContribute() {
-    setWalletId(goal.wallet_id)
+    setWalletId(goal.wallet_ids[0] ?? null)
     setContributing(true)
   }
 
@@ -95,11 +98,11 @@ export function SavingGoalCard({ goal, wallets, onEdit, onDelete, onContribute, 
                   {deadline.label}
                 </p>
               )}
-              {associatedWallet && (
+              {associatedWallets.length > 0 && (
                 <span className="flex items-center gap-0.5 text-[0.58rem] text-[var(--text-muted)]">
                   {deadline && '·'}
                   <Wallet size={9} className="shrink-0" />
-                  {associatedWallet.name}
+                  {associatedWallets.map(w => w.name).join(' + ')}
                 </span>
               )}
             </div>
@@ -196,7 +199,7 @@ export function SavingGoalCard({ goal, wallets, onEdit, onDelete, onContribute, 
               </div>
 
               {/* Billetera */}
-              {wallets.length > 0 && (
+              {(associatedWallets.length > 0 ? associatedWallets : wallets).length > 0 && (
                 <div>
                   <label className="lumus-label mb-1 block text-[0.58rem] text-[var(--text-muted)]">
                     REGISTRAR EN
@@ -207,7 +210,7 @@ export function SavingGoalCard({ goal, wallets, onEdit, onDelete, onContribute, 
                     className="w-full rounded-lg border border-white/10 bg-[#111118] px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none"
                   >
                     <option value="">Sin billetera (solo aporte manual)</option>
-                    {wallets.map(w => (
+                    {(associatedWallets.length > 0 ? associatedWallets : wallets).map(w => (
                       <option key={w.id} value={w.id}>{w.name}</option>
                     ))}
                   </select>

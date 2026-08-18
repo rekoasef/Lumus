@@ -58,7 +58,7 @@ export interface Budget {
 export interface SavingGoal {
   id: string
   user_id: string
-  wallet_id: string | null
+  wallet_ids: string[]
   name: string
   target_amount: number
   current_amount: number

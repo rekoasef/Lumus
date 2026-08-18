@@ -51,7 +51,7 @@ export default async function FinanzasPage() {
       .order('created_at', { ascending: true }),
     supabase
       .from('saving_goals')
-      .select('id, name, target_amount, current_amount, target_date, achieved, icon, wallet_id, created_at, updated_at')
+      .select('id, name, target_amount, current_amount, target_date, achieved, icon, created_at, updated_at, saving_goal_wallets(wallet_id)')
       .eq('user_id', user.id)
       .order('achieved', { ascending: true })
       .order('created_at', { ascending: true }),
@@ -93,7 +93,8 @@ export default async function FinanzasPage() {
     spent: spentByCategory[b.category_id] ?? 0,
   })) as Budget[]
 
-  const goals = (goalsRes.data ?? []) as SavingGoal[]
+  const goals = ((goalsRes.data ?? []) as unknown as (Omit<SavingGoal, 'wallet_ids'> & { saving_goal_wallets: { wallet_id: string }[] })[])
+    .map(({ saving_goal_wallets, ...goal }) => ({ ...goal, wallet_ids: saving_goal_wallets.map(w => w.wallet_id) }))
 
   return (
     <FinanzasDashboard

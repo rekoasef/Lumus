@@ -26,7 +26,7 @@ export async function POST(
   // Verificar que la meta pertenece al usuario
   const { data: goal, error: goalError } = await supabase
     .from('saving_goals')
-    .select('id, name, current_amount, target_amount, wallet_id')
+    .select('id, name, current_amount, target_amount, saving_goal_wallets(wallet_id)')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
@@ -35,7 +35,8 @@ export async function POST(
     return NextResponse.json({ error: 'Meta no encontrada' }, { status: 404 })
   }
 
-  const walletId = result.data.wallet_id ?? goal.wallet_id
+  const linkedWalletIds = goal.saving_goal_wallets.map(w => w.wallet_id)
+  const walletId = result.data.wallet_id ?? (linkedWalletIds.length === 1 ? linkedWalletIds[0] : null)
 
   // Si hay billetera, crear transacción de gasto (el balance se actualiza por el trigger)
   if (walletId) {
@@ -66,10 +67,10 @@ export async function POST(
     })
     .eq('id', id)
     .eq('user_id', user.id)
-    .select('id, name, target_amount, current_amount, target_date, achieved, icon, wallet_id, created_at, updated_at')
+    .select('id, name, target_amount, current_amount, target_date, achieved, icon, created_at, updated_at')
     .single()
 
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
-  return NextResponse.json({ goal: updatedGoal, wallet_used: !!walletId }, { status: 200 })
+  return NextResponse.json({ goal: { ...updatedGoal, wallet_ids: linkedWalletIds }, wallet_used: !!walletId }, { status: 200 })
 }
