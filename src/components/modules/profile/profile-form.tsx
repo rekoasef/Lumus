@@ -2,14 +2,19 @@
 
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { toast } from 'sonner'
 import { updateProfileSchema, type UpdateProfileInput } from '@/lib/validations/profile'
 import { useProfile } from '@/hooks/use-profile'
+import { SectionHeading } from './section-heading'
 import type { Profile } from '@/types'
 
 interface ProfileFormProps {
   initialProfile: Profile
   initialSummary: string
 }
+
+const fieldClass =
+  'w-full rounded-md border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors focus:border-[var(--accent-lumus)] focus:outline-none'
 
 export function ProfileForm({ initialProfile, initialSummary }: ProfileFormProps) {
   const { profile, summary, saving, error, updateProfile } = useProfile(initialProfile, initialSummary)
@@ -32,68 +37,63 @@ export function ProfileForm({ initialProfile, initialSummary }: ProfileFormProps
 
   async function onSubmit(data: UpdateProfileInput) {
     const ok = await updateProfile(data)
-    if (ok) reset(data)
+    if (ok) {
+      reset(data)
+      toast.success('Perfil actualizado')
+    }
   }
 
   return (
-    <section className="lumus-glass rounded-3xl p-8">
-      <p className="lumus-label text-[#cfc6ff]">Datos personales</p>
+    <section>
+      <SectionHeading index="01" label="Datos personales" />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-6">
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">NOMBRE</label>
-            <input
-              {...register('name')}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
-            />
+            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">Nombre</label>
+            <input {...register('name')} className={fieldClass} />
             {errors.name && <p className="mt-1 text-xs text-[var(--danger)]">{errors.name.message}</p>}
           </div>
 
           <div>
-            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">OCUPACIÓN</label>
+            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">Ocupación</label>
             <input
               {...register('occupation')}
               placeholder="Ej: Desarrollador"
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
+              className={fieldClass}
             />
           </div>
 
           <div>
-            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">FECHA DE NACIMIENTO</label>
-            <input
-              {...register('birth_date')}
-              type="date"
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none"
-            />
+            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">Fecha de nacimiento</label>
+            <input {...register('birth_date')} type="date" className={fieldClass} />
           </div>
 
           <div>
-            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">INGRESO MENSUAL</label>
+            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">Ingreso mensual</label>
             <input
               {...register('monthly_salary', { valueAsNumber: true })}
               type="number"
               step="0.01"
               placeholder="0"
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
+              className={fieldClass}
             />
           </div>
         </div>
 
         <div>
-          <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-            CONTALE A LUMUS SOBRE VOS
-          </label>
+          <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">Contale a Lumus sobre vos</label>
           <textarea
             {...register('life_summary')}
             rows={5}
             placeholder="Tus metas, tu estilo de vida, lo que quieras mejorar..."
-            className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm leading-6 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
+            className={`${fieldClass} resize-none leading-6`}
           />
+          <p className="mt-1.5 text-xs text-[var(--text-muted)]">Es un espacio libre — queda guardado para vos, no se comparte ni se analiza automáticamente.</p>
         </div>
 
         {error && (
-          <div className="rounded-lg border border-[var(--danger)]/20 bg-[var(--danger-muted)] px-3 py-2.5 text-sm text-[var(--danger)]">
+          <div className="rounded-md border border-[var(--danger)]/20 bg-[var(--danger-muted)] px-3 py-2.5 text-sm text-[var(--danger)]">
             {error}
           </div>
         )}
@@ -102,7 +102,7 @@ export function ProfileForm({ initialProfile, initialSummary }: ProfileFormProps
           <button
             type="submit"
             disabled={!isDirty || saving}
-            className="rounded-lg bg-[var(--accent-lumus)] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-50"
+            className="rounded-md bg-[var(--accent-lumus)] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-50"
           >
             {saving ? 'Guardando...' : 'Guardar cambios'}
           </button>
