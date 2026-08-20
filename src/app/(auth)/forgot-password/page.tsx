@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 
 export default function ForgotPasswordPage() {
@@ -32,19 +31,6 @@ export default function ForgotPasswordPage() {
   return (
     <div className="lumus-glass rounded-3xl p-8">
       <div className="text-center mb-8">
-        <div className="mb-5 inline-flex items-center gap-3">
-          <div className="relative grid size-11 overflow-hidden rounded-xl border border-white/10 bg-white/[0.035]">
-            <Image
-              src="/logoLumus.png"
-              alt="Lumus"
-              width={96}
-              height={96}
-              className="h-full w-full scale-[2.7] object-cover opacity-80 mix-blend-screen"
-              priority
-            />
-          </div>
-          <span className="lumus-heading text-2xl font-semibold text-[#d8d1ff]">LUMUS</span>
-        </div>
         <p className="lumus-label text-[#cfc6ff]">Recuperar acceso</p>
         <h1 className="lumus-heading mt-4 text-3xl font-bold text-[var(--text-primary)]">¿Olvidaste tu contraseña?</h1>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">

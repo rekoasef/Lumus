@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ChevronDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -10,6 +12,11 @@ import { confirm } from '@/components/shared/confirm-dialog'
 import { changePasswordSchema, type ChangePasswordInput } from '@/lib/validations/profile'
 import { SectionHeading } from './section-heading'
 
+const LABELS = {
+  title: 'Cambiar contraseña',
+  hint: 'Vas a necesitar la actual',
+} as const
+
 interface ChangePasswordFormProps {
   email: string
 }
@@ -17,6 +24,9 @@ interface ChangePasswordFormProps {
 export function ChangePasswordForm({ email }: ChangePasswordFormProps) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
+  // Colapsado por default: cambiar la contraseña es algo que se hace una vez
+  // cada mucho, no tiene por qué ocupar media pantalla del perfil.
+  const [open, setOpen] = useState(false)
 
   const {
     register,
@@ -82,7 +92,33 @@ export function ChangePasswordForm({ email }: ChangePasswordFormProps) {
         }
       />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        className="mt-6 flex w-full items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 text-left transition-colors hover:border-white/15"
+      >
+        <span>
+          <span className="block text-sm text-[var(--text-primary)]">{LABELS.title}</span>
+          <span className="mt-0.5 block text-xs text-[var(--text-muted)]">{LABELS.hint}</span>
+        </span>
+        <ChevronDown
+          size={15}
+          className={`shrink-0 text-[var(--text-muted)] transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="password-form"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            className="overflow-hidden"
+          >
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
         <div>
           <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">Contraseña actual</label>
           <input
@@ -133,6 +169,9 @@ export function ChangePasswordForm({ email }: ChangePasswordFormProps) {
           </button>
         </div>
       </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   )
 }
