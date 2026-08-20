@@ -69,9 +69,43 @@ order by u.created_at;
 
 > La columna `acceso` replica la misma regla que `src/lib/billing/access.ts`. Si esa lógica cambia, actualizar también esta consulta.
 
-### Pendiente
+---
 
-`Tiagotossi10@gmail.com` — beta tester. Todavía no se registró; en cuanto tenga cuenta, correr el snippet de arriba con `reason = 'beta tester'`.
+## Crear una cuenta a mano
+
+Alternativa a que la persona se registre sola: se le crea la cuenta con el mail **ya confirmado**, así se saltea el código de verificación.
+
+```bash
+set -a && . ./.env.local && set +a
+curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/admin/users" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"mail@ejemplo.com","password":"<contraseña provisoria>","email_confirm":true}'
+```
+
+Después correr el snippet de acceso de cortesía de más arriba. Tres detalles:
+
+- La contraseña tiene que tener **8 caracteres como mínimo**, que es lo que exige el servidor desde `B2`.
+- Supabase guarda el mail **en minúsculas**, sin importar cómo se escriba acá. Por eso todas las consultas usan `lower(email)`.
+- El `onboarding` queda sin hacer a propósito: son datos personales (nombre, ocupación, sueldo) que conviene que complete la propia persona la primera vez que entra.
+
+Conviene probar el login antes de pasarle las credenciales:
+
+```bash
+curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/token?grant_type=password" \
+  -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"mail@ejemplo.com","password":"<contraseña provisoria>"}'
+```
+
+### Testers activos
+
+| Mail | Acceso | Desde |
+|---|---|---|
+| `tiagotossi10@gmail.com` | Cortesía, `beta tester`, sin vencimiento | 2026-08-20 |
+
+Cuenta creada a mano con contraseña provisoria. **Que la cambie desde `/perfil`** — mientras siga siendo la provisoria, la conocen dos personas.
 
 ---
 
