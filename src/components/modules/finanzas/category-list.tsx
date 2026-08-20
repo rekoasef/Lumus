@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
+import { Plus, Pencil, Trash2, Merge } from 'lucide-react'
 import type { FinanceCategory, CategoryType } from '@/types/finance.types'
 import { CategoryForm } from './category-form'
+import { MergeCategoryDialog } from './merge-category-dialog'
 import { useFinanceCategories } from '@/hooks/use-finance-categories'
 import type { CreateCategoryInput } from '@/lib/validations/finance'
 import { CategoryIcon } from '@/lib/utils/category-icons'
@@ -15,11 +17,13 @@ interface CategoryListProps {
 }
 
 export function CategoryList({ initialCategories }: CategoryListProps) {
-  const { categories, byType, loading, createCategory, updateCategory, deleteCategory } =
+  const { categories, byType, loading, createCategory, updateCategory, deleteCategory, mergeCategory } =
     useFinanceCategories(initialCategories)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<FinanceCategory | null>(null)
   const [activeTab, setActiveTab] = useState<CategoryType>('gasto')
+  const [merging, setMerging] = useState<FinanceCategory | null>(null)
+  const [mergeLoading, setMergeLoading] = useState(false)
 
   async function handleSave(data: CreateCategoryInput) {
     if (editing) {
@@ -45,7 +49,30 @@ export function CategoryList({ initialCategories }: CategoryListProps) {
     toast.success('Categoría eliminada')
   }
 
+  async function handleMerge(targetId: string) {
+    if (!merging) return
+    setMergeLoading(true)
+    const target = categories.find(c => c.id === targetId)
+    const result = await mergeCategory(merging.id, targetId)
+    setMergeLoading(false)
+    if (!result) {
+      toast.error('No se pudo unificar')
+      return
+    }
+    const moved = result.transactions_visible + result.recurring + result.budgets_moved + result.budgets_merged
+    toast.success(
+      moved === 0
+        ? `"${merging.name}" se unificó con "${target?.name}"`
+        : `Se movieron ${moved} registros a "${target?.name}"`
+    )
+    setMerging(null)
+  }
+
   const visibleCategories = byType(activeTab)
+  // Solo del mismo tipo: la función SQL rechaza mezclar gastos con ingresos.
+  const mergeCandidates = merging
+    ? categories.filter(c => c.type === merging.type && c.id !== merging.id)
+    : []
 
   return (
     <div>
@@ -95,8 +122,17 @@ export function CategoryList({ initialCategories }: CategoryListProps) {
               </div>
               <span className="truncate text-sm text-[var(--text-secondary)]">{cat.name}</span>
             </div>
-            {!cat.is_default && (
-              <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+              <button
+                onClick={() => setMerging(cat)}
+                className="rounded p-1 text-[var(--text-muted)] hover:text-[var(--accent-lumus)]"
+                aria-label="Unificar"
+                title="Unificar con otra categoría"
+              >
+                <Merge size={12} />
+              </button>
+              {!cat.is_default && (
+                <>
                 <button
                   onClick={() => handleEdit(cat)}
                   className="rounded p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
@@ -112,8 +148,9 @@ export function CategoryList({ initialCategories }: CategoryListProps) {
                 >
                   <Trash2 size={12} />
                 </button>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
         ))}
 
@@ -123,6 +160,18 @@ export function CategoryList({ initialCategories }: CategoryListProps) {
           </p>
         )}
       </div>
+
+      <AnimatePresence>
+        {merging && (
+          <MergeCategoryDialog
+            source={merging}
+            candidates={mergeCandidates}
+            merging={mergeLoading}
+            onMerge={handleMerge}
+            onClose={() => setMerging(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {showForm && (
         <CategoryForm

@@ -105,3 +105,21 @@ export type TransactionFilter = {
   date_from: string | null
   date_to: string | null
 }
+
+/** Lo que devuelve `merge_finance_categories` (migración 00020). */
+export interface MergeCategoriesResult {
+  /** Total movido, incluidas las transacciones borradas. */
+  transactions: number
+  /** Solo las que el usuario ve en pantalla — es el número que se le informa. */
+  transactions_visible: number
+  recurring: number
+  budgets_moved: number
+  budgets_merged: number
+}
+
+/** Conteo previo que se le muestra al usuario antes de confirmar. */
+export interface MergeCategoriesPreview {
+  transactions: number
+  recurring: number
+  budgets: number
+}

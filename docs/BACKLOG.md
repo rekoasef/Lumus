@@ -19,7 +19,7 @@ Los pendientes de `docs/BILLING.md` (subir el precio de prueba de $1.000 ARS al 
 | ~~`B3`~~ | ~~Acceso gratis (`free_access_grants`)~~ | **Cerrado 2026-08-20** |
 | `B4` | Snippets de admin en docs | Va pegado a B3: es la forma de otorgar el acceso |
 | ~~`B5`~~ | ~~Botón de feedback in-app~~ | **Cerrado 2026-08-20** |
-| `B6` | Unificar categorías | Mejora real de producto, sin bloqueos |
+| ~~`B6`~~ | ~~Unificar categorías~~ | **Cerrado 2026-08-20** |
 | `B7` | Íconos ampliados + picker rediseñado | Cosmética con impacto alto, pero nada depende de ella |
 
 ---
@@ -289,7 +289,7 @@ Pruebas de RLS y constraints contra producción, todas revertidas con `rollback`
 
 ## `B6` — Unificar categorías
 
-Estado: pendiente
+Estado: **cerrado** — 2026-08-20 (`00020_merge_finance_categories.sql`)
 
 ### Por qué
 
@@ -327,10 +327,39 @@ Los reportes de IA ya generados (`finance_reports`) quedan desactualizados, porq
 
 ### Done cuando
 
-- Unificar mueve transacciones, vencimientos y presupuestos, y suma los presupuestos en conflicto
-- El origen queda con `deleted_at` y desaparece de las listas
-- Los totales del mes **no cambian** antes y después de unificar (verificación clave)
-- Si la RPC falla a mitad de camino, no queda nada a medio mover
+- Unificar mueve transacciones, vencimientos y presupuestos, y suma los presupuestos en conflicto — hecho
+- El origen queda con `deleted_at` y desaparece de las listas — hecho
+- Los totales no cambian antes y después de unificar — hecho
+- Si la RPC falla a mitad de camino, no queda nada a medio mover — hecho, es una sola función
+
+### Resultado (2026-08-20)
+
+| Pieza | Dónde |
+|---|---|
+| Función SQL atómica | `00020_merge_finance_categories.sql` |
+| API | `POST /api/finance/categories/[id]/merge` (+ `GET` para la vista previa) |
+| Hook | `mergeCategory` en `use-finance-categories` |
+| UI | `merge-category-dialog.tsx`, botón en cada categoría de la lista |
+
+Escenario completo probado contra producción y revertido con `rollback`:
+
+| Verificación | Resultado |
+|---|---|
+| Transacciones activas movidas | Sí |
+| Transacciones **borradas** movidas | Sí — 4 movidas de las cuales 2 visibles |
+| Presupuestos que chocan en el mismo mes | Sumados: $1.000 + $500 = **$1.500** |
+| Presupuestos sin conflicto | Movidos tal cual |
+| Origen tras la unificación | `deleted_at` seteado, fuera de las listas |
+| Mezclar gasto con ingreso | Rechazado |
+| Unificar consigo misma | Rechazado |
+| Categoría inexistente o ajena | Rechazado |
+| Sin login / rol `anon` | Rechazado — `anon` ni siquiera puede ejecutar la función |
+
+### Tres decisiones
+
+- **`SECURITY INVOKER`, no `DEFINER`.** Corre con los permisos del usuario, así que RLS sigue aplicando en las cuatro tablas. No tenía sentido sumar otra función privilegiada justo después de limpiar las dos de `00017`.
+- **Las transacciones borradas también se reasignan.** Si más adelante se restaura una, tiene que apuntar a una categoría que siga existiendo. Pero el número que se le informa al usuario es solo el de las **visibles**: de las 2.306 transacciones de la cuenta, 1.583 están borradas, así que informar el total mostraría un número que no se corresponde con nada de lo que ve en pantalla. La función devuelve los dos.
+- **El botón de unificar aparece también en las categorías default**, que no se pueden borrar pero sí pueden ser **origen** de una unificación. Es una acción explícita y con confirmación, distinta de un borrado accidental.
 
 ---
 

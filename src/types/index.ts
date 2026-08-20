@@ -6,6 +6,7 @@ export type {
   Budget,
   SavingGoal,
   RecurringTransaction,
+  MergeCategoriesResult, MergeCategoriesPreview,
 } from './finance.types'
 export type { Profile } from './profile.types'
 export type { BillingStatus, BillingSubscription } from './billing.types'

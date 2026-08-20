@@ -672,6 +672,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      merge_finance_categories: {
+        Args: { p_source: string; p_target: string }
+        Returns: Json
+      }
       recompute_wallet_balance: {
         Args: { p_wallet_id: string }
         Returns: undefined

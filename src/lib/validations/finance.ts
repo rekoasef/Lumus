@@ -125,3 +125,10 @@ export const updateRecurringTransactionSchema = createRecurringTransactionSchema
 
 export type CreateRecurringTransactionInput = z.infer<typeof createRecurringTransactionSchema>
 export type UpdateRecurringTransactionInput = z.infer<typeof updateRecurringTransactionSchema>
+
+/** Unificar una categoría dentro de otra — ver migración 00020. */
+export const mergeCategorySchema = z.object({
+  target_id: z.uuid(),
+})
+
+export type MergeCategoryInput = z.infer<typeof mergeCategorySchema>
