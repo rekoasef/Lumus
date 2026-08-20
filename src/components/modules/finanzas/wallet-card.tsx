@@ -1,6 +1,7 @@
 'use client'
 
 import { Pencil, Trash2, Wallet, Building2, Smartphone, SlidersHorizontal } from 'lucide-react'
+import { CategoryIcon } from '@/lib/utils/category-icons'
 import type { Wallet as WalletType } from '@/types/finance.types'
 
 const WALLET_ICONS: Record<string, React.ReactNode> = {
@@ -37,7 +38,10 @@ export function WalletCard({ wallet, onEdit, onAdjust, onDelete }: WalletCardPro
             className="flex h-9 w-9 items-center justify-center rounded-lg"
             style={{ backgroundColor: `${wallet.color}22`, color: wallet.color }}
           >
-            {WALLET_ICONS[wallet.type]}
+            {/* El ícono elegido a mano pisa al del tipo de billetera. */}
+            {wallet.icon
+              ? <CategoryIcon icon={wallet.icon} size={17} />
+              : WALLET_ICONS[wallet.type]}
           </div>
           <div>
             <p className="lumus-heading text-sm font-semibold text-[var(--text-primary)]">

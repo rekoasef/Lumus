@@ -1,6 +1,7 @@
 'use client'
 
 import { useForm } from 'react-hook-form'
+import { IconPicker } from './icon-picker'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { X } from 'lucide-react'
 import { createWalletSchema, type CreateWalletInput } from '@/lib/validations/finance'
@@ -49,6 +50,7 @@ export function WalletForm({ onSave, onClose, initial }: WalletFormProps) {
   })
 
   const selectedColor = watch('color')
+  const selectedIcon  = watch('icon')
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center p-0 bg-black/60 backdrop-blur-sm sm:items-center sm:p-4">
@@ -144,6 +146,12 @@ export function WalletForm({ onSave, onClose, initial }: WalletFormProps) {
               ))}
             </div>
           </div>
+
+          <IconPicker
+            value={selectedIcon}
+            onChange={icon => setValue('icon', icon)}
+            color={selectedColor}
+          />
 
           <div className="flex gap-3 pt-2">
             <button

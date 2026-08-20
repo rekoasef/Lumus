@@ -1,6 +1,7 @@
 'use client'
 
 import { useForm } from 'react-hook-form'
+import { IconPicker } from './icon-picker'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { X } from 'lucide-react'
 import { createSavingGoalSchema, type CreateSavingGoalInput } from '@/lib/validations/finance'
@@ -12,6 +13,8 @@ interface SavingGoalFormProps {
   onClose: () => void
   initial?: SavingGoal
 }
+
+const GOAL_ICON_COLOR = '#7c6dfa'
 
 export function SavingGoalForm({ wallets, onSave, onClose, initial }: SavingGoalFormProps) {
   const {
@@ -32,6 +35,7 @@ export function SavingGoalForm({ wallets, onSave, onClose, initial }: SavingGoal
   })
 
   const selectedWalletIds = watch('wallet_ids') ?? []
+  const selectedIcon = watch('icon')
 
   function toggleWallet(id: string) {
     setValue(
@@ -128,6 +132,14 @@ export function SavingGoalForm({ wallets, onSave, onClose, initial }: SavingGoal
               </div>
             </div>
           )}
+
+          {/* Las metas no tienen color propio: se tiñen con el acento de Lumus,
+              que es el color con el que las muestra la tarjeta. */}
+          <IconPicker
+            value={selectedIcon}
+            onChange={icon => setValue('icon', icon)}
+            color={GOAL_ICON_COLOR}
+          />
 
           <div className="flex gap-3 pt-2">
             <button

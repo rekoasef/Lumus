@@ -365,7 +365,7 @@ Escenario completo probado contra producción y revertido con `rollback`:
 
 ## `B7` — Íconos ampliados + picker rediseñado
 
-Estado: pendiente
+Estado: **cerrado** — 2026-08-20
 
 ### Por qué
 
@@ -391,10 +391,38 @@ Si más adelante vuelve la espina de Phosphor: los íconos se guardan como **slu
 
 ### Done cuando
 
-- El picker con ~100 íconos es cómodo de usar y el buscador encuentra por palabra en español
-- Los íconos ya guardados siguen funcionando
-- Billeteras y metas pueden elegir ícono, y se ve en dashboard y listados
-- El bundle no crece de forma desproporcionada (lucide hace tree-shaking por import)
+- El picker con ~100 íconos es cómodo y el buscador encuentra por palabra en español — hecho, **141 íconos en 12 grupos**
+- Los íconos ya guardados siguen funcionando — hecho, verificado slug por slug
+- Billeteras y metas pueden elegir ícono y se ve en listados — hecho
+- El bundle no crece de forma desproporcionada — hecho, build compila igual
+
+### Resultado (2026-08-20)
+
+De 24 íconos a **141**, agrupados en 12 categorías temáticas (Comida, Transporte, Hogar, Salud, Compras, Ocio, Trabajo y estudio, Finanzas, Servicios y tecnología, Personas y mascotas, Viajes, Otros).
+
+Cada ícono lleva **sinónimos en español**, así que el buscador funciona con las palabras que uno realmente usa. Probado:
+
+| Se escribe | Encuentra |
+|---|---|
+| `auto` | `car`, `car-front` |
+| `nafta` | `fuel` |
+| `alquiler` | `home`, `key` |
+| `expensas` | `trash-2`, `building-2` |
+| `netflix` | `tv` |
+| `psicólogo` | `brain` (con acento) |
+| `birra` | `beer` |
+| `tarjeta` | `credit-card` |
+
+Los 141 nombres se verificaron **contra la versión instalada de lucide (1.16.0) antes de escribir el archivo**, y se comprobó que los 24 slugs originales siguen presentes: se guardan como texto en la base, así que sacar uno rompería las categorías que ya lo tenían.
+
+El picker nuevo (`icon-picker.tsx`) es compartido por los tres formularios y muestra cada ícono **ya teñido con el color de la entidad**, sobre su propio fondo — exactamente como se va a ver después en las listas. Ese era el punto: el problema nunca fue lucide, era la grilla plana de cuadraditos grises.
+
+### Dos bugs latentes que aparecieron al hacerlo
+
+Las columnas `icon` de `wallets` y `saving_goals` existían pero no había forma de elegirlas. Al conectarlas apareció que tampoco estaban bien mostradas:
+
+1. **`saving-goal-card.tsx` renderizaba el ícono como texto plano.** Si se hubiera guardado uno, la tarjeta habría mostrado literalmente `piggy-bank`. Ahora usa `CategoryIcon`, con la inicial del nombre como fallback.
+2. **El ícono de la billetera no se mostraba en ningún lado.** La tarjeta usa un ícono fijo según el tipo de billetera. Ahora el ícono elegido a mano **pisa** al del tipo, y si no hay ninguno se mantiene el comportamiento anterior.
 
 ---
 

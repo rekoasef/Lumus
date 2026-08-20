@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { CategoryIcon } from '@/lib/utils/category-icons'
 import { Pencil, Trash2, CheckCircle2, Plus, Wallet } from 'lucide-react'
 import type { SavingGoal, Wallet as WalletType } from '@/types/finance.types'
 
@@ -83,7 +84,9 @@ export function SavingGoalCard({ goal, wallets, toARS, onEdit, onDelete, onContr
             className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold"
             style={{ backgroundColor: `${color}22`, color }}
           >
-            {goal.icon ?? goal.name[0].toUpperCase()}
+            {goal.icon
+              ? <CategoryIcon icon={goal.icon} size={17} style={{ color }} />
+              : goal.name[0].toUpperCase()}
           </div>
           <div>
             <p className="lumus-heading text-sm font-semibold text-[var(--text-primary)]">

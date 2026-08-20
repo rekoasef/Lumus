@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { X } from 'lucide-react'
 import { createCategorySchema, type CreateCategoryInput } from '@/lib/validations/finance'
 import type { FinanceCategory } from '@/types/finance.types'
-import { CATEGORY_ICON_MAP, ICON_KEYS, CategoryIcon } from '@/lib/utils/category-icons'
+import { IconPicker } from './icon-picker'
 
 const PRESET_COLORS = [
   '#f97316', '#3b82f6', '#a855f7', '#ef4444',
@@ -115,47 +115,11 @@ export function CategoryForm({ onSave, onClose, initial, defaultType = 'gasto' }
             </div>
           </div>
 
-          <div>
-            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-              ÍCONO
-            </label>
-            <div className="grid grid-cols-6 gap-1.5">
-              {ICON_KEYS.map(key => {
-                const isSelected = selectedIcon === key
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    title={key}
-                    onClick={() => setValue('icon', isSelected ? null : key)}
-                    className={`flex items-center justify-center rounded-lg border p-2.5 transition-all hover:scale-105 ${
-                      isSelected
-                        ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)]'
-                        : 'border-white/10 bg-white/5 hover:border-white/20'
-                    }`}
-                  >
-                    <CategoryIcon
-                      icon={key}
-                      size={16}
-                      style={{ color: isSelected ? 'var(--accent-lumus)' : selectedColor }}
-                    />
-                  </button>
-                )
-              })}
-            </div>
-            {selectedIcon && (
-              <p className="mt-1.5 text-[0.65rem] text-[var(--text-muted)]">
-                Seleccionado: <span className="text-[var(--text-secondary)]">{selectedIcon}</span>
-                <button
-                  type="button"
-                  onClick={() => setValue('icon', null)}
-                  className="ml-2 text-[var(--danger)] hover:underline"
-                >
-                  quitar
-                </button>
-              </p>
-            )}
-          </div>
+          <IconPicker
+            value={selectedIcon}
+            onChange={icon => setValue('icon', icon)}
+            color={selectedColor}
+          />
 
           <div className="flex gap-3 pt-1">
             <button
