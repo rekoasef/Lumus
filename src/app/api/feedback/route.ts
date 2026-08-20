@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createFeedbackSchema } from '@/lib/validations/feedback'
+import { sendFeedbackNotification } from '@/lib/feedback/notify-email'
 
 const MAX_USER_AGENT = 400
 
@@ -32,6 +33,19 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // El aviso por mail va despues de guardar y no puede romper la respuesta:
+  // el reporte ya esta a salvo, y si falla el mail el usuario no tiene por que
+  // ver un error ni reintentar y duplicarlo.
+  await sendFeedbackNotification({
+    id: data.id,
+    kind: result.data.kind,
+    message: result.data.message,
+    path: result.data.path ?? null,
+    userAgent,
+    userEmail: user.email ?? 'sin mail',
+    createdAt: data.created_at,
+  })
 
   return NextResponse.json({ feedback: data }, { status: 201 })
 }

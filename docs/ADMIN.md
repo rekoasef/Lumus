@@ -232,6 +232,21 @@ Este es el procedimiento que se siguió el 2026-08-20 para borrar las dos cuenta
 
 El botón de feedback de la app escribe en `feedback` (migración `00019`). El usuario puede crear y leer lo suyo, pero **no puede cambiar el `status`**: eso se hace desde acá.
 
+### Aviso por mail
+
+Cada reporte dispara un mail a la casilla de `FEEDBACK_NOTIFICATION_EMAIL`, con el tipo, el mensaje, el usuario, la pantalla, el dispositivo y el `update` listo para marcarlo resuelto. El `reply_to` es el mail de quien reportó, así que se le puede responder directo desde la casilla.
+
+Depende de **dos variables de entorno en Vercel**, no solo en `.env.local`:
+
+| Variable | Para qué |
+|---|---|
+| `RESEND_API_KEY` | Enviar. Ojo: los mails de auth salen por el SMTP de Supabase, así que esta key **no estaba** en Vercel hasta el 2026-08-20 |
+| `FEEDBACK_NOTIFICATION_EMAIL` | Casilla que recibe el aviso |
+
+Si falta cualquiera de las dos, el reporte **igual se guarda** y solo se pierde el aviso: el envío está aislado en un `try/catch` que no puede romper la respuesta al usuario. En los logs de Vercel queda un `[feedback]` avisando.
+
+Se envía desde `no-reply@gestorlumus.site`, el mismo remitente verificado que ya usa Supabase Auth.
+
 ### Leer lo pendiente
 
 ```sql
