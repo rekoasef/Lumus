@@ -199,7 +199,7 @@ Integridad después de la limpieza: 2.306 transacciones, 15 billeteras, balance 
 
 ## `B4` — Snippets de admin en docs (en vez de un panel)
 
-Estado: pendiente
+Estado: **cerrado** — 2026-08-20. Ver `docs/ADMIN.md`
 
 ### Por qué
 
@@ -222,7 +222,20 @@ La decisión de seguridad ya está tomada: **no** poner `is_admin` en `user_prof
 
 ### Done cuando
 
-- Los snippets están en `docs/` y se probó al menos el de otorgar acceso
+- Los snippets están en `docs/ADMIN.md` y **todos se probaron contra producción** — hecho
+
+### Resultado (2026-08-20)
+
+`docs/ADMIN.md` cubre seis cosas, todas con el SQL probado:
+
+1. **Otorgar / revocar acceso de cortesía**, con y sin vencimiento
+2. **Ver quién entra y por qué** — replica la regla de `src/lib/billing/access.ts`
+3. **Soporte: ¿se registró bien?** — en cuál de los tres pasos quedó trabado (verificación de mail, onboarding, paywall)
+4. **Soporte: qué tiene cargado un usuario** — filtrando `deleted_at is null`, para que los números coincidan con lo que el usuario ve
+5. **Salud del free tier** — tamaño contra el límite de 500 MB, más los límites que no se ven en SQL
+6. **Borrar una cuenta** — el procedimiento de tres pasos previos (ver qué se pierde, verificar que no haya una suscripción cobrando en Mercado Pago, backup), porque el borrado cascadea y es irreversible
+
+Falta un solo snippet, el de leer el feedback, que necesita la tabla de `B5`. Queda marcado como pendiente dentro del propio documento.
 
 ---
 
