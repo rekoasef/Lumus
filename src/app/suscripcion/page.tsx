@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import { SubscribeButton } from '@/components/modules/billing/subscribe-button'
 import { SUBSCRIPTION_PRICE_ARS } from '@/lib/billing/plan'
+import { hasAccess } from '@/lib/billing/access'
 
 const STATUS_MESSAGES: Record<string, string> = {
   pending: 'Tu pago está pendiente de confirmación. Si ya pagaste, puede tardar unos minutos en reflejarse.',
@@ -22,7 +23,9 @@ export default async function SuscripcionPage() {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (subscription?.status === 'authorized') redirect('/dashboard')
+  // Incluye el acceso de cortesía: sin esto, un usuario con acceso gratis
+  // podría entrar acá y pagar una suscripción que no necesita.
+  if (await hasAccess(supabase, user.id)) redirect('/dashboard')
 
   const isPending = subscription?.status === 'pending'
   const statusMessage = subscription?.status && !isPending ? STATUS_MESSAGES[subscription.status] : null

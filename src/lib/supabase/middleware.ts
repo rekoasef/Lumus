@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/types/database.types'
+import { hasAccess } from '@/lib/billing/access'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -60,13 +61,8 @@ export async function updateSession(request: NextRequest) {
     }
 
     if (profile.onboarding_done && !pathname.startsWith('/suscripcion') && !isBillingApiRoute) {
-      const { data: subscription } = await supabase
-        .from('billing_subscriptions')
-        .select('status')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (subscription?.status !== 'authorized') {
+      // Suscripción activa o acceso de cortesía vigente — ver lib/billing/access
+      if (!(await hasAccess(supabase, user.id))) {
         const url = request.nextUrl.clone()
         url.pathname = '/suscripcion'
         return NextResponse.redirect(url)

@@ -170,6 +170,27 @@ export type Database = {
         }
         Relationships: []
       }
+      free_access_grants: {
+        Row: {
+          expires_at: string | null
+          granted_at: string
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          expires_at?: string | null
+          granted_at?: string
+          reason: string
+          user_id: string
+        }
+        Update: {
+          expires_at?: string | null
+          granted_at?: string
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
