@@ -1,6 +1,6 @@
 # Lumus — Estado actual del proyecto
 
-Última revisión: 2026-08-18
+Última revisión: 2026-08-20
 
 Este documento es el snapshot técnico y funcional del repo. No reemplaza los docs de producto; funciona como punto de entrada para retomar desarrollo, priorizar trabajo y tener una foto honesta de dónde estamos parados.
 
@@ -19,6 +19,24 @@ Desde entonces, esta sesión (2026-08-14 a 2026-08-18) sumó tres piezas:
 También se borró el módulo de chat/voz de la IA (Lumus como asistente conversacional) — no estaba en el foco de "Finanzas" y arrastraba deuda técnica considerable (ver issues cerrados en `ISSUES_PENDIENTES.md`).
 
 El proyecto hoy es: **auth → onboarding → paywall → dashboard de finanzas**. Build, TypeScript y lint pasan limpios.
+
+### Sesión del 2026-08-20 — backlog `B1`–`B7` cerrado
+
+Se trabajó el backlog completo de `docs/BACKLOG.md`, siete tareas, todas cerradas y **deployadas a producción**. El cambio de fondo: **Lumus dejó de ser una app de un solo usuario.**
+
+| | Qué |
+|---|---|
+| `B1` | Backups cifrados manuales (`npm run backup`) — el plan free de Supabase no tiene backups de ningún tipo |
+| `B2` | Hardening previo al segundo usuario (`00017`) |
+| `B3` | Accesos de cortesía al paywall (`00018`) |
+| `B4` | Runbooks de admin en `docs/ADMIN.md`, sin panel |
+| `B5` | Feedback in-app con aviso por mail (`00019`) |
+| `B6` | Unificar categorías (`00020`) |
+| `B7` | 141 íconos y picker rediseñado |
+
+Después del backlog se sumaron dos cosas más: el **aviso por mail** de cada feedback (Resend) y el **rediseño de las pantallas de auth** con panel de marca.
+
+**Usuarios reales: 2.** El dueño (`renzoasef02@gmail.com`, 2.306 transacciones) y un beta tester (`tiagotossi10@gmail.com`), ambos con acceso de cortesía. `billing_subscriptions` quedó en **0 filas**: ya no hay datos falsos de facturación en la base. Las dos cuentas de prueba que quedaban se borraron tras verificar que no tenían ningún dato.
 
 ---
 
@@ -47,12 +65,17 @@ El proyecto hoy es: **auth → onboarding → paywall → dashboard de finanzas*
 
 ## Números del repo
 
-- Archivos TypeScript/TSX en `src`: ~96
-- Componentes en `src/components`: ~32
-- Hooks en `src/hooks`: 9
-- API route handlers: 19
-- Migraciones Supabase: 16
-- Tablas en `public` (Supabase): 20 (bajaron de 48 tras la limpieza de schema muerto del 2026-08-18) — más 6 tablas `marketing_*` inesperadas, ver nota abajo
+Al 2026-08-20:
+
+- Archivos TypeScript/TSX en `src`: **116**
+- Componentes en `src/components`: **41**
+- Hooks en `src/hooks`: **10**
+- API route handlers: **23**
+- Migraciones Supabase: **20**
+- Tablas en `public`: **16** (14 + `free_access_grants` + `feedback`)
+- Usuarios reales: **2** — el dueño y un beta tester
+- Transacciones: **2.306** (723 activas, 1.583 con `deleted_at` de la limpieza del import de MyFinance)
+- Tamaño de la base: **14 MB** de los 500 MB del plan free (2,7%)
 
 ---
 
@@ -72,7 +95,7 @@ El proyecto hoy es: **auth → onboarding → paywall → dashboard de finanzas*
 | `/dashboard` | Resumen de billeteras, presupuestos, vencimientos y metas de ahorro |
 | `/finanzas` | Dashboard financiero completo |
 | `/finanzas/reportes` | Reportes con gráficos y resumen IA |
-| `/perfil` | Lectura del perfil y resumen de vida |
+| `/perfil` | Perfil editable, tarjeta de suscripción o acceso de cortesía, y cambio de contraseña colapsable |
 
 ### Ya no existen (removidas en el pivot a "Lumus Finanzas")
 
@@ -88,12 +111,14 @@ El proyecto hoy es: **auth → onboarding → paywall → dashboard de finanzas*
 - **Verificación de email por código de 6 dígitos** (`/verify`, template custom vía Resend) en vez del link default de Supabase (limitado a ~2 mails/hora, no apto para producción).
 - **Recuperación de contraseña** por código (`/forgot-password` → `/reset-password`).
 - Onboarding 3 pasos con guardado en `user_profiles` y `user_life_summary`: funcional.
-- Perfil en modo lectura: funcional. Edición: pendiente.
+- Perfil editable, con el cambio de contraseña colapsado detrás de un toggle.
+- **Pantallas de auth rediseñadas (2026-08-20)**: panel de marca partido en el layout de `(auth)`, con el orbe como protagonista, gradientes y grilla; en mobile colapsa a un header compacto. El bloque de logo estaba copiado en las cinco páginas y ahora vive en un solo lugar (`components/shared/auth-brand.tsx`). El login decía **"Sistema operativo personal"** —el alcance previo a junio— y ahora dice "Tus finanzas, claras.".
 
 ### Billing / Paywall
 
 - Ver `docs/BILLING.md` para el detalle completo (deployado y probado con plata real en producción).
-- Gate en `(dashboard)/layout.tsx` y en `middleware.ts`: sin `billing_subscriptions.status = 'authorized'`, redirige a `/suscripcion`.
+- **El gate ya no mira solo la suscripción.** Desde `00018`, un usuario entra si tiene `billing_subscriptions.status = 'authorized'` **o** un acceso de cortesía vigente en `free_access_grants`. La regla vive en un solo lugar, `src/lib/billing/access.ts` (`getAccessStatus` / `hasAccess`), y la consultan tres: `lib/supabase/middleware.ts`, `(dashboard)/layout.tsx` y `suscripcion/page.tsx` — esta última para que alguien con acceso gratis no pueda pagar de más.
+- `free_access_grants` tiene RLS con **una sola policy, de SELECT**: el usuario lee su grant pero no puede crearlo. Solo `service_role` escribe. Un campo en `user_profiles` no servía porque su policy deja al usuario hacer `UPDATE` sobre su propia fila.
 - Pendiente antes de un lanzamiento real: subir el precio de prueba ($1000 ARS) al precio final, y probar el caso de suscripción `paused`.
 
 ### Dashboard
@@ -114,12 +139,30 @@ El proyecto hoy es: **auth → onboarding → paywall → dashboard de finanzas*
 - **Metas de ahorro**: ahora pueden sumar el progreso de **varias billeteras a la vez** (tabla puente `saving_goal_wallets`, migración `00012`) — antes era una sola billetera por meta. El progreso es la suma de los balances convertidos a ARS.
 - **Reportes**: gráficos mensuales de gastos vs ingresos, resumen por IA (Claude) persistido en `finance_reports`, exportable a PDF.
 - **Cotizaciones**: `/api/finance/exchange-rates`, conversión a ARS para sumar billeteras en distinta moneda.
+- **Unificar categorías** (nuevo, `00020`): mueve transacciones, vencimientos y presupuestos de una categoría a otra de forma atómica, sumando los presupuestos que chocan en el mismo mes, y oculta el origen. Es `SECURITY INVOKER`, así que RLS sigue aplicando. Reasigna también las transacciones borradas, pero le informa al usuario solo las visibles.
+- **Íconos** (ampliado 2026-08-20): de 24 a **141**, en 12 grupos temáticos y con sinónimos en español para el buscador (`auto` → `car`, `nafta` → `fuel`). El picker es compartido por categorías, billeteras y metas — estas dos últimas tenían la columna `icon` sin usar desde siempre.
 
 #### Deuda conocida
 
 Ver `docs/ISSUES_PENDIENTES.md` — resumen: `as any` en el seed de categorías, y el campo `transactions.auto_classified` quedó vestigial (nada lo pone en `true` desde que se borró el clasificador). Las categorías ahora tienen soft delete (`deleted_at`, igual que `transactions` y `wallets`); presupuestos, vencimientos y metas de ahorro se borran físicamente a propósito, documentado en `CLAUDE.md`.
 
 ---
+
+### Feedback (nuevo, 2026-08-20)
+
+- Botón flotante en todas las pantallas del dashboard (`components/shared/feedback-button.tsx`). Tres tipos: bug, mejora, otro.
+- Guarda **la ruta desde la que se reportó** — sin eso, "no me anda el botón" es imposible de ubicar — más el user agent, tomado del header en el servidor y no del body.
+- `POST /api/feedback` valida con Zod y dispara un **mail formateado** al dueño vía Resend (`lib/feedback/notify-email.ts`). El envío está aislado en un `try/catch`: si falla, el reporte igual se guardó y el usuario no ve error ni reintenta duplicando.
+- El mail se diseña **en claro, no en oscuro**: Gmail fuerza los mails oscuros a tema claro y los grises pensados para fondo negro quedan ilegibles.
+- Depende de dos env vars **en Vercel**: `RESEND_API_KEY` (no estaba, porque los mails de auth salen por el SMTP de Supabase) y `FEEDBACK_NOTIFICATION_EMAIL`.
+- Se lee desde el SQL editor — ver `docs/ADMIN.md`. No hay panel de admin, es una decisión explícita.
+
+### Backups (nuevo, 2026-08-20)
+
+- `npm run backup` → `scripts/backup.mjs`. Ver `docs/BACKUP.md`.
+- El plan free de Supabase **no tiene backups de ningún tipo**; este script es la única red de contención.
+- Verifica el dump fila por fila contra producción antes de cifrarlo, y aborta borrando el archivo si algo no cuadra.
+- **La restauración se probó de verdad** en un PostgreSQL 17.9 local: exit code 0, conteos idénticos, balances y joins coincidiendo. La prueba destapó dos bugs silenciosos (`CREATE SCHEMA public;` y el orden de `auth` vs `public` por las FK).
 
 ## Limpieza de schema (2026-08-18)
 
@@ -175,19 +218,18 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 
 ---
 
-## Chequeos locales al 2026-08-18
+## Chequeos locales al 2026-08-20
 
-```
-npx tsc --noEmit   → PASA (0 errores)
-npm run build      → PASA (30 rutas compiladas correctamente)
-npm run lint       → PASA (0 errores, 14 warnings no bloqueantes)
-```
+| Comando | Resultado |
+|---|---|
+| `npx tsc --noEmit` | Sin errores |
+| `npm run lint` | 0 errores, **12 warnings** (bajaron de 14) |
+| `npm run build` | Compila |
+| `npm run backup` | Genera el backup cifrado y verifica contra producción |
 
-Warnings que quedan (no bloquean, bajaron de ~25 a 14 tras el borrado del chat/voz):
-- `watch()` de React Hook Form marcado por React Compiler en varios forms (`recurring-transaction-form`, `saving-goal-form`, `transaction-form`, `wallet-form`).
-- Una variable sin usar (`_b`) en un componente.
+Producción (`www.gestorlumus.site`) está sincronizada con `main`. El deploy es manual (`vercel --prod --yes`); ver la advertencia de abajo.
 
----
+> **La base y el código deployado tienen que moverse juntos.** El 2026-08-20 quedaron desfasados unos minutos —se borró la fila de facturación falsa mientras producción todavía corría el código viejo— y eso dejó al dueño fuera de su propia app hasta el deploy siguiente. Si una tarea toca el gate de acceso, deployar en el mismo tramo.
 
 ## Issues abiertos
 
@@ -220,16 +262,39 @@ Ver `docs/ISSUES_PENDIENTES.md` para detalle. Todo el backlog técnico de esta r
 
 ## Qué falta para MVP lanzable
 
-Ordenado por impacto, asumiendo que el producto es "app de finanzas con paywall" (no el OS personal original):
+Ordenado por impacto, asumiendo que el producto es "app de finanzas con paywall":
 
 1. **Precio real del plan** — hoy `SUBSCRIPTION_PRICE_ARS = 1000` es precio de prueba (`src/lib/billing/plan.ts`).
-2. **Probar el caso `paused`** de una suscripción — solo se validó `authorized → cancelled`.
-3. **Edición de perfil** — hoy es solo lectura.
+2. **Probar el caso `paused`** de una suscripción — solo se validó `authorized → cancelled`. Ojo que `billing_subscriptions` está en 0 filas, así que hoy no hay ninguna suscripción real contra la que probar.
+3. **Feedback del beta tester** — la razón de ser de `B5`. Es la primera vez que alguien que no escribió el código va a usar la app.
 
-Con `D1` cerrado, no queda deuda de documentación pendiente.
+Edición de perfil, que figuraba acá, se cerró.
+
+---
+
+## Acciones pendientes fuera del repo
+
+No son código, pero sin ellas parte del trabajo no sirve:
+
+| Pendiente | Por qué importa |
+|---|---|
+| Subir los backups a Google Drive | Hoy viven solo en `C:\Users\rasef\Lumus-Backups`. Si se muere ese disco se pierden la base y los backups juntos — el punto de tener backup |
+| Guardar `LUMUS_BACKUP_PASSPHRASE` en el gestor de contraseñas | Está en `.env.local`. Si se muere la máquina, los backups cifrados quedan **irrecuperables**: es AES-256, no hay puerta de atrás |
+| Que el beta tester cambie su contraseña provisoria | Se creó a mano; mientras siga siendo la provisoria la conocen dos personas |
+| Probar la unificación de categorías con una de poco uso | La lógica está probada a nivel base, pero la UI no la usó nadie todavía y la acción es irreversible |
+
+---
+
+## Reevaluar el día que se pase a Supabase Pro
+
+- **Backups automáticos diarios** con 7 días de retención — el script manual pasaría a ser una segunda red, no la única.
+- **Protección de contraseñas filtradas** (HaveIBeenPwned): está bloqueada en el plan free, la API responde `available on Pro Plans and up`.
+- El proyecto free **se pausa tras 7 días de inactividad**.
 
 ---
 
 ## Próximo foco recomendado
 
-**Cerrar el paywall**: precio real + probar `paused` antes de considerar esto lanzable de verdad. Es lo único que queda en todo el backlog.
+**Esperar el feedback del beta tester.** Es la primera vez que alguien que no escribió el código va a usar Lumus, y eso vale más que cualquier tarea que se pueda planificar desde adentro. El canal ya está: reporta desde la app y llega un mail.
+
+En paralelo, si hay que elegir algo de código, lo que queda es cerrar el paywall (precio real y el caso `paused`).

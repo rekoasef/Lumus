@@ -448,3 +448,31 @@ Verificacion:
 Notas:
 - decisiones tomadas
 ```
+
+---
+
+## Trabajo extra de la misma sesión (2026-08-20)
+
+Fuera de las siete tareas, apareció esto:
+
+| Qué | Por qué |
+|---|---|
+| **Aviso por mail de cada feedback** | `B5` guardaba los reportes pero nadie se enteraba: quedaban esperando a que alguien se acordara de mirar, que es el mismo silencio que la tarea vino a romper. `lib/feedback/notify-email.ts`, vía Resend |
+| **Rediseño de las pantallas de auth** | El login decía "Sistema operativo personal", el alcance previo a junio, y era lo primero que veía cualquiera. El logo estaba recortado en una caja de 44px. El bloque de marca estaba copiado en las cinco páginas |
+| **Cuenta del beta tester** | Creada a mano con el mail ya confirmado, más su acceso de cortesía. Runbook en `docs/ADMIN.md` |
+| **Limpieza de cuentas** | Ver `B3` |
+
+### Dos cosas que solo se vieron mirando el resultado real
+
+1. **El mail de feedback salía ilegible.** Estaba diseñado oscuro, siguiendo la identidad del producto. Gmail fuerza los mails oscuros a tema claro, y los grises elegidos contra un fondo negro quedaron lavados sobre blanco — el bloque con el `update` para marcarlo resuelto era prácticamente invisible. Se detectó por una captura del usuario, no por ninguna verificación automática. Ahora se diseña en claro.
+2. **`RESEND_API_KEY` no estaba en Vercel.** Los mails de auth salen por el SMTP de Supabase, así que la app nunca había necesitado esa key. La feature habría funcionado en local y **no habría enviado nada en producción**, en silencio.
+
+Las dos comparten la misma moraleja que la prueba de restauración de `B1`: **compila, se ve bien y no funciona** son tres cosas distintas.
+
+---
+
+## Estado al cierre de la sesión
+
+Las siete tareas cerradas, commiteadas y deployadas. Producción sincronizada con `main`.
+
+Lo que queda pendiente **no es código** — está en `docs/ESTADO_ACTUAL.md`, sección "Acciones pendientes fuera del repo".
