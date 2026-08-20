@@ -6,6 +6,11 @@ import { X, Volume2, Loader2 } from 'lucide-react'
 import { WeatherIcon, getConditionFromCode } from './weather-icon'
 import type { WeatherCondition } from './weather-icon'
 
+// Nominatim exige un User-Agent que identifique a la aplicacion. Antes iba
+// hardcodeado el mail personal del dueno del proyecto, que se mandaba a un
+// servicio externo en cada request de cualquier usuario de la app.
+const NOMINATIM_USER_AGENT = `Lumus (${process.env.NEXT_PUBLIC_APP_URL ?? 'https://lumus.app'})`
+
 const GREETING_KEY = 'lumus_greeted'
 const DISMISS_AFTER_MS = 14000
 
@@ -79,7 +84,7 @@ async function fetchWeatherSnap(): Promise<WeatherSnap> {
     ).then(r => r.json() as Promise<OpenMeteoCurrentResponse>),
     fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=es`,
-      { headers: { 'User-Agent': 'Lumus Personal OS (radevelopment02@gmail.com)' } }
+      { headers: { 'User-Agent': NOMINATIM_USER_AGENT } }
     ).then(r => r.json() as Promise<NominatimResponse>),
   ])
 
