@@ -4,6 +4,7 @@ import { hasAccess } from '@/lib/billing/access'
 import { BottomNav } from '@/components/shared/bottom-nav'
 import { TopNav } from '@/components/shared/top-nav'
 import { ConfirmDialogProvider } from '@/components/shared/confirm-dialog'
+import { FeedbackButton } from '@/components/shared/feedback-button'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -35,6 +36,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         {children}
       </main>
       <BottomNav />
+      <FeedbackButton />
       <ConfirmDialogProvider />
     </div>
   )

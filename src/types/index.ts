@@ -9,3 +9,4 @@ export type {
 } from './finance.types'
 export type { Profile } from './profile.types'
 export type { BillingStatus, BillingSubscription } from './billing.types'
+export type { Feedback, FeedbackKind, FeedbackStatus } from './feedback.types'

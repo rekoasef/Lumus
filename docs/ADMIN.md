@@ -196,4 +196,40 @@ Este es el procedimiento que se siguió el 2026-08-20 para borrar las dos cuenta
 
 ## Feedback de los testers
 
-Pendiente: llega con `B5` (botón de feedback in-app). Cuando exista la tabla, el snippet para leer lo no atendido va acá.
+El botón de feedback de la app escribe en `feedback` (migración `00019`). El usuario puede crear y leer lo suyo, pero **no puede cambiar el `status`**: eso se hace desde acá.
+
+### Leer lo pendiente
+
+```sql
+select coalesce(u.email, '(cuenta borrada)')       as usuario,
+       f.kind, f.status,
+       to_char(f.created_at, 'DD/MM HH24:MI')      as cuando,
+       coalesce(f.path, '—')                       as pantalla,
+       f.message,
+       f.user_agent
+from feedback f
+left join auth.users u on u.id = f.user_id
+where f.status <> 'resuelto'
+order by f.created_at desc;
+```
+
+`pantalla` es la ruta desde la que se reportó: sin eso, "no me anda el botón" es imposible de ubicar.
+
+### Marcar como visto o resuelto
+
+```sql
+update feedback set status = 'resuelto' where id = '<uuid-del-reporte>';
+```
+
+Estados posibles: `nuevo` (default), `visto`, `resuelto`.
+
+### Cuánto hay sin atender
+
+```sql
+select status, kind, count(*)
+from feedback
+group by status, kind
+order by status, kind;
+```
+
+> `feedback.user_id` es **nullable** y la FK es `on delete set null`, a propósito: si se borra la cuenta de un tester, sus reportes sobreviven. Por eso el `left join` y el `'(cuenta borrada)'`.

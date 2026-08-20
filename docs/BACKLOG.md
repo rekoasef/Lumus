@@ -18,7 +18,7 @@ Los pendientes de `docs/BILLING.md` (subir el precio de prueba de $1.000 ARS al 
 | `B2` | Hardening previo al segundo usuario | Rápido, y tiene que estar antes de que entre alguien más |
 | ~~`B3`~~ | ~~Acceso gratis (`free_access_grants`)~~ | **Cerrado 2026-08-20** |
 | `B4` | Snippets de admin en docs | Va pegado a B3: es la forma de otorgar el acceso |
-| `B5` | Botón de feedback in-app | Para que los bugs del tester no se pierdan en WhatsApp |
+| ~~`B5`~~ | ~~Botón de feedback in-app~~ | **Cerrado 2026-08-20** |
 | `B6` | Unificar categorías | Mejora real de producto, sin bloqueos |
 | `B7` | Íconos ampliados + picker rediseñado | Cosmética con impacto alto, pero nada depende de ella |
 
@@ -241,7 +241,7 @@ Falta un solo snippet, el de leer el feedback, que necesita la tabla de `B5`. Qu
 
 ## `B5` — Botón de feedback in-app
 
-Estado: pendiente
+Estado: **cerrado** — 2026-08-20 (`00019_feedback.sql`)
 
 ### Por qué
 
@@ -257,8 +257,33 @@ La idea del segundo usuario es que pruebe la app y reporte bugs y mejoras, para 
 
 ### Done cuando
 
-- El tester puede reportar desde la app y el registro aparece en la tabla
-- El snippet para leerlo está documentado en `B4`
+- El tester puede reportar desde la app y el registro aparece en la tabla — hecho
+- El snippet para leerlo está documentado en `B4` — hecho, en `docs/ADMIN.md`
+
+### Resultado (2026-08-20)
+
+| Pieza | Dónde |
+|---|---|
+| Tabla + RLS | `00019_feedback.sql` |
+| Validación | `src/lib/validations/feedback.ts` |
+| API | `POST /api/feedback` |
+| UI | `src/components/shared/feedback-button.tsx`, montado en el layout del dashboard |
+| Lectura | `docs/ADMIN.md` |
+
+Pruebas de RLS y constraints contra producción, todas revertidas con `rollback`:
+
+| Prueba | Resultado |
+|---|---|
+| Usuario creando su propio feedback | Funciona |
+| Usuario creándolo a nombre de otro | Rechazado por RLS |
+| Usuario marcando su reporte como resuelto | 0 filas afectadas |
+| Mensaje vacío o solo espacios | Rechazado por el CHECK |
+| `kind` fuera de la lista | Rechazado por el CHECK |
+
+### Dos decisiones de diseño
+
+- **`user_id` es nullable con `on delete set null`, no `cascade`.** Si más adelante se borra la cuenta de un tester, sus reportes sobreviven. Perderlos junto con la cuenta sería tirar justo lo que la tabla vino a juntar.
+- **Se guarda la ruta desde la que se reportó.** Sin eso, "no me anda el botón" es imposible de ubicar. El user agent se toma del header en el servidor, no del body, para no sumar otro campo de texto libre que validar.
 
 ---
 

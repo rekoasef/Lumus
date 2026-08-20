@@ -170,6 +170,7 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 | `00016_drop_marketing_module.sql` | Borra las 6 tablas `marketing_*` — un módulo de Lumus que nunca llegó a tener migración en este repo — con backup previo de la única fila con datos |
 | `00017_harden_security_definer_functions.sql` | Saca el `EXECUTE` de `PUBLIC`/`anon` sobre `seed_default_finance_categories` y `recompute_wallet_balance`, les agrega validación de dueño contra `auth.uid()` y fija `search_path` en las tres funciones — hardening previo al segundo usuario, ver `docs/BACKLOG.md` (`B2`) |
 | `00018_free_access_grants.sql` | Tabla `free_access_grants` — accesos de cortesía al paywall (beta testers), solo escribible por `service_role`. Ver `docs/ADMIN.md` |
+| `00019_feedback.sql` | Tabla `feedback` — reportes de bugs y mejoras desde la app. `user_id` nullable con `on delete set null` para que los reportes sobrevivan al borrado de una cuenta |
 
 ---
 
