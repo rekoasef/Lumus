@@ -43,16 +43,32 @@ export function AuthBrandPanel() {
         aria-hidden
       />
 
-      {/* El orbe respira lento — un solo movimiento, no una animación por elemento */}
+      {/* El orbe es el protagonista del panel: grande, centrado y bien visible.
+          Respira lento — un solo movimiento, no una animación por elemento. */}
       <motion.div
         className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         aria-hidden
-        animate={reduceMotion ? undefined : { scale: [1, 1.05, 1], opacity: [0.42, 0.58, 0.42] }}
+        animate={reduceMotion ? undefined : { scale: [1, 1.04, 1], opacity: [0.68, 0.88, 0.68] }}
         transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
-        style={{ opacity: 0.42 }}
+        style={{ opacity: 0.68 }}
       >
-        <Image src="/lumus-orb.png" alt="" width={460} height={460} className="blur-[2px]" priority />
+        <Image
+          src="/lumus-orb.png"
+          alt=""
+          width={720}
+          height={720}
+          priority
+          className="h-auto w-[32rem] xl:w-[40rem]"
+        />
       </motion.div>
+
+      {/* Con el orbe a esta intensidad, el título de abajo perdía contraste.
+          Este degradado lo apaga hacia el pie sin tocar el centro. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2"
+        aria-hidden
+        style={{ background: 'linear-gradient(to top, var(--bg-base) 12%, transparent 100%)' }}
+      />
 
       <motion.div
         className="relative flex items-center gap-3"
