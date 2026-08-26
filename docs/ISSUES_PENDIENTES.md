@@ -130,7 +130,7 @@ El paywall de Mercado Pago tiene su propio checklist de pendientes en `docs/BILL
 
 ## Orden recomendado de trabajo
 
-Todo el backlog de esta revision esta cerrado. No queda nada pendiente registrado en este documento — lo que sigue son los pendientes de `docs/BILLING.md` (precio real del plan, probar suscripcion `paused`), que no se duplican aca.
+Todo el backlog de esta revision esta cerrado. El trabajo abierto vive en `docs/BACKLOG.md`, ronda 2 (`C1`-`C8`, 2026-08-26) — incluido `C1`, que es un bug de datos real y no una mejora: los topes fijos de 500/400 transacciones hacen que los filtros por año muestren totales incompletos. No queda nada mas pendiente registrado en este documento — lo que sigue son los pendientes de `docs/BILLING.md` (precio real del plan, probar suscripcion `paused`), que no se duplican aca.
 
 ## Issues cerrados
 

@@ -295,6 +295,10 @@ No son código, pero sin ellas parte del trabajo no sirve:
 
 ## Próximo foco recomendado
 
+**Hay una ronda de backlog abierta**: `C1`–`C8` en `docs/BACKLOG.md` (ronda 2, 2026-08-26). El primero, `C1`, no es una mejora sino un bug con datos: `/finanzas` y `/dashboard` traen un tope fijo de transacciones (500 y 400) y los filtros por año muestran totales incompletos sin avisarlo.
+
+Dicho eso, el orden de esa lista cede ante lo de abajo:
+
 **Esperar el feedback del beta tester.** Es la primera vez que alguien que no escribió el código va a usar Lumus, y eso vale más que cualquier tarea que se pueda planificar desde adentro. El canal ya está: reporta desde la app y llega un mail.
 
 En paralelo, si hay que elegir algo de código, lo que queda es cerrar el paywall (precio real y el caso `paused`).

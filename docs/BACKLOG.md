@@ -1,12 +1,356 @@
 # Lumus — Backlog de trabajo
 
-Fecha: 2026-08-20
+Última revisión: 2026-08-26
 
-> `B1`, `B2` y `B3` están cerrados y **deployados a producción** (`vercel --prod`, 2026-08-20, `www.gestorlumus.site`). El deploy es manual: la base y el código deployado tienen que moverse juntos. Durante esta sesión quedaron desfasados unos minutos —se borró la fila de facturación falsa mientras producción todavía corría el código viejo— y eso dejó al dueño fuera de su propia app hasta el deploy. Si una tarea cambia el gate de acceso, deployar en el mismo tramo.
+Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es un conjunto acotado de tickets que se toman **de a uno**, se cierran, se verifican y recién ahí se pasa al siguiente. Las rondas cerradas quedan abajo como historial, no se borran.
 
-Backlog acordado con el usuario en la sesión del 2026-08-20. Siete tareas, ordenadas por dependencia y riesgo, no por ganas. Se toma una, se cierra, se verifica, y recién ahí se pasa a la siguiente.
+- **Ronda 2 (`C1`–`C8`)** — abierta, 2026-08-26. Es la que está en curso.
+- **Ronda 1 (`B1`–`B7`)** — cerrada y deployada el 2026-08-20. Más abajo.
 
-Los pendientes de `docs/BILLING.md` (subir el precio de prueba de $1.000 ARS al precio final, probar el caso de suscripción `paused`) no se duplican acá.
+> **El deploy es manual** (`vercel --prod --yes`) y la base y el código deployado tienen que moverse juntos. El 2026-08-20 quedaron desfasados unos minutos y eso dejó al dueño fuera de su propia app hasta el deploy siguiente. Si un ticket toca el gate de acceso o una migración, deployar en el mismo tramo.
+
+---
+
+# Ronda 2 — abierta (2026-08-26)
+
+Siete tickets, ordenados por severidad y dependencia, no por ganas. El criterio de orden: primero lo que hoy **muestra datos incorrectos**, después lo que da **red para deployar el resto**, después lo que agrega **valor de producto**, y al final lo que depende de una decisión de negocio.
+
+## Orden de trabajo
+
+| # | Ticket | Por qué está en esa posición | Tamaño |
+|---|---|---|---|
+| `C1` | Transacciones por rango en vez de tope fijo | Es el único que **hoy muestra números mal** y sin avisar. No compite con nada | M |
+| `C2` | Errores de producción visibles (Sentry) | Barato, y a partir de acá cada ticket siguiente se deploya con red. Por eso va antes que las features | S |
+| `C3` | Lógica financiera en un solo lugar + primeros tests | `C4`, `C5` y `C7` van a reusar esa lógica. Extraerla antes evita triplicar el bug de las metas | M |
+| `C4` | Motor de avisos + vencimientos por mail | Es la infraestructura de todo aviso que mande Lumus, y arranca con el que más falta hace | M |
+| `C5` | Centro de notificaciones in-app + resto de los avisos | Depende del motor de `C4`. Sin él, cada aviso nuevo se implementa desde cero | M |
+| `C6` | PWA instalable + carga rápida de gasto | Impacto alto en uso real, nada depende de él. Se puede adelantar si hay poco tiempo | S |
+| `C7` | Importador de CSV con mapeo manual | El más grande. Va último de los de producto porque es el que más superficie nueva agrega | L |
+| `C8` | Cerrar el paywall | **No depende de ningún otro ticket, depende de una decisión tuya** (el precio). Se puede adelantar en cualquier momento | M |
+
+Tamaños: `S` ≈ media jornada · `M` ≈ una jornada · `L` ≈ dos o más.
+
+---
+
+## `C1` — Transacciones por rango en vez de tope fijo
+
+Estado: **abierto**
+
+### Por qué
+
+`/finanzas` carga las **500** transacciones más recientes (`src/app/(dashboard)/finanzas/page.tsx:42`) y `/dashboard` las **400** (`src/app/(dashboard)/dashboard/page.tsx:148`). Todo el filtrado por día/semana/mes/**año**/período de `transaction-list.tsx` corre en el cliente, sobre ese array ya recortado.
+
+Hoy hay **723 transacciones activas** del dueño. Ya se pasó el tope. Cuando alguien filtra por un año entero, la UI no dice "faltan datos": muestra un total **incompleto y perfectamente creíble**. En una app de finanzas ese es el peor modo de falla posible — un número mal que parece bien.
+
+La API ya acepta `date_from` y `date_to` (`src/app/api/finance/transactions/route.ts:14-15`), pero `src/hooks/use-transactions.ts` **nunca los usa**: arranca con lo que le pasó el server component y no vuelve a pedir nada cuando cambia el período.
+
+### Alcance
+
+1. `use-transactions.ts` acepta un rango y refetchea cuando cambia. El cambio de período en `transaction-list.tsx` deja de filtrar en memoria y dispara el fetch.
+2. El server component de `/finanzas` deja de traer un tope fijo y trae **el período visible por default** (el mes actual).
+3. Los KPIs del dashboard salen de **agregados en SQL** (una RPC que devuelva totales por categoría y por mes), no de traer filas para sumarlas en JS. Hoy `/dashboard` transfiere 400 transacciones para mostrar 6 y cuatro totales.
+4. Estado de carga visible al cambiar de período: si el fetch tarda, no se puede mostrar el total viejo como si fuera el nuevo.
+
+### Riesgos
+
+- **El filtro "período" permite rangos arbitrarios.** Un rango de 5 años puede traer miles de filas. Definir un tope duro por request y, si se alcanza, **decirlo en la UI** — que es exactamente lo que hoy no pasa.
+- La RPC nueva es `SECURITY INVOKER` o filtra por `auth.uid()`, igual que `merge_finance_categories` (`00020`). No repetir el problema que arregló `00017`.
+- Las transacciones borradas (`deleted_at`) siguen quedando afuera de todos los agregados.
+
+### Done cuando
+
+- Filtrar por un año con más de 500 transacciones cargadas muestra el total **completo** — verificado contra un `select sum(amount)` en la base.
+- Ningún endpoint ni server component trae filas solo para sumarlas.
+- Si un rango excede el tope, la UI lo dice.
+
+---
+
+## `C2` — Errores de producción visibles (Sentry)
+
+Estado: **abierto**
+
+### Por qué
+
+No hay Sentry, ni logging, ni nada (`package.json` no tiene ninguna dependencia de observabilidad). Con dos usuarios reales, **el único canal de detección de errores es que a alguien se le ocurra apretar el botón de feedback**. Un error de servidor en `/api/finance/transactions` a las 3 de la mañana no deja rastro en ningún lado.
+
+Va segundo a propósito: los cinco tickets que siguen tocan plata, mails y facturación. Conviene tener la red puesta antes.
+
+### Alcance
+
+- Sentry en el plan free (5k errores/mes alcanza de sobra para 2 usuarios), con `@sentry/nextjs`: cliente, server y edge.
+- **Scrubbing de datos sensibles**: montos, descripciones de transacciones y mails no van al breadcrumb. Un stack trace sirve igual sin el detalle financiero de nadie.
+- Alerta por mail solo para errores nuevos, no para cada ocurrencia repetida.
+- `SENTRY_DSN` **en Vercel**, no solo en `.env.local`. La lección de `RESEND_API_KEY` en la ronda 1: funcionó en local y no habría enviado nada en producción, en silencio.
+
+### Riesgos
+
+- El bundle del cliente crece. Si molesta, arrancar solo con el lado server, que es donde están los errores que hoy no se ven.
+- Sentry captura los errores de Next 16 con App Router de forma distinta según la versión del SDK — verificar contra la doc actual, no de memoria.
+
+### Done cuando
+
+- Un error forzado en una API route aparece en Sentry **desde producción**, no desde local.
+- El evento capturado no contiene montos, descripciones ni mails.
+
+---
+
+## `C3` — Lógica financiera en un solo lugar + primeros tests
+
+Estado: **abierto**
+
+### Por qué
+
+El bug del 2026-08-26 (`857a6cb`) es el síntoma: el progreso de una meta de ahorro estaba calculado en **dos lugares con reglas distintas** — `saving-goal-card.tsx` sumaba las billeteras vinculadas, el dashboard leía `current_amount` a pelo. Resultado: la misma meta, 62% en una pantalla y 0% en la otra.
+
+No es un caso aislado. Existe `src/lib/utils/format-currency.ts` y aun así **9 componentes** definen su propio `Intl.NumberFormat` local, cada uno con sus decisiones de decimales.
+
+Va antes que `C4`, `C5` y `C7` porque los tres van a necesitar estas mismas reglas. Extraerlas ahora es la diferencia entre una fuente de verdad y cuatro copias divergentes.
+
+### Alcance
+
+1. A `src/lib/finance/` las reglas de negocio, como funciones puras:
+   - progreso de una meta (con billeteras vinculadas o sin ellas)
+   - uso de un presupuesto
+   - normalización de un recurrente a monto mensual (`daily → ×30`, `weekly → ×52/12`)
+   - conversión a ARS
+2. Los formateadores unificados en `format-currency.ts`. Los 9 locales se borran.
+3. **Vitest** + tests de esas funciones puras. Casos que importan: meta sin billeteras, meta con billeteras en distinta moneda, meta con `target_amount` en 0 (división por cero), presupuesto excedido, recurrente semanal.
+4. Actualizar `CLAUDE.md`: hoy dice "no hay test suite en este proyecto" y con este ticket deja de ser cierto.
+
+### Decisiones a tomar durante la implementación
+
+- **Solo funciones puras.** Nada de tests de componentes ni de API routes en este ticket. El objetivo es red donde es barata, no cobertura.
+
+### Riesgos
+
+- Es un refactor transversal: toca ~10 archivos sin cambiar comportamiento. Hacerlo **después** de `C2` no es casual — si algo se rompe, se ve.
+- Verificar que unificar el formateo no cambie los decimales mostrados en ARS (hoy `minimumFractionDigits: 0`) ni en USD.
+
+### Done cuando
+
+- `npm test` corre verde.
+- `grep -rn "Intl.NumberFormat" src/` devuelve **solo** `format-currency.ts`.
+- Ninguna regla financiera queda escrita dos veces.
+
+---
+
+## `C4` — Motor de avisos + vencimientos por mail
+
+Estado: **abierto**
+
+### Por qué
+
+Lumus hoy **no le avisa nada a nadie, nunca**. `recurring_transactions` guarda `next_date` pero no hay `vercel.json`, no hay cron, y el pago se marca a mano entrando a la app. Si no entrás, el seguro de la moto vence y te enterás por el banco.
+
+Para una app de finanzas, avisar es *la* función que justifica que exista en vez de una planilla. Todo lo demás es registro histórico.
+
+Este ticket construye **la cañería que van a usar todos los avisos** (`C5` y `C8` incluidos) y la estrena con el que más falta hace: los vencimientos.
+
+### Alcance
+
+**El motor** (sirve para todo aviso futuro):
+
+1. Tabla `notifications`: `user_id`, `type`, `title`, `body`, `link`, `dedupe_key`, `read_at`, `emailed_at`, `created_at`. RLS: cada usuario lee y marca como leídas **solo las suyas**, y nadie inserta desde el cliente — igual que `free_access_grants` (`00018`), solo `service_role` escribe.
+2. **`unique(user_id, dedupe_key)`**: la garantía de que el mismo aviso no se manda dos veces. Sin esto, un cron que corre dos veces te manda el mismo mail dos veces, y eso es todo lo que hace falta para que alguien desactive los avisos para siempre.
+3. Tabla `notification_preferences`: por usuario y por tipo, con defaults sensatos. Esta sí la escribe el usuario.
+4. `src/lib/notifications/` — crear un aviso, resolver preferencias, y mandar el mail por Resend. Un solo camino, el mismo que ya usa `lib/feedback/notify-email.ts`.
+5. **Digest diario**: un mail por usuario por día como máximo, con todo junto. Nunca un mail por evento.
+6. **Link de baja en el pie de todo mail**, funcionando sin login (token firmado). No es cortesía, es lo mínimo para mandar mail no transaccional.
+
+**El primer aviso**:
+
+7. `vercel.json` con un cron diario que pegue a `/api/cron/avisos`.
+8. Busca recurrentes activos con `next_date` a ≤3 días o ya vencidos, agrupados por usuario, y genera las notificaciones.
+9. El mail se diseña **en claro, no en oscuro**. Gmail fuerza los mails oscuros a tema claro y los grises pensados para fondo negro quedan ilegibles: pasó exactamente eso con el mail de feedback en la ronda 1.
+
+### Riesgos
+
+- **El endpoint de cron es público por URL.** Protegerlo con `CRON_SECRET` verificado contra el header `Authorization`, o cualquiera lo dispara. Es el mismo tipo de agujero que `00017` cerró en las funciones `SECURITY DEFINER`.
+- El cron corre con `service_role` (no hay sesión de usuario), así que **RLS no aplica**: filtrar por `user_id` explícitamente en cada query, no confiar en la política.
+- **Horario.** El cron de Vercel se agenda en UTC. Un aviso que llega 3 de la mañana hora argentina es un aviso que se ignora — apuntar a la mañana en UTC-3.
+- **Verificar contra la doc actual** el límite de crons del plan Hobby de Vercel y el límite diario de envíos del plan free de Resend, antes de diseñar la cadencia. No de memoria.
+- Efecto colateral bueno: un cron diario que consulta la base **evita que el proyecto free de Supabase se pause por 7 días de inactividad**.
+
+### Done cuando
+
+- Con un vencimiento a 2 días, llega el mail en la corrida real del cron (no en una invocación manual desde local).
+- Sin vencimientos próximos, **no llega ningún mail**. Un aviso diario que dice "nada que informar" se ignora en una semana.
+- Correr el cron dos veces seguidas **no manda el aviso dos veces**.
+- El endpoint devuelve 401 sin el secreto.
+- El link de baja del pie funciona sin estar logueado.
+
+---
+
+## `C5` — Centro de notificaciones in-app + resto de los avisos
+
+Estado: **abierto**
+
+### Por qué
+
+`C4` deja el motor andando con un solo aviso. Este ticket lo aprovecha: enchufa el resto de los eventos que valen la pena y le da al usuario un lugar donde verlos **dentro de la app**, no solo en la bandeja de entrada.
+
+El mail es para lo que necesita sacarte de la app (algo vence, algo se rompió). El centro in-app es para lo que querés ver cuando entrás, sin que te llene el mail.
+
+### Alcance
+
+**Centro de notificaciones**:
+
+1. Campanita en el nav con badge de no leídas. Panel desplegable con las últimas, marcar una como leída y marcar todas.
+2. Cada notificación linkea a donde importa (`link`): el vencimiento, el presupuesto, la meta.
+3. Las de más de 90 días se borran solas en la corrida del cron. Un centro de notificaciones que acumula dos años de avisos no lo abre nadie.
+4. Pantalla de **preferencias en `/perfil`**: por tipo de aviso, elegir in-app, mail, o nada.
+
+**Los avisos que se enchufan** (todos pasan por el motor de `C4`):
+
+| Aviso | Cuándo | Default |
+|---|---|---|
+| Presupuesto al 80% | Al cruzar el umbral, **una sola vez por mes y categoría** | in-app + mail |
+| Presupuesto excedido | Al cruzar el 100%, una sola vez por mes y categoría | in-app + mail |
+| Meta de ahorro alcanzada | Cuando el progreso llega al 100% | in-app + mail |
+| Reporte mensual listo | Día 1, cuando hay datos del mes anterior | in-app + mail |
+| Resumen semanal | Lunes: gastado en la semana vs. promedio de las 4 anteriores | **apagado por default** |
+| Pago rechazado / suscripción por vencer | Ver `C8` — el aviso es lo que hace usable el período de gracia | mail (no se puede apagar) |
+
+### Decisiones tomadas
+
+- **Los avisos de facturación no se pueden apagar.** Son transaccionales: si no llegan, el usuario pierde el acceso sin enterarse de por qué.
+- **El resumen semanal arranca apagado.** Es el más fácil de percibir como spam y el que menos urgencia tiene. Que lo prenda quien lo quiera.
+- **Nada de avisos de "gasto inusual"** por ahora. Detectar un gasto atípico sin generar falsos positivos es un problema estadístico propio, y un aviso que se equivoca seguido entrena al usuario a ignorar todos los demás.
+
+### Riesgos
+
+- **El volumen es el enemigo.** Entre presupuestos, metas y vencimientos, un mes activo puede generar 15 avisos. El digest diario de `C4` es lo que lo hace tolerable — verificar que todos los tipos pasen por ahí y ninguno mande mail suelto.
+- Los avisos de presupuesto dependen de calcular gasto por categoría en el mes: **usar las funciones de `C3`**, no reimplementar la regla en el cron. Es exactamente el bug de las metas esperando repetirse.
+- El badge de no leídas no puede pegarle a la base en cada render. Contarlo en el server component del layout del dashboard.
+
+### Done cuando
+
+- Cruzar el 80% de un presupuesto genera **un** aviso, y volver a cargar un gasto en esa categoría **no genera otro**.
+- Apagar un tipo de aviso en `/perfil` lo apaga de verdad, in-app y por mail.
+- El badge muestra el número correcto y se limpia al leer.
+- Un mes de uso normal no genera más de un mail por día.
+
+---
+
+## `C6` — PWA instalable + carga rápida de gasto
+
+Estado: **abierto**
+
+### Por qué
+
+No hay `manifest.json` ni service worker: Lumus hoy es una pestaña del navegador. Pero los gastos se cargan **en el momento de gastar**, parado en la caja, no a la noche sentado en la compu. Cada paso entre "gasté" y "quedó registrado" es una transacción que no se carga nunca — y la app depende de carga 100% manual.
+
+### Alcance
+
+- `manifest.json` con los íconos ya existentes (`public/logoLumus.png`, `public/lumus-orb.png`), `display: standalone`, tema `#0a0a0f`.
+- App shortcut "Cargar gasto" que abra directo el formulario, con la categoría y billetera más usadas preseleccionadas.
+- Meta tags de iOS (Safari ignora buena parte del manifest y necesita las suyas).
+- Revisar el formulario de transacción en pantalla chica: teclado numérico por default (`inputMode="decimal"`), y que el botón de guardar no quede tapado por el teclado.
+
+### Decisiones a tomar
+
+- **Sin service worker de offline en este ticket.** Cachear datos financieros y sincronizarlos después es un problema de conflictos, no de caché, y no se resuelve de paso. Este ticket es instalabilidad y fricción, nada más.
+
+### Riesgos
+
+- Un service worker mal configurado sirve una versión vieja de la app después de un deploy. Si no hay offline, tampoco hace falta service worker: el manifest solo ya da instalabilidad.
+
+### Done cuando
+
+- La app se instala desde Chrome en Android y desde Safari en iOS, y abre sin barra de navegador.
+- Desde el ícono instalado, cargar un gasto toma **menos de 15 segundos** cronometrados.
+
+---
+
+## `C7` — Importador de CSV con mapeo manual
+
+Estado: **abierto**
+
+### Por qué
+
+Hay 2.306 transacciones cargadas y ya hubo un import de MyFinance (1.583 quedaron con `deleted_at` de esa limpieza). La carga es 100% manual y va a seguir siéndolo — pero cargar el resumen del banco a mano, línea por línea, es la razón número uno por la que alguien abandona una app de finanzas en el mes 2.
+
+**Esto no es clasificación automática por IA.** Vos subís el CSV, **vos** mapeás qué columna es qué, y **vos** asignás las categorías por lote. No hay ningún modelo decidiendo dónde va tu plata: el importador solo evita tipear.
+
+### Alcance
+
+- Subida de CSV con preview de las primeras filas.
+- **Mapeo manual de columnas** (fecha, monto, descripción) con detección del formato de fecha y del separador decimal — el CSV de un banco argentino trae `1.234,56`, no `1234.56`.
+- Asignación de categoría por lote: agrupar por descripción similar y asignar de a grupos, no de a filas.
+- **Detección de duplicados** por fecha + monto + descripción contra lo que ya existe, marcados en el preview y desmarcados por default para importar.
+- Import atómico: o entran todas o no entra ninguna. Y que el trigger de balance recalcule bien al final, no una vez por fila.
+- Un resumen final: cuántas entraron, cuántas se saltearon por duplicadas.
+
+### Riesgos
+
+- **Es la acción con más potencial destructivo de toda la app.** Un import mal mapeado mete cientos de filas basura. Confirmación explícita antes de escribir, y que el resumen final incluya cómo deshacerlo (las transacciones tienen soft delete, así que un `deleted_at` masivo por lote de import es viable — considerar guardar un `import_batch_id`).
+- Encoding: los CSV de bancos argentinos suelen venir en Latin-1, no UTF-8. Si no se detecta, todos los acentos entran rotos.
+- El trigger de balance corriendo 500 veces en un import puede ser lentísimo. Insertar en bloque y recalcular una sola vez.
+
+### Done cuando
+
+- Un CSV real de banco entra completo, con montos y fechas correctos, y los balances de las billeteras quedan bien.
+- Reimportar el mismo archivo **no duplica nada**.
+- Un import se puede revertir sin tocar la base a mano.
+
+---
+
+## `C8` — Cerrar el paywall
+
+Estado: **abierto** — parcialmente anotado en `docs/BILLING.md`
+
+### Por qué
+
+Es lo único que separa a Lumus de poder cobrar. `SUBSCRIPTION_PRICE_ARS = 1000` sigue siendo el precio de prueba (`src/lib/billing/plan.ts`) y el caso `paused` nunca se probó — solo se validó `authorized → cancelled`.
+
+**No depende de ningún otro ticket. Depende de una decisión tuya**, que es el precio. Por eso está último en la lista y no en el orden de trabajo real: se puede adelantar el día que tengas el número.
+
+### Alcance
+
+1. Precio real en `plan.ts` y en el preapproval de Mercado Pago.
+2. Probar `paused`: qué ve el usuario, si vuelve solo a `authorized` cuando se regulariza.
+3. **Período de gracia.** Hoy el gate es binario: `authorized` o portazo (`src/lib/billing/access.ts`). Un rechazo transitorio de tarjeta —el caso más común de todos— te deja afuera de tu propia app sin aviso. Unos días de gracia con banner de aviso antes de cortar el acceso.
+4. Qué pasa con los datos de alguien que se da de baja: hoy quedan ahí y el usuario no puede entrar a verlos. Decidir si se exporta, si se avisa antes, o si se deja explícito en algún lado.
+
+### Riesgos
+
+- **La base y el código tienen que deployarse juntos.** Este ticket toca el gate de acceso, que es exactamente el que dejó al dueño afuera de la app el 2026-08-20 por un desfasaje de minutos.
+- El período de gracia necesita una columna nueva o una regla derivada de `updated_at` en `billing_subscriptions`. Si es columna, es migración.
+- Probar sin romper el acceso de cortesía de `free_access_grants`: el gate mira las dos cosas.
+
+### Done cuando
+
+- Una suscripción en `paused` tiene un comportamiento **decidido, implementado y probado**, no descubierto en producción.
+- El precio real está en el código y en Mercado Pago, y coinciden.
+- Un usuario con un pago rechazado ve un aviso antes de perder el acceso.
+
+---
+
+## Decidido que NO se hace en esta ronda
+
+| Qué | Por qué |
+|---|---|
+| Clasificación automática de gastos por IA | Decisión explícita y sostenida del usuario: la carga es manual a propósito. `C7` acelera la carga **sin** sacarle la decisión de encima |
+| Notificaciones push | Entre el mail de `C4` y el centro in-app de `C5`, el aviso ya llega. Push suma permisos del navegador, service worker y un canal más que mantener, para decir lo mismo |
+| Panel de admin | Ya se decidió en `B4`: runbooks de SQL en `docs/ADMIN.md`. Con 2 usuarios, un panel es una app entera para no escribir tres queries |
+| Offline real | Ver `C6` (PWA). Cachear plata y sincronizar después es un problema de conflictos, no de caché |
+| Tests de componentes o E2E | `C3` pone tests donde son baratos y evitan bugs reales. Playwright con un solo desarrollador es mantenimiento sin retorno todavía |
+
+---
+
+## Cómo se cierra un ticket
+
+Mismo formato que la ronda 1 — ver "Formato para cerrar una tarea" más abajo. En resumen: se marca el estado, se anota el commit y la fecha, **qué se verificó y cómo**, y las decisiones que se tomaron sobre la marcha.
+
+Los tres chequeos de siempre antes de dar algo por terminado: `npx tsc --noEmit`, `npm run lint`, `npm run build`.
+
+---
+
+# Ronda 1 — cerrada (2026-08-20)
+
+Backlog acordado con el usuario en la sesión del 2026-08-20. Siete tareas, todas cerradas, commiteadas y deployadas a producción (`www.gestorlumus.site`).
+
+Los pendientes de `docs/BILLING.md` no se duplicaban acá — ahora viven en el ticket `C7` de la ronda 2.
 
 ---
 
