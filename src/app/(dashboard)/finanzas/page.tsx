@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { FinanzasDashboard } from '@/components/modules/finanzas/finanzas-dashboard'
-import type { Wallet, FinanceCategory, Transaction, Budget, SavingGoal, RecurringTransaction } from '@/types/finance.types'
+import type { Wallet, FinanceCategory, Budget, SavingGoal, RecurringTransaction, FinanceSummaryRow } from '@/types/finance.types'
+import { rawTotalsByCategory } from '@/lib/finance/summary'
 
 export default async function FinanzasPage() {
   const supabase = await createClient()
@@ -14,7 +15,7 @@ export default async function FinanzasPage() {
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
   const monthEnd = new Date(year, month, 0).toISOString().slice(0, 10)
 
-  const [walletsRes, categoriesRes, transactionsRes, budgetsRes, goalsRes, recurringRes] = await Promise.all([
+  const [walletsRes, categoriesRes, categoryLookupRes, monthSummaryRes, budgetsRes, goalsRes, recurringRes] = await Promise.all([
     supabase
       .from('wallets')
       .select('id, name, type, balance, currency, color, icon, created_at, updated_at')
@@ -28,18 +29,15 @@ export default async function FinanzasPage() {
       .is('deleted_at', null)
       .order('is_default', { ascending: false })
       .order('name', { ascending: true }),
+    // Sin filtrar por `deleted_at`: un movimiento viejo de una categoría
+    // borrada tiene que seguir mostrando su nombre y su color.
     supabase
-      .from('transactions')
-      .select(`
-        id, wallet_id, category_id, type, amount, description, date, created_at, updated_at,
-        wallet:wallets(id, name, color, currency),
-        category:finance_categories(id, name, color, icon)
-      `)
-      .eq('user_id', user.id)
-      .is('deleted_at', null)
-      .order('date', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(500),
+      .from('finance_categories')
+      .select('id, name, color, icon')
+      .eq('user_id', user.id),
+    // Totales del mes agregados en SQL — antes salían de filtrar en memoria
+    // las últimas 500 transacciones, que con el histórico ya no alcanzaban.
+    supabase.rpc('get_finance_summary', { p_from: monthStart, p_to: monthEnd }),
     supabase
       .from('budgets')
       .select('id, amount, month, year, created_at, category_id, category:finance_categories(id, name, color, icon)')
@@ -62,29 +60,12 @@ export default async function FinanzasPage() {
 
   const wallets = (walletsRes.data ?? []) as Wallet[]
   const categories = (categoriesRes.data ?? []) as FinanceCategory[]
-  const transactions = (transactionsRes.data ?? []) as Transaction[]
+  const categoryLookup = (categoryLookupRes.data ?? []) as Pick<FinanceCategory, 'id' | 'name' | 'color' | 'icon'>[]
   const recurring = (recurringRes.data ?? []) as RecurringTransaction[]
+  const monthSummary = (monthSummaryRes.data ?? []) as unknown as FinanceSummaryRow[]
 
-  const budgetCategoryIds = (budgetsRes.data ?? []).map(b => b.category_id).filter(Boolean)
-  let spentByCategory: Record<string, number> = {}
-
-  if (budgetCategoryIds.length > 0) {
-    const { data: spentTx } = await supabase
-      .from('transactions')
-      .select('category_id, amount')
-      .eq('user_id', user.id)
-      .eq('type', 'gasto')
-      .is('deleted_at', null)
-      .in('category_id', budgetCategoryIds)
-      .gte('date', monthStart)
-      .lte('date', monthEnd)
-
-    spentByCategory = (spentTx ?? []).reduce<Record<string, number>>((acc, t) => {
-      if (!t.category_id) return acc
-      acc[t.category_id] = (acc[t.category_id] ?? 0) + Number(t.amount)
-      return acc
-    }, {})
-  }
+  // Lo gastado por categoría en el mes sale del mismo agregado que los KPIs
+  const spentByCategory = rawTotalsByCategory(monthSummary, 'gasto')
 
   const budgets = (budgetsRes.data ?? []).map(b => ({
     ...b,
@@ -98,7 +79,8 @@ export default async function FinanzasPage() {
     <FinanzasDashboard
       initialWallets={wallets}
       initialCategories={categories}
-      initialTransactions={transactions}
+      initialCategoryLookup={categoryLookup}
+      initialMonthSummary={monthSummary}
       initialBudgets={budgets}
       initialGoals={goals}
       initialRecurring={recurring}

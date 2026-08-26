@@ -1,14 +1,17 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Plus, ChevronLeft, ChevronRight, ArrowLeft, CalendarDays } from 'lucide-react'
-import type { Transaction, Wallet, FinanceCategory } from '@/types/finance.types'
+import { AlertTriangle, Plus, ChevronLeft, ChevronRight, ArrowLeft, CalendarDays } from 'lucide-react'
+import type { DateRange, Transaction, Wallet, FinanceCategory } from '@/types/finance.types'
 import { TransactionItem } from './transaction-item'
 import { TransactionForm } from './transaction-form'
 import type { CreateTransactionInput, UpdateTransactionInput } from '@/lib/validations/finance'
 import { CategoryIcon } from '@/lib/utils/category-icons'
 import { confirm } from '@/components/shared/confirm-dialog'
 import { toast } from 'sonner'
+import { useFinanceSummary } from '@/hooks/use-finance-summary'
+import { useTransactionRows } from '@/hooks/use-transaction-rows'
+import { NO_CATEGORY, sumSummary, totalsByCategory, type ToARS } from '@/lib/finance/summary'
 
 // ——— tipos ———
 
@@ -21,7 +24,6 @@ interface CategoryGroup {
   category: Pick<FinanceCategory, 'id' | 'name' | 'color' | 'icon'> | null
   total: number
   count: number
-  transactions: Transaction[]
 }
 
 // ——— helpers SVG donut ———
@@ -121,10 +123,17 @@ function fmtShort(n: number): string {
 // ——— props ———
 
 interface TransactionListProps {
-  transactions: Transaction[]
-  loading: boolean
+  /** Hay una alta/edición/baja en curso — deshabilita los botones de carga. */
+  mutating: boolean
   wallets: Wallet[]
+  /** Categorías elegibles en el formulario (sin las borradas). */
   categories: FinanceCategory[]
+  /**
+   * Todas las categorías, incluidas las borradas, para poder ponerle nombre y
+   * color a los movimientos viejos de una categoría que ya no se ofrece.
+   */
+  categoryLookup: Pick<FinanceCategory, 'id' | 'name' | 'color' | 'icon'>[]
+  toARS: ToARS
   onCreate: (data: CreateTransactionInput) => Promise<Transaction | null>
   onUpdate: (id: string, data: UpdateTransactionInput) => Promise<Transaction | null>
   onDelete: (id: string) => Promise<boolean>
@@ -141,10 +150,11 @@ const FILTER_TABS: { id: FilterMode; label: string }[] = [
 // ——— componente ———
 
 export function TransactionList({
-  transactions,
-  loading,
+  mutating,
   wallets,
   categories,
+  categoryLookup,
+  toARS,
   onCreate,
   onUpdate,
   onDelete,
@@ -171,58 +181,66 @@ export function TransactionList({
   const mesData    = useMemo(() => getMesDates(offset), [offset])
   const añoData    = useMemo(() => getAñoDates(offset), [offset])
 
-  // ——— filtrado por fecha ———
+  // ——— rango visible ———
 
-  const filteredByDate = useMemo(() => {
-    if (filterMode === 'dia') {
-      return transactions.filter(t => t.date === diaDate)
-    }
-    if (filterMode === 'semana') {
-      return transactions.filter(t => t.date >= semanaData.from && t.date <= semanaData.to)
-    }
-    if (filterMode === 'mes') {
-      return transactions.filter(t => t.date >= mesData.from && t.date <= mesData.to)
-    }
-    if (filterMode === 'año') {
-      return transactions.filter(t => t.date >= añoData.from && t.date <= añoData.to)
-    }
-    // periodo
-    if (rangeFrom && rangeTo) return transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo)
-    if (rangeFrom)            return transactions.filter(t => t.date >= rangeFrom)
-    if (rangeTo)              return transactions.filter(t => t.date <= rangeTo)
-    return transactions
-  }, [transactions, filterMode, diaDate, semanaData, mesData, añoData, rangeFrom, rangeTo])
+  // Es lo que se le pide a la base. Antes se filtraba en memoria un array
+  // traído con un tope fijo, así que cualquier período más largo que ese tope
+  // mostraba un total incompleto sin decirlo.
+  const range = useMemo<DateRange>(() => {
+    if (filterMode === 'dia')    return { from: diaDate, to: diaDate }
+    if (filterMode === 'semana') return { from: semanaData.from, to: semanaData.to }
+    if (filterMode === 'mes')    return { from: mesData.from, to: mesData.to }
+    if (filterMode === 'año')    return { from: añoData.from, to: añoData.to }
+    return { from: rangeFrom || null, to: rangeTo || null }
+  }, [filterMode, diaDate, semanaData, mesData, añoData, rangeFrom, rangeTo])
 
-  // ——— totales ———
+  const currentType = viewType === 'gastos' ? 'gasto' : 'ingreso'
 
-  const totalGastos   = useMemo(() => filteredByDate.filter(t => t.type === 'gasto').reduce((s, t) => s + t.amount, 0), [filteredByDate])
-  const totalIngresos = useMemo(() => filteredByDate.filter(t => t.type === 'ingreso').reduce((s, t) => s + t.amount, 0), [filteredByDate])
+  // ——— totales (agregados en SQL, sin tope) ———
+
+  const { summary, loading: summaryLoading, error: summaryError, refresh: refreshSummary } = useFinanceSummary(range)
+
+  const totalGastos   = useMemo(() => sumSummary(summary, 'gasto', toARS), [summary, toARS])
+  const totalIngresos = useMemo(() => sumSummary(summary, 'ingreso', toARS), [summary, toARS])
   const currentTotal  = viewType === 'gastos' ? totalGastos : totalIngresos
 
   // ——— grupos de categoría ———
 
-  const categoryGroups = useMemo((): CategoryGroup[] => {
-    const relevant = filteredByDate.filter(t =>
-      viewType === 'gastos' ? t.type === 'gasto' : t.type === 'ingreso',
-    )
-    const map = new Map<string, CategoryGroup>()
-    for (const t of relevant) {
-      const key = t.category_id ?? '__none__'
-      const g = map.get(key)
-      if (!g) {
-        map.set(key, { key, categoryId: t.category_id, category: t.category ?? null, total: t.amount, count: 1, transactions: [t] })
-      } else {
-        g.total += t.amount
-        g.count++
-        g.transactions.push(t)
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => b.total - a.total)
-  }, [filteredByDate, viewType])
+  const categoryById = useMemo(
+    () => new Map(categoryLookup.map(c => [c.id, c])),
+    [categoryLookup],
+  )
+
+  const categoryGroups = useMemo((): CategoryGroup[] =>
+    totalsByCategory(summary, currentType, toARS).map(ct => ({
+      key: ct.categoryId ?? NO_CATEGORY,
+      categoryId: ct.categoryId,
+      category: ct.categoryId ? categoryById.get(ct.categoryId) ?? null : null,
+      total: ct.total,
+      count: ct.count,
+    })),
+  [summary, currentType, toARS, categoryById])
 
   const selectedGroup = selectedCategoryKey
     ? (categoryGroups.find(g => g.key === selectedCategoryKey) ?? null)
     : null
+
+  // ——— detalle de una categoría ———
+
+  // Las filas se piden solo al entrar al detalle: la vista principal se dibuja
+  // entera con el agregado, sin transferir una sola transacción.
+  const { rows: detailRows, loading: detailLoading, truncated: detailTruncated, limit: detailLimit, refresh: refreshDetail } =
+    useTransactionRows(
+      selectedGroup
+        ? { range, type: currentType, categoryId: selectedGroup.categoryId }
+        : null,
+    )
+
+  // Los agregados quedaron viejos: se vuelven a pedir sin borrar lo que hay
+  function refreshAfterMutation() {
+    refreshSummary()
+    refreshDetail()
+  }
 
   // ——— segmentos del donut ———
 
@@ -285,6 +303,7 @@ export function TransactionList({
     }
     setShowForm(false)
     setEditing(null)
+    refreshAfterMutation()
   }
 
   async function handleDelete(id: string) {
@@ -292,6 +311,7 @@ export function TransactionList({
     if (!ok) return
     await onDelete(id)
     toast.success('Movimiento eliminado')
+    refreshAfterMutation()
   }
 
   function handleEdit(t: Transaction) {
@@ -335,7 +355,7 @@ export function TransactionList({
         {/* Botón Nuevo — visible en desktop, en mobile es FAB flotante */}
         <button
           onClick={() => { setEditing(null); setShowForm(true) }}
-          disabled={loading || wallets.length === 0}
+          disabled={mutating || wallets.length === 0}
           className="mb-1 hidden items-center gap-1.5 rounded-xl bg-[var(--accent-lumus)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 sm:flex"
         >
           <Plus size={13} />
@@ -474,14 +494,29 @@ export function TransactionList({
             </div>
           </div>
 
-          <div className="space-y-2">
-            {selectedGroup.transactions
-              .slice()
-              .sort((a, b) => b.date.localeCompare(a.date))
-              .map(t => (
+          {detailTruncated && (
+            <div className="mb-3 flex items-start gap-2 rounded-xl border border-[var(--warning)]/25 bg-[var(--warning)]/[0.07] px-4 py-3">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[var(--warning)]" />
+              <p className="text-xs text-[var(--text-secondary)]">
+                Se listan los {detailLimit} movimientos más recientes de {selectedGroup.count}. El total de abajo
+                los incluye a todos — para ver el resto, acotá el período.
+              </p>
+            </div>
+          )}
+
+          {detailLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-14 animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.025]" />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {detailRows.map(t => (
                 <TransactionItem key={t.id} transaction={t} onEdit={handleEdit} onDelete={handleDelete} />
               ))}
-          </div>
+            </div>
+          )}
 
           <div className="mt-4 flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
             <span className="text-xs text-[var(--text-muted)]">Total {viewType}</span>
@@ -496,8 +531,9 @@ export function TransactionList({
 
       ) : (
         <>
-          {/* Skeleton */}
-          {loading && (
+          {/* Skeleton mientras se recalculan los totales del período elegido —
+              mostrar los del período anterior sería mostrar un número mal */}
+          {summaryLoading && (
             <div className="space-y-2">
               {[1, 2, 3].map(i => (
                 <div key={i} className="h-14 animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.025]" />
@@ -505,13 +541,20 @@ export function TransactionList({
             </div>
           )}
 
-          {!loading && wallets.length === 0 && (
+          {!summaryLoading && summaryError && (
+            <div className="flex items-start gap-2 rounded-xl border border-[var(--danger)]/25 bg-[var(--danger)]/[0.07] px-4 py-3">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[var(--danger)]" />
+              <p className="text-xs text-[var(--text-secondary)]">{summaryError}</p>
+            </div>
+          )}
+
+          {!summaryLoading && !summaryError && wallets.length === 0 && (
             <div className="rounded-xl border border-dashed border-white/10 py-10 text-center">
               <p className="text-sm text-[var(--text-muted)]">Primero creá una billetera para registrar movimientos.</p>
             </div>
           )}
 
-          {!loading && wallets.length > 0 && (
+          {!summaryLoading && !summaryError && wallets.length > 0 && (
             <>
               {/* ——— Toggle GASTOS | INGRESOS ——— */}
               <div className="mb-5 flex gap-8 border-b border-white/[0.06]">
@@ -633,7 +676,7 @@ export function TransactionList({
       {/* FAB flotante — solo mobile */}
       <button
         onClick={() => { setEditing(null); setShowForm(true) }}
-        disabled={loading || wallets.length === 0}
+        disabled={mutating || wallets.length === 0}
         className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-lumus)] text-white shadow-lg shadow-[var(--accent-lumus)]/30 active:scale-95 transition-transform disabled:opacity-50 sm:hidden"
         aria-label="Nuevo movimiento"
       >

@@ -132,3 +132,13 @@ export const mergeCategorySchema = z.object({
 })
 
 export type MergeCategoryInput = z.infer<typeof mergeCategorySchema>
+
+/** Query de `GET /api/finance/summary` — ver migración 00021. */
+const dateParam = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD').nullable().optional()
+
+export const financeSummaryQuerySchema = z.object({
+  from: dateParam,
+  to:   dateParam,
+})
+
+export type FinanceSummaryQuery = z.infer<typeof financeSummaryQuerySchema>

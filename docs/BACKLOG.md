@@ -19,7 +19,7 @@ Siete tickets, ordenados por severidad y dependencia, no por ganas. El criterio 
 
 | # | Ticket | Por qué está en esa posición | Tamaño |
 |---|---|---|---|
-| `C1` | Transacciones por rango en vez de tope fijo | Es el único que **hoy muestra números mal** y sin avisar. No compite con nada | M |
+| ~~`C1`~~ | ~~Transacciones por rango en vez de tope fijo~~ | **Cerrado 2026-08-26** | M |
 | `C2` | Errores de producción visibles (Sentry) | Barato, y a partir de acá cada ticket siguiente se deploya con red. Por eso va antes que las features | S |
 | `C3` | Lógica financiera en un solo lugar + primeros tests | `C4`, `C5` y `C7` van a reusar esa lógica. Extraerla antes evita triplicar el bug de las metas | M |
 | `C4` | Motor de avisos + vencimientos por mail | Es la infraestructura de todo aviso que mande Lumus, y arranca con el que más falta hace | M |
@@ -34,7 +34,7 @@ Tamaños: `S` ≈ media jornada · `M` ≈ una jornada · `L` ≈ dos o más.
 
 ## `C1` — Transacciones por rango en vez de tope fijo
 
-Estado: **abierto**
+Estado: **cerrado** — 2026-08-26 (`00021_finance_summary.sql`)
 
 ### Por qué
 
@@ -62,6 +62,41 @@ La API ya acepta `date_from` y `date_to` (`src/app/api/finance/transactions/rout
 - Filtrar por un año con más de 500 transacciones cargadas muestra el total **completo** — verificado contra un `select sum(amount)` en la base.
 - Ningún endpoint ni server component trae filas solo para sumarlas.
 - Si un rango excede el tope, la UI lo dice.
+
+### Resultado (2026-08-26)
+
+**El bug medido antes de tocar nada**: con 741 transacciones activas, el tope de 500 de `/finanzas` cortaba en `2025-05-15`. Filtrar por "2025" dejaba **53 gastos afuera del total**, sin ningún aviso. Todo 2024 y 2023 directamente no existía para la pantalla. El tope de 400 de `/dashboard` cortaba en `2025-11-15`.
+
+**Lo que se hizo**:
+
+| Pieza | Qué |
+|---|---|
+| `00021_finance_summary.sql` | `get_finance_summary(p_from, p_to)` — totales por tipo + categoría + moneda. `SECURITY INVOKER`, así que RLS sigue aplicando; `EXECUTE` revocado a `public`/`anon` como en `00017`. Índice parcial `(user_id, date) where deleted_at is null` |
+| `GET /api/finance/summary` | El agregado, validado con Zod |
+| `GET /api/finance/transactions` | Tope duro de 500 con `truncated` en la respuesta: pide una fila de más para saber si quedó cortado. Acepta `category_id=none` para los movimientos sin categoría |
+| `lib/finance/summary.ts` | Funciones puras que pliegan el agregado (total en ARS, conteo, totales por categoría). Se adelanta parte de `C3` |
+| `use-finance-summary` / `use-transaction-rows` | Hooks nuevos. `loading` es **derivado** ("lo que tengo es de otro rango"), no un estado propio: es lo que garantiza que no se muestren los totales del período anterior mientras carga el nuevo |
+| `transaction-list.tsx` | Donut, totales y lista de categorías salen del agregado. Las filas se piden **solo** al entrar al detalle de una categoría |
+| `finanzas/page.tsx` | Ya no trae 500 transacciones: trae el agregado del mes. Lo gastado por presupuesto sale de ahí, en vez de una segunda query de filas |
+| `dashboard/page.tsx` | Ya no trae 400 transacciones: trae el agregado del mes y **6** movimientos, los que muestra |
+
+**Se cambió de raíz cómo se dibuja la pantalla**: la vista principal de Movimientos no transfiere ninguna transacción. Antes, cada carga de `/finanzas` mandaba 500 filas por la red para renderizar un donut y una lista de categorías.
+
+**Verificación**:
+
+| Qué | Resultado |
+|---|---|
+| Totales de 2025 por el camino real (rol `authenticated`, RLS, `set request.jwt.claims`) | Gasto **12.386.728** en 172 movimientos, ingreso **14.991.220** en 25 — idéntico al `sum(amount)` de la base |
+| Peso de esa misma respuesta | **26 filas** agregadas en vez de 172 transacciones |
+| `anon` llamando a la función | `permission denied for function get_finance_summary` |
+| `npx tsc --noEmit` / `npm run lint` / `npm run build` | Sin errores; 12 warnings, igual que el baseline |
+
+**Dos decisiones que valen la pena anotar**:
+
+1. **La conversión a ARS no se hace en SQL.** El agregado agrupa por moneda y el cliente convierte con la cotización de `useExchangeRates`; la base no conoce el dólar blue. Efecto colateral: la lista de movimientos ahora **convierte** en vez de sumar pesos con dólares como si fueran lo mismo.
+2. **El nombre de una categoría borrada se sigue mostrando.** El agregado devuelve `category_id` a secas, así que las páginas cargan aparte un lookup de categorías **sin** filtrar `deleted_at` — si no, un gasto viejo de una categoría borrada aparecería como "Sin categoría".
+
+**Lo que no se hizo**: el detalle de una categoría sigue teniendo un tope (500 filas), ahora explícito y avisado en pantalla ("se listan los 500 más recientes de N"). El total de ese detalle sale del agregado, así que es completo aunque la lista esté cortada. Paginar el detalle no hacía falta para cerrar el bug y agregaba superficie.
 
 ---
 

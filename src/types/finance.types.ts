@@ -123,3 +123,22 @@ export interface MergeCategoriesPreview {
   recurring: number
   budgets: number
 }
+
+/**
+ * Fila del agregado que devuelve `get_finance_summary` (migración 00021).
+ * Un total por combinación de tipo + categoría + moneda: son decenas de filas
+ * como mucho, sin importar cuántas transacciones haya detrás.
+ */
+export interface FinanceSummaryRow {
+  type: TransactionType
+  category_id: string | null
+  currency: string
+  total: number
+  tx_count: number
+}
+
+/** Rango de fechas visible. `null` en los dos extremos significa "todo". */
+export interface DateRange {
+  from: string | null
+  to: string | null
+}

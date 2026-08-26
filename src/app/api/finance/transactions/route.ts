@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createTransactionSchema } from '@/lib/validations/finance'
 
+/**
+ * Tope duro de filas por request. Un rango arbitrario ("de 2020 a hoy") puede
+ * cubrir miles de movimientos, y traerlos todos para renderizar una lista no
+ * le sirve a nadie. Cuando se alcanza, la respuesta lo dice con `truncated`
+ * para que la UI lo pueda avisar en vez de mostrar una lista cortada en
+ * silencio — que es exactamente el bug que este endpoint tenía.
+ *
+ * Los totales NO salen de acá: salen de `get_finance_summary`, que agrega en
+ * SQL y no depende de ningún tope.
+ */
+const MAX_LIMIT = 500
+const DEFAULT_LIMIT = 50
+
+/** Valor de `category_id` para pedir los movimientos sin categoría. */
+const NO_CATEGORY = 'none'
+
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -13,7 +29,11 @@ export async function GET(req: NextRequest) {
   const wallet_id = searchParams.get('wallet_id')
   const date_from = searchParams.get('date_from')
   const date_to = searchParams.get('date_to')
-  const limit = parseInt(searchParams.get('limit') ?? '50', 10)
+
+  const requestedLimit = parseInt(searchParams.get('limit') ?? String(DEFAULT_LIMIT), 10)
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(Math.max(requestedLimit, 1), MAX_LIMIT)
+    : DEFAULT_LIMIT
 
   let query = supabase
     .from('transactions')
@@ -26,12 +46,14 @@ export async function GET(req: NextRequest) {
     .is('deleted_at', null)
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
-    .limit(limit)
+    // Una fila de más: si vuelve, es que hay más de las que se piden
+    .limit(limit + 1)
 
   if (type === 'gasto' || type === 'ingreso' || type === 'transferencia' || type === 'ajuste') {
     query = query.eq('type', type)
   }
-  if (category_id) query = query.eq('category_id', category_id)
+  if (category_id === NO_CATEGORY) query = query.is('category_id', null)
+  else if (category_id) query = query.eq('category_id', category_id)
   if (wallet_id) query = query.eq('wallet_id', wallet_id)
   if (date_from) query = query.gte('date', date_from)
   if (date_to) query = query.lte('date', date_to)
@@ -39,7 +61,14 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ transactions: data ?? [] })
+  const rows = data ?? []
+  const truncated = rows.length > limit
+
+  return NextResponse.json({
+    transactions: truncated ? rows.slice(0, limit) : rows,
+    truncated,
+    limit,
+  })
 }
 
 export async function POST(req: NextRequest) {

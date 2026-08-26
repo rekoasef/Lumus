@@ -295,7 +295,7 @@ No son código, pero sin ellas parte del trabajo no sirve:
 
 ## Próximo foco recomendado
 
-**Hay una ronda de backlog abierta**: `C1`–`C8` en `docs/BACKLOG.md` (ronda 2, 2026-08-26). El primero, `C1`, no es una mejora sino un bug con datos: `/finanzas` y `/dashboard` traen un tope fijo de transacciones (500 y 400) y los filtros por año muestran totales incompletos sin avisarlo.
+**Hay una ronda de backlog abierta**: `C1`–`C8` en `docs/BACKLOG.md` (ronda 2, 2026-08-26). `C1` ya está cerrado: los totales se agregan en SQL (`get_finance_summary`, `00021`) y dejaron de depender de un tope fijo de filas — filtrar por 2025 mostraba 53 gastos de menos. Sigue `C2` (errores de producción visibles).
 
 Dicho eso, el orden de esa lista cede ante lo de abajo:
 

@@ -3,7 +3,12 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Plus, TrendingUp, TrendingDown, Wallet as WalletIcon, ChevronLeft, ChevronRight, BarChart2, Minus } from 'lucide-react'
-import type { Wallet, FinanceCategory, Transaction, Budget, SavingGoal } from '@/types/finance.types'
+import type { Wallet, FinanceCategory, Budget, SavingGoal, FinanceSummaryRow } from '@/types/finance.types'
+
+/** Fecha local en YYYY-MM-DD — `toISOString()` corre el día por la zona horaria. */
+function toLocalDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 import { WalletCard } from './wallet-card'
 import { WalletForm } from './wallet-form'
 import { WalletAdjustForm } from './wallet-adjust-form'
@@ -19,6 +24,8 @@ import { useBudgets } from '@/hooks/use-budgets'
 import { useSavingGoals } from '@/hooks/use-saving-goals'
 import { useExchangeRates } from '@/hooks/use-exchange-rates'
 import { useTransactions } from '@/hooks/use-transactions'
+import { useFinanceSummary } from '@/hooks/use-finance-summary'
+import { sumSummary } from '@/lib/finance/summary'
 import { useFinanceReport } from '@/hooks/use-finance-report'
 import { MonthlyReportBanner } from './monthly-report-banner'
 import { MonthlyReportModal } from './monthly-report-modal'
@@ -36,7 +43,10 @@ const MONTHS = [
 interface FinanzasDashboardProps {
   initialWallets: Wallet[]
   initialCategories: FinanceCategory[]
-  initialTransactions: Transaction[]
+  /** Todas las categorías, incluidas las borradas — para nombrar movimientos viejos. */
+  initialCategoryLookup: Pick<FinanceCategory, 'id' | 'name' | 'color' | 'icon'>[]
+  /** Agregado del mes en curso, calculado en el server. */
+  initialMonthSummary: FinanceSummaryRow[]
   initialBudgets: Budget[]
   initialGoals: SavingGoal[]
   initialRecurring: RecurringTransaction[]
@@ -48,7 +58,8 @@ type Section = 'transacciones' | 'billeteras' | 'categorias' | 'presupuestos' | 
 export function FinanzasDashboard({
   initialWallets,
   initialCategories,
-  initialTransactions,
+  initialCategoryLookup,
+  initialMonthSummary,
   initialBudgets,
   initialGoals,
   initialRecurring,
@@ -56,24 +67,34 @@ export function FinanzasDashboard({
   const { wallets, totalBalance: _totalBalance, balanceByCurrency, loading, createWallet, updateWallet, adjustBalance, deleteWallet, localUpdateBalance: _localUpdateBalance, setWalletBalance } =
     useWallets(initialWallets)
   const { rates: exchangeRates, toARS } = useExchangeRates()
+
+  // Los totales del mes salen del agregado en SQL, no de filtrar un array de
+  // transacciones: así no dependen de cuántas filas se hayan traído.
+  const now = new Date()
+  const monthFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  const monthTo = toLocalDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0))
+  const monthRange = { from: monthFrom, to: monthTo }
+
+  const { summary: monthSummary, refresh: refreshMonthSummary } = useFinanceSummary(monthRange, {
+    initialSummary: initialMonthSummary,
+  })
+
   const {
-    transactions,
     loading: txLoading,
     createTransaction,
     updateTransaction,
     deleteTransaction,
-    addTransaction,
-  } = useTransactions(initialTransactions, {
+  } = useTransactions({
     onWalletBalance: (updatedWallets) => {
       for (const w of updatedWallets) setWalletBalance(w.id, w.balance)
     },
+    onMutated: refreshMonthSummary,
   })
   const [showWalletForm, setShowWalletForm] = useState(false)
   const [editingWallet, setEditingWallet] = useState<Wallet | null>(null)
   const [adjustingWallet, setAdjustingWallet] = useState<Wallet | null>(null)
   const [activeSection, setActiveSection] = useState<Section>('transacciones')
 
-  const now = new Date()
   const { budgets, month, year, loading: budgetsLoading, autoCopied, refresh: refreshBudgets, createBudget, updateBudget, deleteBudget } =
     useBudgets(initialBudgets, now.getMonth() + 1, now.getFullYear())
   const [showBudgetForm, setShowBudgetForm] = useState(false)
@@ -89,18 +110,8 @@ export function FinanzasDashboard({
 
   // Gastos/ingresos del mes convertidos a ARS — las billeteras pueden estar
   // en distinta moneda (ARS/USD) y no se pueden sumar montos crudos entre sí
-  const thisMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-  const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
-
-  const { gastosDelMes, ingresosDelMes } = useMemo(() => {
-    const monthTx = transactions.filter(t => t.date >= thisMonthStart && t.date <= thisMonthEnd)
-    const sumARS = (type: 'gasto' | 'ingreso') =>
-      monthTx
-        .filter(t => t.type === type)
-        .reduce((sum, t) => sum + toARS(t.amount, t.wallet?.currency ?? 'ARS'), 0)
-    return { gastosDelMes: sumARS('gasto'), ingresosDelMes: sumARS('ingreso') }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transactions, thisMonthStart, thisMonthEnd, exchangeRates])
+  const gastosDelMes   = useMemo(() => sumSummary(monthSummary, 'gasto', toARS), [monthSummary, toARS])
+  const ingresosDelMes = useMemo(() => sumSummary(monthSummary, 'ingreso', toARS), [monthSummary, toARS])
 
   async function handleTransactionCreate(data: CreateTransactionInput) {
     return createTransaction(data)
@@ -378,10 +389,11 @@ export function FinanzasDashboard({
               Movimientos
             </h2>
             <TransactionList
-              transactions={transactions}
-              loading={txLoading}
+              mutating={txLoading}
               wallets={wallets}
               categories={initialCategories}
+              categoryLookup={initialCategoryLookup}
+              toARS={toARS}
               onCreate={handleTransactionCreate}
               onUpdate={handleTransactionUpdate}
               onDelete={handleTransactionDelete}
@@ -396,9 +408,9 @@ export function FinanzasDashboard({
               initialRecurring={initialRecurring}
               wallets={wallets}
               categories={initialCategories}
-              onTransactionApplied={(tx, wallet) => {
-                addTransaction(tx)
+              onTransactionApplied={(_tx, wallet) => {
                 if (wallet) setWalletBalance(wallet.id, wallet.balance)
+                void refreshMonthSummary()
               }}
             />
           </section>

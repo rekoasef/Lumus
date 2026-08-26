@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   graphql_public: {
     Tables: {
@@ -672,6 +672,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_finance_summary: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          category_id: string
+          currency: string
+          total: number
+          tx_count: number
+          type: string
+        }[]
+      }
       merge_finance_categories: {
         Args: { p_source: string; p_target: string }
         Returns: Json
