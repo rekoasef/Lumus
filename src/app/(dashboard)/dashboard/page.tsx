@@ -64,6 +64,17 @@ type SavingGoalSummary = {
   current_amount: number
   target_date: string | null
   achieved: boolean
+  wallet_ids: string[]
+}
+
+type RawSavingGoalRow = {
+  id: string
+  name: string
+  target_amount: number | null
+  current_amount: number | null
+  target_date: string | null
+  achieved: boolean | null
+  saving_goal_wallets: { wallet_id: string }[] | null
 }
 
 function getLocalDate(date = new Date()) {
@@ -149,7 +160,7 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
       .order('next_date', { ascending: true }),
     supabase
       .from('saving_goals')
-      .select('id, name, target_amount, current_amount, target_date, achieved')
+      .select('id, name, target_amount, current_amount, target_date, achieved, saving_goal_wallets(wallet_id)')
       .eq('user_id', userId)
       .eq('achieved', false)
       .order('target_date', { ascending: true, nullsFirst: false }),
@@ -160,7 +171,15 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
   const transactions = (transactionsRes.data ?? []) as unknown as FinanceTransaction[]
   const rawBudgets = (budgetsRes.data ?? []) as unknown as Omit<BudgetSummary, 'spent'>[]
   const recurring = (recurringRes.data ?? []) as unknown as RecurringSummary[]
-  const goals = (goalsRes.data ?? []) as SavingGoalSummary[]
+  const goals = ((goalsRes.data ?? []) as unknown as RawSavingGoalRow[]).map(goal => ({
+    id: goal.id,
+    name: goal.name,
+    target_amount: Number(goal.target_amount ?? 0),
+    current_amount: Number(goal.current_amount ?? 0),
+    target_date: goal.target_date,
+    achieved: goal.achieved ?? false,
+    wallet_ids: (goal.saving_goal_wallets ?? []).map(w => w.wallet_id),
+  })) as SavingGoalSummary[]
 
   const budgetCategoryIds = rawBudgets.map(b => b.category_id).filter(Boolean)
   let spentByCategory: Record<string, number> = {}
@@ -290,12 +309,21 @@ export default async function DashboardPage() {
     .slice(0, 4)
 
   const goalsPreview = goals
-    .map(goal => ({
-      ...goal,
-      progress: goal.target_amount > 0
-        ? Math.min(100, Math.round((goal.current_amount / goal.target_amount) * 100))
-        : 0,
-    }))
+    .map(goal => {
+      // Si la meta tiene billeteras vinculadas, la suma de sus balances (en ARS)
+      // ES el progreso — mismo criterio que la card de finanzas
+      const linkedWallets = wallets.filter(w => goal.wallet_ids.includes(w.id))
+      const currentAmount = linkedWallets.length > 0
+        ? linkedWallets.reduce((sum, w) => sum + toARS(Number(w.balance ?? 0), w.currency ?? 'ARS'), 0)
+        : goal.current_amount
+      return {
+        ...goal,
+        currentAmount,
+        progress: goal.target_amount > 0
+          ? Math.min(100, Math.max(0, Math.round((currentAmount / goal.target_amount) * 100)))
+          : 0,
+      }
+    })
     .sort((a, b) => b.progress - a.progress)
     .slice(0, 3)
 
@@ -550,7 +578,7 @@ export default async function DashboardPage() {
                     <div className="h-full rounded-full bg-[#22c55e]" style={{ width: `${goal.progress}%` }} />
                   </div>
                   <p className="mt-1 text-[0.62rem] text-[var(--text-muted)]">
-                    {formatMoney(goal.current_amount)} de {formatMoney(goal.target_amount)}
+                    {formatMoney(goal.currentAmount)} de {formatMoney(goal.target_amount)}
                   </p>
                 </div>
               ))
