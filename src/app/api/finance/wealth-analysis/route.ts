@@ -6,7 +6,8 @@ import { MAX_REPORT_REGENERATIONS, regenerationState } from '@/lib/finance/repor
 import { convertToARS, getExchangeRates } from '@/lib/finance/exchange-rates'
 import { getCryptoPrices } from '@/lib/finance/crypto-prices'
 import { portfolioTotals, resolvePriceUsd, valuateHolding, type Holding } from '@/lib/finance/holdings'
-import { rateOn, type DailyRate } from '@/lib/finance/purchasing-power'
+import { rateOn } from '@/lib/finance/purchasing-power'
+import { fetchRateHistory, yearsAgo } from '@/lib/finance/rate-history'
 import { monthsOfRunway, pesoLossOverWindows, wealthComposition } from '@/lib/finance/wealth'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import { todayInArgentina } from '@/lib/notifications/due-notification'
@@ -28,20 +29,20 @@ async function buildWealthContext(
 ): Promise<WealthSnapshot> {
   const today = todayInArgentina()
 
-  const [walletsRes, holdingsRes, ratesRes, rates, goalsRes] = await Promise.all([
+  const [walletsRes, holdingsRes, rateHistory, rates, goalsRes] = await Promise.all([
     supabase.from('wallets').select('balance, currency').eq('user_id', userId).is('deleted_at', null),
     supabase
       .from('holdings')
       .select('id, name, kind, price_source, quantity, purchase_price, purchase_currency, purchase_date, manual_price')
       .eq('user_id', userId),
-    supabase.from('exchange_rate_history').select('date, usd').order('date', { ascending: false }).limit(2000),
+    // Dos años alcanzan para las ventanas que se comparan acá.
+    fetchRateHistory(supabase, yearsAgo(2)),
     getExchangeRates(),
     supabase.from('saving_goals').select('name, target_amount, current_amount, achieved').eq('user_id', userId),
   ])
 
   const wallets = walletsRes.data ?? []
   const holdings = (holdingsRes.data ?? []) as unknown as Holding[]
-  const rateHistory: DailyRate[] = (ratesRes.data ?? []).map(r => ({ date: r.date, usd: Number(r.usd) }))
 
   // ── Patrimonio ──
   const arsArs = wallets

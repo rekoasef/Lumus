@@ -5,7 +5,7 @@ import type { Wallet, FinanceCategory, Budget, SavingGoal, RecurringTransaction,
 import { frequentDefaults, FREQUENT_WINDOW_DAYS } from '@/lib/finance/frequent-defaults'
 import { getCryptoPrices } from '@/lib/finance/crypto-prices'
 import type { Holding } from '@/lib/finance/holdings'
-import type { DailyRate } from '@/lib/finance/purchasing-power'
+import { fetchRateHistory } from '@/lib/finance/rate-history'
 import { rawTotalsByCategory } from '@/lib/finance/summary'
 
 export default async function FinanzasPage() {
@@ -108,18 +108,19 @@ export default async function FinanzasPage() {
 
   const holdings = (holdingRows ?? []) as unknown as Holding[]
 
-  const [cryptoPrices, { data: rateRows }] = await Promise.all([
-    getCryptoPrices(holdings.map(h => h.price_source).filter((id): id is string => Boolean(id))),
-    // El costo de una compra en pesos se lleva a dólares con la cotización de
-    // **ese** día, así que hace falta la historia, no solo la de hoy.
-    supabase
-      .from('exchange_rate_history')
-      .select('date, usd')
-      .order('date', { ascending: false })
-      .limit(2000),
-  ])
+  // El costo de una compra en pesos se lleva a dólares con la cotización de
+  // **ese** día, así que la serie tiene que llegar hasta la compra más vieja.
+  // Un `limit` fijo dejaba sin rendimiento a cualquier tenencia anterior, en
+  // silencio.
+  const oldestPurchase = holdings.reduce<string | null>(
+    (oldest, h) => (!oldest || h.purchase_date < oldest ? h.purchase_date : oldest),
+    null,
+  )
 
-  const rateHistory: DailyRate[] = (rateRows ?? []).map(r => ({ date: r.date, usd: Number(r.usd) }))
+  const [cryptoPrices, rateHistory] = await Promise.all([
+    getCryptoPrices(holdings.map(h => h.price_source).filter((id): id is string => Boolean(id))),
+    fetchRateHistory(supabase, oldestPurchase),
+  ])
 
   return (
     <FinanzasDashboard

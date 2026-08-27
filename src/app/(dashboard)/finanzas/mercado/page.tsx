@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { MarketDashboard } from '@/components/modules/finanzas/market-dashboard'
 import { getArgentineStocks, getCryptoChart, type ChartPoint } from '@/lib/finance/market'
+import { fetchRateHistory, yearsAgo } from '@/lib/finance/rate-history'
 import { getCryptoMarket } from '@/lib/finance/crypto-prices'
 
 const LABELS = {
@@ -34,20 +35,19 @@ export default async function MercadoPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: rateRows }, crypto, cryptoChart, stocks] = await Promise.all([
-    supabase
-      .from('exchange_rate_history')
-      .select('date, usd')
-      .order('date', { ascending: true }),
+  const [rateHistory, crypto, cryptoChart, stocks] = await Promise.all([
+    // Cinco años, que es el rango más largo del selector. Pedir todo serían
+    // cinco viajes a la base en cada carga.
+    fetchRateHistory(supabase, yearsAgo(5)),
     getCryptoMarket(),
     getCryptoChart(FEATURED_CRYPTO, 30),
     getArgentineStocks(20),
   ])
 
-  const dollarHistory: ChartPoint[] = (rateRows ?? []).map(r => ({
-    date: r.date,
-    value: Number(r.usd),
-  }))
+  // `fetchRateHistory` devuelve de más nueva a más vieja; el gráfico va al revés.
+  const dollarHistory: ChartPoint[] = rateHistory
+    .map(r => ({ date: r.date, value: r.usd }))
+    .reverse()
 
   return (
     <div className="min-h-screen px-4 py-6 sm:px-5 sm:py-8 lg:px-12 lg:py-12">
