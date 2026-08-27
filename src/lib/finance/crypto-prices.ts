@@ -77,3 +77,66 @@ export async function getCryptoPrices(ids: readonly string[]): Promise<Map<strin
     return new Map()
   }
 }
+
+export interface CryptoQuote {
+  id: string
+  label: string
+  symbol: string
+  priceUsd: number
+  changePercent: number
+}
+
+let marketCache: { quotes: CryptoQuote[]; fetchedAt: number } | null = null
+
+/**
+ * Precio y variación de 24 h de las cripto que ofrece la app.
+ *
+ * Separado de `getCryptoPrices` a propósito: eso valúa tenencias y solo
+ * necesita el precio; esto alimenta la pantalla de mercado y necesita el
+ * movimiento del día.
+ *
+ * Devuelve `fetchedAt` porque la pantalla tiene que poder decir de cuándo es el
+ * dato. Sin eso, un precio de hace diez minutos se dibuja como si fuera de
+ * recién — que es exactamente lo que no queremos en una app de finanzas.
+ */
+export async function getCryptoMarket(): Promise<{ quotes: CryptoQuote[]; fetchedAt: string } | null> {
+  const now = Date.now()
+  if (marketCache && now - marketCache.fetchedAt < CACHE_TTL_MS) {
+    return { quotes: marketCache.quotes, fetchedAt: new Date(marketCache.fetchedAt).toISOString() }
+  }
+
+  try {
+    const ids = CRYPTO_IDS.join(',')
+    const res = await fetch(
+      `${ENDPOINT}?ids=${encodeURIComponent(ids)}&vs_currencies=usd&include_24hr_change=true`,
+      { next: { revalidate: 300 } },
+    )
+    if (!res.ok) throw new Error(`CoinGecko respondió ${res.status}`)
+
+    const data = await res.json() as Record<string, { usd?: number; usd_24h_change?: number }>
+
+    const quotes = CRYPTO_OPTIONS
+      .map((option): CryptoQuote | null => {
+        const row = data[option.id]
+        if (!row || typeof row.usd !== 'number') return null
+        return {
+          id: option.id,
+          label: option.label,
+          symbol: option.symbol,
+          priceUsd: row.usd,
+          changePercent: row.usd_24h_change ?? 0,
+        }
+      })
+      .filter((q): q is CryptoQuote => q !== null)
+
+    marketCache = { quotes, fetchedAt: now }
+    return { quotes, fetchedAt: new Date(now).toISOString() }
+  } catch (error) {
+    console.error('[cripto] no se pudo traer el mercado', error)
+    // Un dato viejo sirve más que ninguno, siempre que se muestre su edad.
+    if (marketCache) {
+      return { quotes: marketCache.quotes, fetchedAt: new Date(marketCache.fetchedAt).toISOString() }
+    }
+    return null
+  }
+}
