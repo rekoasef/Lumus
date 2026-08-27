@@ -86,6 +86,12 @@ lumus/
 │   │   │   └── plan.ts                        → precio, moneda, frecuencia del plan
 │   │   ├── observability/
 │   │   │   └── sentry.ts                      → config y scrubbing de Sentry, compartidos por los 3 runtimes
+│   │   ├── notifications/
+│   │   │   ├── notifications.ts               → motor: crear con dedupe, preferencias, sellar enviados
+│   │   │   ├── due-recurring.ts               → qué vencimientos ameritan aviso (puro, con tests)
+│   │   │   ├── due-notification.ts            → el texto del aviso + todayInArgentina()
+│   │   │   ├── digest-email.ts                → el mail diario (en claro) y el envío por Resend
+│   │   │   └── unsubscribe-token.ts           → HMAC del link de baja
 │   │   ├── finance/
 │   │   │   ├── rules.ts                       → reglas de negocio puras (metas, presupuestos, recurrentes)
 │   │   │   ├── rules.test.ts
@@ -135,6 +141,7 @@ lumus/
 │
 ├── .env.example
 ├── next.config.ts
+├── vercel.json                                 → el cron diario de avisos (Hobby: 1 corrida/día)
 ├── vitest.config.mts
 ├── tsconfig.json
 └── package.json

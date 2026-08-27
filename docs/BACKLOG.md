@@ -22,7 +22,7 @@ Siete tickets, ordenados por severidad y dependencia, no por ganas. El criterio 
 | ~~`C1`~~ | ~~Transacciones por rango en vez de tope fijo~~ | **Cerrado 2026-08-26** | M |
 | ~~`C2`~~ | ~~Errores de producción visibles (Sentry)~~ | **Cerrado 2026-08-27** | S |
 | ~~`C3`~~ | ~~Lógica financiera en un solo lugar + primeros tests~~ | **Cerrado 2026-08-27** | M |
-| `C4` | Motor de avisos + vencimientos por mail | Es la infraestructura de todo aviso que mande Lumus, y arranca con el que más falta hace | M |
+| ~~`C4`~~ | ~~Motor de avisos + vencimientos por mail~~ | **Cerrado 2026-08-27** | M |
 | `C5` | Centro de notificaciones in-app + resto de los avisos | Depende del motor de `C4`. Sin él, cada aviso nuevo se implementa desde cero | M |
 | `C6` | PWA instalable + carga rápida de gasto | Impacto alto en uso real, nada depende de él. Se puede adelantar si hay poco tiempo | S |
 | `C7` | Importador de CSV con mapeo manual | El más grande. Va último de los de producto porque es el que más superficie nueva agrega | L |
@@ -235,7 +235,7 @@ Va antes que `C4`, `C5` y `C7` porque los tres van a necesitar estas mismas regl
 
 ## `C4` — Motor de avisos + vencimientos por mail
 
-Estado: **abierto**
+Estado: **cerrado (2026-08-27)**
 
 ### Por qué
 
@@ -277,6 +277,57 @@ Este ticket construye **la cañería que van a usar todos los avisos** (`C5` y `
 - Correr el cron dos veces seguidas **no manda el aviso dos veces**.
 - El endpoint devuelve 401 sin el secreto.
 - El link de baja del pie funciona sin estar logueado.
+
+### Resultado (2026-08-27)
+
+**Los dos límites que había que verificar antes de diseñar la cadencia** (y que salieron distintos de lo que uno supondría):
+
+- **Vercel Hobby: una corrida por día**, con la hora garantizada dentro de la franja, no el minuto. El límite de *cantidad* de crons se levantó a 100 en enero de 2026, pero la *frecuencia* sigue siendo diaria y una expresión que dispare más seguido **falla en el deploy**. El digest diario no fue una elección de diseño: es el único diseño posible en este plan.
+- **Resend free: 3.000 mails al mes pero 100 por día.** El diario es el que aprieta primero. Con dos usuarios sobra, pero fija el techo: un mail por usuario por día escala hasta 100 usuarios sin cambiar de plan; uno por evento no.
+
+**Lo que se hizo**:
+
+| Pieza | Qué |
+|---|---|
+| `00022_notifications.sql` | `notifications` + `notification_preferences`, RLS como `00018` (el usuario lee lo suyo, nadie inserta desde el cliente) |
+| `lib/notifications/notifications.ts` | El motor: crear con dedupe, resolver preferencias, sellar lo enviado |
+| `lib/notifications/due-recurring.ts` | Qué vencimientos ameritan aviso hoy — función pura, con tests |
+| `lib/notifications/due-notification.ts` | El texto que ve la persona, más `todayInArgentina()` |
+| `lib/notifications/digest-email.ts` | El mail, en claro; y el envío por Resend |
+| `lib/notifications/unsubscribe-token.ts` | HMAC-SHA256 para el link de baja |
+| `/api/cron/avisos` | El cron, con `CRON_SECRET` |
+| `/api/notifications/unsubscribe` + `/baja` | La baja, sin login |
+| `vercel.json` | `0 11 * * *` — 8 de la mañana en Argentina |
+
+**Verificación, toda contra producción**:
+
+| Qué | Resultado |
+|---|---|
+| Endpoint sin secreto y con secreto equivocado | `401` en los dos casos |
+| Corrida sin vencimientos próximos | `{"notices":0,"emailsSent":0}` — ningún mail |
+| Corrida con un vencimiento a 2 días | `{"notices":1,"emailsSent":1}` |
+| **Segunda corrida seguida, mismo vencimiento** | `{"notices":1,"emailsSent":0}` — la dedupe aguantó |
+| Aviso generado | `"Vence en 2 días · $ 45.000"`, con `dedupe_key = venc:<id>:2026-08-29:proximo` |
+| `/baja` sin sesión | Abre y muestra el botón; con token inválido dice que el link no sirve |
+| `GET` al endpoint de baja | `405` — un escáner de links de un cliente de correo no puede dar de baja a nadie |
+| `POST` con firma manipulada | Rechazado |
+| Trigger de `notifications`, como `authenticated` | Marcar `read_at` funciona; reescribir el `title` y borrarse el `emailed_at` fallan |
+| `npm test` / `tsc` / `lint` / `build` | 42 tests verdes, sin errores |
+
+El recurrente de prueba, su aviso y la preferencia quedaron borrados: la base volvió a 0 filas en las tres tablas.
+
+**Cuatro decisiones que valen la pena anotar**:
+
+1. **Un vencimiento se avisa dos veces, no una ni cuatro.** Una vez cuando entra en la ventana de 3 días y otra cuando ya venció. Avisar solo tres días antes hace que el aviso llegue cuando todavía no podés pagarlo y que no llegue el día que sí; avisar los cuatro días (3, 2, 1, 0) es la forma más rápida de que alguien apague los avisos. La fase va dentro del `dedupe_key`, así que la idempotencia sigue valiendo por fase.
+2. **El digest se arma sobre `emailed_at is null`, no sobre lo recién creado.** Un aviso cuyo mail falló ayer entra en el de hoy en vez de perderse. Y `emailed_at` se sella **después** de que Resend confirma: al revés, un fallo del mail dejaría el aviso marcado y la persona no se enteraría nunca.
+3. **La baja es `POST`, no `GET`.** Los escáneres de links de los clientes de correo siguen los `GET`, y una baja disparada por un antivirus es una baja que el usuario nunca pidió. El link del mail lleva a una página con un botón.
+4. **`/baja` es una ruta abierta, no una ruta pública.** Las públicas (`/login`, `/register`) rebotan al dashboard si ya tenés sesión — y con esa regla, un usuario logueado que hace clic en el link del pie terminaba en el dashboard sin poder darse de baja.
+
+**Efecto colateral buscado**: el cron diario consulta la base todos los días, así que el proyecto free de Supabase deja de estar a tiro de pausarse por 7 días de inactividad.
+
+**Un texto que mentía, corregido antes de cerrar**: la pantalla de baja decía "podés volver a activarlos desde tu perfil" y esa pantalla no existe. En vez de prometerla, el mismo link del mail ahora sirve para las dos cosas — el token firmado vale igual para prender que para apagar, y quien ya no entra a la app no tiene otra cosa que ese link.
+
+**Lo que no se hizo**: no hay UI de preferencias dentro de la app. Va en `C5`, junto con el centro de notificaciones.
 
 ---
 

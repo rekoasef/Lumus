@@ -18,6 +18,9 @@ import { setEmailPreference } from '@/lib/notifications/notifications'
 
 const unsubscribeSchema = z.object({
   token: z.string().min(1),
+  // Volver a activarlos usa el mismo token: el link del mail es lo único que
+  // tiene quien ya no entra a la app, así que también es su forma de volver.
+  enabled: z.boolean().default(false),
 })
 
 export async function POST(req: NextRequest) {
@@ -33,11 +36,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await setEmailPreference(createServiceClient(), userId, 'vencimiento', false)
+    await setEmailPreference(createServiceClient(), userId, 'vencimiento', parsed.data.enabled)
   } catch (error) {
-    console.error('[avisos] no se pudo dar de baja', error)
-    return NextResponse.json({ error: 'No se pudo guardar la baja' }, { status: 500 })
+    console.error('[avisos] no se pudo guardar la preferencia', error)
+    return NextResponse.json({ error: 'No se pudo guardar el cambio' }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, enabled: parsed.data.enabled })
 }

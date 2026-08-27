@@ -137,6 +137,7 @@ src/components/lumus/    → solo el orbe decorativo (lumus-orb.tsx) — ya no h
 src/lib/supabase/        → clientes de Supabase (client/server/service) + helper del proxy de auth
 src/lib/billing/         → constantes del plan de Mercado Pago
 src/lib/finance/         → reglas de negocio (rules.ts), cotizaciones, agregados, parseo/PDF de reportes
+src/lib/notifications/   → motor de avisos (dedupe, preferencias, digest por mail, token de baja)
 src/lib/utils/           → funciones utilitarias puras
 src/hooks/               → custom hooks (todos de finanzas, más use-user)
 src/stores/              → Zustand — solo ui-store.ts (sidebar, tema)
@@ -199,6 +200,8 @@ Los cuatro chequeos antes de dar algo por terminado: `npm test`, `npx tsc --noEm
 - ❌ No poner lógica de negocio en los componentes — va en hooks o lib
 - ❌ No calcular a mano el progreso de una meta, el uso de un presupuesto ni el equivalente mensual de un recurrente — están en `src/lib/finance/rules.ts` (por eso existe ese archivo: la misma meta llegó a mostrar 62% en una pantalla y 0% en otra)
 - ❌ No crear un `Intl.NumberFormat` suelto — usar `formatCurrency` de `src/lib/utils/format-currency.ts`
+- ❌ No mandar un aviso sin `dedupe_key` — el `unique (user_id, dedupe_key)` de `notifications` es lo único que evita que un cron reintentado mande el mismo mail dos veces
+- ❌ No mandar un mail por evento — todo aviso sale por el digest diario (`/api/cron/avisos`), un mail por usuario por día
 - ❌ No borrar registros físicamente en tablas con soft delete (`transactions`, `wallets`, `finance_categories`)
 - ❌ No usar `service_role` en código del cliente
 - ❌ No agregar `'use client'` si el componente no lo necesita

@@ -38,11 +38,15 @@ Después del backlog se sumaron dos cosas más: el **aviso por mail** de cada fe
 
 **Usuarios reales: 2.** El dueño (`renzoasef02@gmail.com`, 2.306 transacciones) y un beta tester (`tiagotossi10@gmail.com`), ambos con acceso de cortesía. `billing_subscriptions` quedó en **0 filas**: ya no hay datos falsos de facturación en la base. Las dos cuentas de prueba que quedaban se borraron tras verificar que no tenían ningún dato.
 
-### Sesión del 2026-08-27 — `C2` y `C3` cerrados
+### Sesión del 2026-08-27 — `C2`, `C3` y `C4` cerrados
 
 **`C3` cerrado y verificado**: las reglas financieras que estaban escritas dos veces (progreso de una meta, uso de un presupuesto, equivalente mensual de un recurrente) viven ahora en `src/lib/finance/rules.ts`, los nueve `Intl.NumberFormat` sueltos se unificaron en `format-currency.ts`, y el proyecto tiene **Vitest** con 21 tests sobre esas funciones puras. Es la deuda que dejó el bug de las metas del 2026-08-26 (62% en una pantalla, 0% en otra).
 
 **`C2` cerrado y deployado**: hay **Sentry** en los tres runtimes. Un error de servidor deja de morirse en silencio — antes, el único canal de detección era que a alguien se le ocurriera apretar el botón de feedback. El grueso del ticket fue el scrubbing: los defaults del SDK mandan bodies, cookies, headers, query strings y las variables locales del stack, que en un handler de transacciones son el monto y la descripción. Verificado dos veces, en local contra un sink falso y desde producción con una ruta temporal ya borrada.
+
+**`C4` cerrado y deployado**: **Lumus ahora avisa.** Hasta hoy no le avisaba nada a nadie, nunca: `recurring_transactions` guardaba `next_date` y ahí moría. Ahora hay un cron diario (8 AM hora argentina) que busca vencimientos a ≤3 días o ya vencidos y manda **un** mail por usuario por día con todo junto.
+
+Lo que se construyó es la cañería, no un aviso suelto: `C5` y `C8` mandan por acá. La pieza que sostiene todo es `unique (user_id, dedupe_key)` — un cron se reintenta, y dos mails iguales es todo lo que hace falta para que alguien apague los avisos para siempre.
 
 **Pendiente chico de `C2`**: los stack traces de producción apuntan al chunk compilado. Para verlos contra el código fuente falta cargar un `SENTRY_AUTH_TOKEN` (permiso `project:releases`) en Vercel — `next.config.ts` ya lo lee si está. Y la alerta por mail se configura en el dashboard de Sentry: conviene dejarla en **errores nuevos**, no en cada ocurrencia repetida.
 
@@ -66,7 +70,7 @@ Después del backlog se sumaron dos cosas más: el **aviso por mail** de cada fe
 | Mercado Pago | sin SDK — llamadas directas a la API REST de `/preapproval` desde `src/lib/billing/` |
 | Resend | SMTP de Supabase Auth para los mails de verificación/recuperación (`supabase/templates/`) |
 | shadcn/ui | base instalada — `components/ui/` |
-| Vitest | desde el 2026-08-27 (`C3`) — 21 tests sobre funciones puras, `npm test` |
+| Vitest | desde el 2026-08-27 (`C3`) — 42 tests sobre funciones puras, `npm test` |
 
 > El SDK de OpenAI (`gpt-4o-mini`, usado antes para clasificación y TTS) se desinstaló al borrar el módulo de chat/voz. Ya no hay clasificación automática de gastos por IA — consistente con la preferencia del usuario de cargar todo manualmente.
 
@@ -224,6 +228,8 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 | `00018_free_access_grants.sql` | Tabla `free_access_grants` — accesos de cortesía al paywall (beta testers), solo escribible por `service_role`. Ver `docs/ADMIN.md` |
 | `00019_feedback.sql` | Tabla `feedback` — reportes de bugs y mejoras desde la app. `user_id` nullable con `on delete set null` para que los reportes sobrevivan al borrado de una cuenta |
 | `00020_merge_finance_categories.sql` | Función `merge_finance_categories` — unifica una categoría dentro de otra de forma atómica: reasigna transacciones (incluidas las borradas), vencimientos y presupuestos (sumando los que chocan) y oculta el origen |
+| `00021_finance_summary.sql` | Función `get_finance_summary(p_from, p_to)` — totales por tipo, categoría y moneda agregados en SQL, para que los totales dejen de depender de un tope de filas. `SECURITY INVOKER`, `EXECUTE` revocado a `public`/`anon`. Ver `C1` |
+| `00022_notifications.sql` | Motor de avisos: tablas `notifications` y `notification_preferences`. El `unique (user_id, dedupe_key)` es lo que hace idempotente al cron. Dropea de paso la `notifications` de `00001` (era de la era "Sistema Operativo Personal": vacía, sin referencias y sin uso en el código), con un guard que aborta si tuviera filas. Ver `C4` |
 
 ---
 
@@ -231,7 +237,7 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 
 | Comando | Resultado |
 |---|---|
-| `npm test` | 21 tests en 2 archivos, verde |
+| `npm test` | 42 tests en 5 archivos, verde |
 | `npx tsc --noEmit` | Sin errores |
 | `npm run lint` | 0 errores, **12 warnings** (bajaron de 14) |
 | `npm run build` | Compila |
@@ -310,8 +316,9 @@ No son código, pero sin ellas parte del trabajo no sirve:
 - `C1` cerrado: los totales se agregan en SQL (`get_finance_summary`, `00021`) y dejaron de depender de un tope fijo de filas — filtrar por 2025 mostraba 53 gastos de menos.
 - `C3` cerrado (2026-08-27): las reglas financieras viven en `src/lib/finance/rules.ts`, los nueve formateadores sueltos se unificaron en `format-currency.ts`, y el proyecto tiene Vitest.
 - `C2` cerrado (2026-08-27): Sentry en los tres runtimes, con scrubbing de montos, descripciones y mails. Verificado desde producción.
+- `C4` cerrado (2026-08-27): motor de avisos + vencimientos por mail, con cron diario, digest, dedupe y baja sin login.
 
-Sigue **`C4`** (motor de avisos + vencimientos por mail).
+Sigue **`C5`** (centro de notificaciones in-app + resto de los avisos), que ya tiene el motor puesto.
 
 Dicho eso, el orden de esa lista cede ante lo de abajo:
 
