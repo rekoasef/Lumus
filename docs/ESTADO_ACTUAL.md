@@ -327,7 +327,9 @@ No son código, pero sin ellas parte del trabajo no sirve:
 - `C5` cerrado (2026-08-27): centro de notificaciones in-app, seis tipos de aviso y preferencias por canal.
 - `C6` cerrado (2026-08-27): PWA instalable, íconos, atajo "Cargar gasto" y formulario precargado. **Falta probarlo en un teléfono.**
 
-Quedan **`C7`** (importador de CSV, el más grande) y **`C8`** (cerrar el paywall). `C8` no depende de ningún otro: depende de que definas el precio.
+- `C7` **postergado** (2026-08-27), por decisión del usuario: poca gente sube el resumen del banco, el uso real es una línea por gasto. La fricción que importaba era la de `C6`, que ya está cerrada. Sigue siendo válido para el día que haya que migrar usuarios desde otra app.
+
+Queda **`C8`** (cerrar el paywall), que no depende de ningún otro ticket: depende de que definas el precio.
 
 Dicho eso, el orden de esa lista cede ante lo de abajo:
 

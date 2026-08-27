@@ -25,7 +25,7 @@ Siete tickets, ordenados por severidad y dependencia, no por ganas. El criterio 
 | ~~`C4`~~ | ~~Motor de avisos + vencimientos por mail~~ | **Cerrado 2026-08-27** | M |
 | ~~`C5`~~ | ~~Centro de notificaciones in-app + resto de los avisos~~ | **Cerrado 2026-08-27** | M |
 | ~~`C6`~~ | ~~PWA instalable + carga rápida de gasto~~ | **Cerrado 2026-08-27** | S |
-| `C7` | Importador de CSV con mapeo manual | El más grande. Va último de los de producto porque es el que más superficie nueva agrega | L |
+| `C7` | ~~Importador de CSV con mapeo manual~~ | **Postergado 2026-08-27** — poca gente sube el resumen del banco; el uso real es una línea por gasto | L |
 | `C8` | Cerrar el paywall | **No depende de ningún otro ticket, depende de una decisión tuya** (el precio). Se puede adelantar en cualquier momento | M |
 
 Tamaños: `S` ≈ media jornada · `M` ≈ una jornada · `L` ≈ dos o más.
@@ -498,7 +498,21 @@ No hay `manifest.json` ni service worker: Lumus hoy es una pestaña del navegado
 
 ## `C7` — Importador de CSV con mapeo manual
 
-Estado: **abierto**
+Estado: **postergado (2026-08-27)** — sin fecha, no cancelado
+
+### Por qué se postergó
+
+Decisión del usuario, con un argumento que vale más que el que tenía escrito el ticket:
+
+> "Poca gente sube el resumen del banco. La gente pone 'pagué 100.000 pesos de tarjeta' y listo."
+
+El ticket estaba escrito desde el caso del dueño, que ya hizo un import de MyFinance y tiene 2.306 movimientos cargados. Pero eso es el comportamiento de alguien que **ya migró de otra app**, no el de alguien que usa Lumus todos los días. El uso real es una línea por gasto, en el momento, y para eso la fricción que importaba era la de `C6` — que ya está cerrada.
+
+Sigue siendo un ticket válido: el día que haya que migrar usuarios desde otra app, o que alguien pida conciliar contra el resumen, esto es lo que hace falta. Todo lo escrito abajo sigue en pie, incluido lo que hay que pedirle al usuario antes de escribir código.
+
+### Lo primero al retomarlo
+
+**Un CSV real del banco.** Sin un archivo de verdad, el mapeo de columnas y los formatos (`1.234,56`, `dd/mm/aaaa`, Latin-1) son adivinanza — y este es el ticket donde adivinar sale caro, porque un import mal mapeado mete cientos de filas basura en un historial real.
 
 ### Por qué
 
