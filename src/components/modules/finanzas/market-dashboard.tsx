@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { TrendingUp, TrendingDown, Minus, AlertTriangle } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, AlertTriangle, Loader2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import { timeAgo } from '@/lib/utils/format-date'
 import type { MarketQuote, ChartPoint } from '@/lib/finance/market'
@@ -73,6 +73,28 @@ export function MarketDashboard({
 }: MarketDashboardProps) {
   const [days, setDays] = useState<number>(90)
 
+  // El gráfico arranca con la que vino del server y cambia al tocar otra. La
+  // serie se pide a una ruta propia, no a CoinGecko: así el caché del server
+  // sigue sirviendo para todos.
+  const [selectedId, setSelectedId] = useState(cryptoChartId)
+  const [chart, setChart] = useState<ChartPoint[] | null>(cryptoChart)
+  const [chartLoading, setChartLoading] = useState(false)
+
+  const selectCoin = useCallback(async (id: string) => {
+    if (id === selectedId) return
+
+    setSelectedId(id)
+    setChartLoading(true)
+
+    const res = await fetch(`/api/finance/market/chart?id=${encodeURIComponent(id)}`).catch(() => null)
+    const data = await res?.json().catch(() => null)
+
+    // Si falla, se muestra el bloque vacío en vez del gráfico de la moneda
+    // anterior con el nombre de la nueva.
+    setChart(res?.ok ? (data.points as ChartPoint[]) : null)
+    setChartLoading(false)
+  }, [selectedId])
+
   const dollarSeries = useMemo(() => {
     const from = new Date()
     from.setDate(from.getDate() - days)
@@ -87,7 +109,7 @@ export function MarketDashboard({
     return first > 0 ? ((last - first) / first) * 100 : null
   }, [dollarSeries])
 
-  const selectedCrypto = crypto.find(c => c.id === cryptoChartId) ?? crypto[0] ?? null
+  const selectedCrypto = crypto.find(c => c.id === selectedId) ?? crypto[0] ?? null
 
   return (
     <div className="space-y-6">
@@ -186,13 +208,17 @@ export function MarketDashboard({
           <div className="mt-4"><EmptyBlock /></div>
         ) : (
           <>
-            {selectedCrypto && cryptoChart && cryptoChart.length > 1 && (
+            {selectedCrypto && (
               <div className="mt-5 -ml-2">
-                <p className="ml-2 text-xs font-medium text-[var(--text-secondary)]">
+                <p className="ml-2 flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)]">
                   {selectedCrypto.label} · últimos 30 días
+                  {chartLoading && <Loader2 size={11} className="animate-spin text-[var(--text-muted)]" />}
                 </p>
+                {!chart || chart.length < 2 ? (
+                  <div className="ml-2 mt-2"><EmptyBlock /></div>
+                ) : (
                 <ResponsiveContainer width="100%" height={160}>
-                  <AreaChart data={cryptoChart}>
+                  <AreaChart data={chart}>
                     <defs>
                       <linearGradient id="cryptoFill" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#ffb86e" stopOpacity={0.3} />
@@ -210,12 +236,20 @@ export function MarketDashboard({
                     <Area type="monotone" dataKey="value" stroke="#ffb86e" strokeWidth={2} fill="url(#cryptoFill)" />
                   </AreaChart>
                 </ResponsiveContainer>
+                )}
               </div>
             )}
 
-            <div className="mt-4 divide-y divide-white/[0.05]">
+            <div className="mt-4 -mx-2 divide-y divide-white/[0.05]">
               {crypto.map(coin => (
-                <div key={coin.id} className="flex items-center justify-between gap-3 py-2.5">
+                <button
+                  key={coin.id}
+                  onClick={() => selectCoin(coin.id)}
+                  aria-pressed={coin.id === selectedId}
+                  className={`flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2.5 text-left transition-colors ${
+                    coin.id === selectedId ? 'bg-white/[0.05]' : 'hover:bg-white/[0.03]'
+                  }`}
+                >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-[var(--text-primary)]">{coin.label}</p>
                     <p className="text-[0.65rem] text-[var(--text-muted)]">{coin.symbol}</p>
@@ -228,7 +262,7 @@ export function MarketDashboard({
                       <Change percent={coin.changePercent} />
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </>
