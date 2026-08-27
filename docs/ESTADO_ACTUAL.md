@@ -38,7 +38,7 @@ Después del backlog se sumaron dos cosas más: el **aviso por mail** de cada fe
 
 **Usuarios reales: 2.** El dueño (`renzoasef02@gmail.com`, 2.306 transacciones) y un beta tester (`tiagotossi10@gmail.com`), ambos con acceso de cortesía. `billing_subscriptions` quedó en **0 filas**: ya no hay datos falsos de facturación en la base. Las dos cuentas de prueba que quedaban se borraron tras verificar que no tenían ningún dato.
 
-### Sesión del 2026-08-27 — `C2` a `C6` cerrados
+### Sesión del 2026-08-27 — rondas 2 y 3 cerradas
 
 **`C3` cerrado y verificado**: las reglas financieras que estaban escritas dos veces (progreso de una meta, uso de un presupuesto, equivalente mensual de un recurrente) viven ahora en `src/lib/finance/rules.ts`, los nueve `Intl.NumberFormat` sueltos se unificaron en `format-currency.ts`, y el proyecto tiene **Vitest** con 21 tests sobre esas funciones puras. Es la deuda que dejó el bug de las metas del 2026-08-26 (62% en una pantalla, 0% en otra).
 
@@ -51,6 +51,10 @@ Lo que se construyó es la cañería, no un aviso suelto: `C5` y `C8` mandan por
 **`C5` cerrado y deployado**: el motor de `C4` ahora tiene **seis tipos de aviso** (vencimientos, presupuesto al 80%, presupuesto excedido, meta alcanzada, reporte mensual y resumen semanal) y un lugar donde verlos: campanita con badge en el nav, panel con marcar leído, y preferencias por tipo y por canal en `/perfil` (sección `04 Avisos`). Los avisos de más de 90 días se borran solos en la corrida del cron.
 
 Ningún aviso nuevo recalcula una regla: el uso de un presupuesto y el progreso de una meta salen de `lib/finance/rules.ts` (`C3`). Era exactamente el bug de las metas esperando repetirse, ahora con un mail de por medio.
+
+**Fue la sesión más larga del proyecto: 31 commits.** Lumus pasó de no avisar nada a avisar seis cosas, de no ver errores a tener Sentry, de ser una pestaña del navegador a ser instalable, y de ser una app de gastos a saber qué le pasó al patrimonio. El detalle de cada ticket está en `docs/BACKLOG.md`, con su sección "Resultado".
+
+**Tres bugs los encontró el dueño usando la app, no la verificación desde la terminal**: el gráfico del dólar vacío (que destapó el truncado de PostgREST en 1000 filas, silencioso y mucho peor que el síntoma), el gráfico de cripto que no cambiaba de moneda, y una meta de ahorro informada en $0 cuando tenía $4 millones en billeteras vinculadas. Esa última fue una **reintroducción del bug de `C3`** — leer `current_amount` crudo en vez de usar `savingGoalProgress`. Vale como recordatorio: `curl` y SQL pueden estar verdes mientras la pantalla miente.
 
 **`C6` cerrado y deployado**: Lumus es **instalable**. Manifest, íconos, meta tags de iOS y un atajo "Cargar gasto" que abre el formulario ya precargado con la categoría y la billetera que más usás (calculadas sobre los últimos 60 días). Apareció un bug de camino: el gate de auth contestaba `307` a `/manifest.webmanifest`, así que el manifest existía y el navegador no lo podía leer — la app no era instalable. Falta lo que solo se puede hacer con un teléfono en la mano: instalarla en Android y iOS y cronometrar la carga de un gasto.
 

@@ -5,6 +5,8 @@
 Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es un conjunto acotado de tickets que se toman **de a uno**, se cierran, se verifican y recién ahí se pasa al siguiente. Las rondas cerradas quedan abajo como historial, no se borran.
 
 - **Ronda 3 (`D1`–`D4`)** — **cerrada el 2026-08-27**. Queda solo `C8` de la ronda 2, movido al final a propósito.
+
+> **Lo único abierto es `C8`**, y ya no depende de una decisión: el precio está tomado y escrito en el ticket, junto con el tope de usuarios y la lista de espera. Lo que sigue después no es código — es conseguir los ~10 testers.
 - **Ronda 2 (`C1`–`C8`)** — cerrada salvo `C8`, que **se movió al final de todo** por decisión del usuario (2026-08-27): el precio ya está decidido y el ticket es solo trabajo, así que puede esperar. `D1` se adelantó porque **la historia de cotizaciones no se puede sembrar hacia atrás** — arranca el día que se implemente.
 - **Ronda 1 (`B1`–`B7`)** — cerrada y deployada el 2026-08-20. Más abajo.
 
