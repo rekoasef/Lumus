@@ -76,7 +76,7 @@ Ningún aviso nuevo recalcula una regla: el uso de un presupuesto y el progreso 
 | Mercado Pago | sin SDK — llamadas directas a la API REST de `/preapproval` desde `src/lib/billing/` |
 | Resend | SMTP de Supabase Auth para los mails de verificación/recuperación (`supabase/templates/`) |
 | shadcn/ui | base instalada — `components/ui/` |
-| Vitest | desde el 2026-08-27 (`C3`) — 107 tests sobre funciones puras, `npm test` |
+| Vitest | desde el 2026-08-27 (`C3`) — 115 tests sobre funciones puras, `npm test` |
 
 > El SDK de OpenAI (`gpt-4o-mini`, usado antes para clasificación y TTS) se desinstaló al borrar el módulo de chat/voz. Ya no hay clasificación automática de gastos por IA — consistente con la preferencia del usuario de cargar todo manualmente.
 
@@ -241,6 +241,7 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 | `00024_report_regenerations.sql` | Agrega `finance_reports.regenerations` — el botón "Regenerar" del reporte no tenía tope y cada click era una llamada paga a la API. El límite (1) vive en `lib/finance/report-limits.ts` |
 | `00025_exchange_rate_history.sql` | Una fila por día con la cotización, sembrada con 4.622 días de blue desde 2011 (bluelytics). Sin `user_id`: es el primer dato compartido de la app. Ver `D1` |
 | `00026_holdings.sql` | Tabla `holdings` — inversiones cargadas a mano, valuadas con CoinGecko (cripto) o precio manual. El costo de una compra en pesos se lleva a dólares con la cotización del día de compra. Ver `D2` |
+| `00027_wealth_analyses.sql` | Tabla `wealth_analyses` — el análisis de patrimonio por IA, uno por usuario y por mes con tope de regeneraciones. Ver `D4` |
 
 ---
 
@@ -248,7 +249,7 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 
 | Comando | Resultado |
 |---|---|
-| `npm test` | 107 tests en 12 archivos, verde |
+| `npm test` | 115 tests en 13 archivos, verde |
 | `npx tsc --noEmit` | Sin errores |
 | `npm run lint` | 0 errores, **12 warnings** (bajaron de 14) |
 | `npm run build` | Compila |
@@ -335,7 +336,9 @@ No son código, pero sin ellas parte del trabajo no sirve:
 
 Queda **`C8`** (cerrar el paywall). **El precio ya está decidido** (30 fundadores a 9.500, público 15.000 — está en el ticket), así que `C8` dejó de depender de una decisión y es solo trabajo.
 
-La **ronda 3 está abierta** (`D1`–`D4`, 2026-08-27), salida de una charla de producto. **`D1` ya está cerrado**: Lumus guarda la cotización de cada día (con 15 años de historia del blue sembrados desde bluelytics) y el dashboard muestra qué le pasó a tus pesos por quedarse quietos. **`D2` y `D3` también están cerrados**: hay una pestaña de Inversiones (tenencias valuadas con CoinGecko o precio manual, ya dentro del patrimonio) y una pantalla de **Mercado** en `/finanzas/mercado` con el dólar —graficado desde la propia base, 15 años—, cripto y 96 acciones argentinas vía data912. Queda **`D4`** (análisis de patrimonio con IA), y `C8` al final de todo.
+La **ronda 3 está abierta** (`D1`–`D4`, 2026-08-27), salida de una charla de producto. **`D1` ya está cerrado**: Lumus guarda la cotización de cada día (con 15 años de historia del blue sembrados desde bluelytics) y el dashboard muestra qué le pasó a tus pesos por quedarse quietos. **`D2` y `D3` también están cerrados**: hay una pestaña de Inversiones (tenencias valuadas con CoinGecko o precio manual, ya dentro del patrimonio) y una pantalla de **Mercado** en `/finanzas/mercado` con el dólar —graficado desde la propia base, 15 años—, cripto y 96 acciones argentinas vía data912. **La ronda 3 está cerrada entera.** `D4` sumó el análisis de patrimonio por IA en `/finanzas/reportes`: usa datos reales (composición, reserva, pérdida del peso por ventana) y **tiene prohibido recomendar inversiones** — prohibición verificada contra siete intentos de sacarle una recomendación.
+
+**Queda solo `C8`** (cerrar el paywall), movido al final a propósito. El precio ya está decidido.
 
 Dicho eso, el orden de esa lista cede ante lo de abajo:
 

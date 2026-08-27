@@ -99,13 +99,15 @@ if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
 ## Reglas de IA
 
-El único uso de IA en la app hoy es el reporte financiero mensual (`/api/finance/ai-report`, `claude-sonnet-5`). No hay chat, no hay clasificación automática de gastos (el usuario prefiere cargar todo a mano — no proponerla salvo que la pida explícitamente), no hay `ai_cache`/`ai_conversations`/context builder — todo eso se borró el 2026-08-18.
+Hay dos usos de IA, los dos con `claude-sonnet-5`: el reporte financiero mensual (`/api/finance/ai-report`) y el análisis de patrimonio (`/api/finance/wealth-analysis`). No hay chat, no hay clasificación automática de gastos (el usuario prefiere cargar todo a mano — no proponerla salvo que la pida explícitamente), no hay `ai_cache`/`ai_conversations`/context builder — todo eso se borró el 2026-08-18.
 
 Si se agrega una nueva feature de IA:
 - Nunca llamar al proveedor sin chequear antes si ya existe un resultado guardado para ese pedido — `ai-report` lo hace consultando `finance_reports` por mes antes de generar de nuevo (patrón a repetir, no una tabla de caché genérica).
 - Envolver la llamada en `try/catch` y devolver un error claro a la UI si falla (ver `ai-report` como referencia — valida la env var, atrapa errores del SDK, y rechaza respuestas sin contenido de texto en vez de guardarlas vacías).
 - Validar la env var de la API key antes de llamar.
 - **Ponerle tope a lo que el usuario puede disparar a mano.** El reporte se puede rehacer una sola vez por mes (`MAX_REPORT_REGENERATIONS` en `lib/finance/report-limits.ts`): sin eso, un botón de "regenerar" es un botón de gastar plata, y el techo lo pone las ganas que tenga alguien de apretarlo.
+- **La IA no calcula: explica.** El análisis de patrimonio recibe cifras ya resueltas por funciones puras testeadas. Un modelo haciendo cuentas sobre la plata de alguien es la peor versión posible de la feature.
+- **Nunca recomendar inversiones.** La prohibición vive en `lib/finance/wealth-prompt.ts` y está verificada contra siete intentos de sacarle una recomendación (ver `D4` en `docs/BACKLOG.md`). Es actividad regulada por la CNV, los modelos son malos prediciendo mercados de una forma que suena segura, y rompe la neutralidad que hace valioso a un consejo financiero. Si se toca ese prompt, **volver a probarlo**.
 - **Ojo con el thinking**: en Sonnet 5 y Opus 5, omitir el parámetro `thinking` lo deja **prendido**, y los tokens de razonamiento salen del mismo `max_tokens` — un informe con `max_tokens: 1500` llegaría cortado. Para resumir datos ya calculados va `thinking: { type: 'disabled' }`.
 
 ---
