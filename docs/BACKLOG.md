@@ -23,7 +23,7 @@ Siete tickets, ordenados por severidad y dependencia, no por ganas. El criterio 
 | ~~`C2`~~ | ~~Errores de producción visibles (Sentry)~~ | **Cerrado 2026-08-27** | S |
 | ~~`C3`~~ | ~~Lógica financiera en un solo lugar + primeros tests~~ | **Cerrado 2026-08-27** | M |
 | ~~`C4`~~ | ~~Motor de avisos + vencimientos por mail~~ | **Cerrado 2026-08-27** | M |
-| `C5` | Centro de notificaciones in-app + resto de los avisos | Depende del motor de `C4`. Sin él, cada aviso nuevo se implementa desde cero | M |
+| ~~`C5`~~ | ~~Centro de notificaciones in-app + resto de los avisos~~ | **Cerrado 2026-08-27** | M |
 | `C6` | PWA instalable + carga rápida de gasto | Impacto alto en uso real, nada depende de él. Se puede adelantar si hay poco tiempo | S |
 | `C7` | Importador de CSV con mapeo manual | El más grande. Va último de los de producto porque es el que más superficie nueva agrega | L |
 | `C8` | Cerrar el paywall | **No depende de ningún otro ticket, depende de una decisión tuya** (el precio). Se puede adelantar en cualquier momento | M |
@@ -340,7 +340,7 @@ Lo que **no** se puede arreglar desde el código: el dominio casi no tiene histo
 
 ## `C5` — Centro de notificaciones in-app + resto de los avisos
 
-Estado: **abierto**
+Estado: **cerrado (2026-08-27)**
 
 ### Por qué
 
@@ -386,6 +386,47 @@ El mail es para lo que necesita sacarte de la app (algo vence, algo se rompió).
 - Apagar un tipo de aviso en `/perfil` lo apaga de verdad, in-app y por mail.
 - El badge muestra el número correcto y se limpia al leer.
 - Un mes de uso normal no genera más de un mail por día.
+
+### Resultado (2026-08-27)
+
+**Lo que se hizo**:
+
+| Pieza | Qué |
+|---|---|
+| `00023_notification_types.sql` | `in_app_enabled` y los seis tipos en los `check` de las dos tablas |
+| `types/notifications.types.ts` | El registro de tipos: label, descripción, default por canal y `canDisable` |
+| `lib/notifications/preferences.ts` | Resolución de preferencias, pura y testeada |
+| `lib/notifications/finance-notices.ts` | Los cinco avisos nuevos, puros y testeados |
+| `lib/notifications/collect.ts` | Las consultas que los alimentan, agrupadas por usuario |
+| `/api/notifications` · `/read` · `/preferences` | El feed, marcar leído y las preferencias |
+| `notification-bell.tsx` | Campanita con badge y panel |
+| `notification-preferences.tsx` | Sección `04 Avisos` en `/perfil` |
+
+**Verificación, contra producción**:
+
+| Qué | Resultado |
+|---|---|
+| Presupuesto real al 70% | `{"collected":0,"created":0}` — ningún aviso |
+| Bajado a `$250.000` (84%) | `{"collected":1,"created":1,"emailsSent":1}` |
+| Segunda corrida, mismo estado | `{"collected":1,"created":0}` |
+| **Bajado a `$220.000` (95%)** | `{"collected":1,"created":0}` — subir el gasto **no** genera otro aviso |
+| Tipo apagado en los dos canales | `{"collected":1,"created":0,"emailsSent":0}` — ni se guarda |
+| Tipo con in-app sí y mail no | `{"created":1,"emailsSent":0}` — se guarda, no se manda |
+| `/api/notifications`, `/read`, `/preferences` sin sesión | `401` en las tres |
+| `npm test` / `tsc` / `lint` / `build` | 75 tests verdes, sin errores |
+
+El presupuesto quedó restaurado en `$300.000` y las preferencias volvieron a no tener fila (o sea, a sus defaults).
+
+**Cuatro decisiones que valen la pena anotar**:
+
+1. **El canal se resuelve al leer, no se guarda en la fila.** Un aviso es una fila y los dos canales la miran: el feed filtra por las preferencias in-app del momento y el digest por las de mail. Efecto: apagar un tipo esconde también lo que ya se había generado, y volver a prenderlo lo recupera. Guardar el canal en la fila habría dejado avisos huérfanos con la preferencia vieja adentro.
+2. **Los defaults por tipo viven en el código, no como default de columna.** El resumen semanal arranca apagado y el resto prendido; eso cambia más seguido que un schema, y un tipo nuevo entra sin migrar los datos de nadie. La ausencia de fila sigue significando "lo que diga el default de ese tipo".
+3. **Apagar los dos canales no crea la fila.** Guardar un aviso para no mostrarlo en ningún lado es basura que después hay que limpiar.
+4. **El resumen semanal se calla sin historial.** Sin cuatro semanas con gastos, o con una semana sin gastos, no manda nada: "un 300% más que tu promedio" cuando el promedio es casi cero es ruido, y un aviso que se equivoca seguido entrena a ignorar todos los demás.
+
+**Cada colector va en su propio `try`**: que falle el de metas no puede dejar sin aviso a un vencimiento, que es el único que tiene fecha. La respuesta del cron lista los que fallaron.
+
+**Lo que no se hizo**: los avisos se evalúan en la corrida diaria, no al momento de cargar el gasto. Cruzar el 80% un martes a la tarde se avisa el miércoles a la mañana. Hacerlo en el momento significaría meter la evaluación en tres rutas de escritura distintas y sumarle latencia a cada carga; con un digest diario de por medio, el aviso sale igual en el mismo mail. Si alguna vez molesta, el lugar para cambiarlo es `collect.ts`, que ya tiene las consultas armadas.
 
 ---
 

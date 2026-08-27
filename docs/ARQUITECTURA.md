@@ -91,6 +91,9 @@ lumus/
 │   │   │   ├── due-recurring.ts               → qué vencimientos ameritan aviso (puro, con tests)
 │   │   │   ├── due-notification.ts            → el texto del aviso + todayInArgentina()
 │   │   │   ├── digest-email.ts                → el mail diario (en claro) y el envío por Resend
+│   │   │   ├── finance-notices.ts             → presupuestos, metas, reporte y resumen (puros, con tests)
+│   │   │   ├── collect.ts                     → las consultas que alimentan al cron
+│   │   │   ├── preferences.ts                 → resolución de preferencias con defaults por tipo
 │   │   │   └── unsubscribe-token.ts           → HMAC del link de baja
 │   │   ├── finance/
 │   │   │   ├── rules.ts                       → reglas de negocio puras (metas, presupuestos, recurrentes)
