@@ -114,6 +114,7 @@ Al 2026-08-20:
 | `/dashboard` | Resumen de billeteras, presupuestos, vencimientos y metas de ahorro |
 | `/finanzas` | Dashboard financiero completo |
 | `/finanzas/reportes` | Reportes con gráficos y resumen IA |
+| `/finanzas/mercado` | Mercado: dólar (desde la propia base), cripto y acciones argentinas |
 | `/perfil` | Perfil editable, tarjeta de suscripción o acceso de cortesía, y cambio de contraseña colapsable |
 
 ### Ya no existen (removidas en el pivot a "Lumus Finanzas")
@@ -334,7 +335,7 @@ No son código, pero sin ellas parte del trabajo no sirve:
 
 Queda **`C8`** (cerrar el paywall). **El precio ya está decidido** (30 fundadores a 9.500, público 15.000 — está en el ticket), así que `C8` dejó de depender de una decisión y es solo trabajo.
 
-La **ronda 3 está abierta** (`D1`–`D4`, 2026-08-27), salida de una charla de producto. **`D1` ya está cerrado**: Lumus guarda la cotización de cada día (con 15 años de historia del blue sembrados desde bluelytics) y el dashboard muestra qué le pasó a tus pesos por quedarse quietos. **`D2` también está cerrado**: hay una pestaña de Inversiones, las tenencias se valúan con CoinGecko (cripto) o precio manual, y el patrimonio del dashboard ya las incluye. Quedan `D3` (mercado cripto/acciones) y `D4` (análisis de patrimonio con IA).
+La **ronda 3 está abierta** (`D1`–`D4`, 2026-08-27), salida de una charla de producto. **`D1` ya está cerrado**: Lumus guarda la cotización de cada día (con 15 años de historia del blue sembrados desde bluelytics) y el dashboard muestra qué le pasó a tus pesos por quedarse quietos. **`D2` y `D3` también están cerrados**: hay una pestaña de Inversiones (tenencias valuadas con CoinGecko o precio manual, ya dentro del patrimonio) y una pantalla de **Mercado** en `/finanzas/mercado` con el dólar —graficado desde la propia base, 15 años—, cripto y 96 acciones argentinas vía data912. Queda **`D4`** (análisis de patrimonio con IA), y `C8` al final de todo.
 
 Dicho eso, el orden de esa lista cede ante lo de abajo:
 

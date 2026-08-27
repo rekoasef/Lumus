@@ -28,7 +28,7 @@ Cuatro tickets que salieron de una conversación sobre **en qué se diferencia L
 |---|---|---|---|
 | ~~`D1`~~ | ~~Cotización histórica y el costo de estar en pesos~~ | **Cerrado 2026-08-27** | S |
 | ~~`D2`~~ | ~~Que las inversiones cuenten en el patrimonio~~ | **Cerrado 2026-08-27** | M |
-| `D3` | Mercado: cripto y acciones | Independiente. Aporta los precios que `D2` necesita para valuar | M |
+| ~~`D3`~~ | ~~Mercado: cripto y acciones~~ | **Cerrado 2026-08-27** | M |
 | `D4` | Análisis de patrimonio con IA | Va último: sin la historia de `D1` no tiene qué analizar | M |
 
 ---
@@ -167,7 +167,7 @@ Las billeteras *Ahorro en dólares* e *Inversiones MP* son plata real guardada c
 
 ## `D3` — Mercado: cripto y acciones
 
-Estado: **anotado, sin abrir**
+Estado: **cerrado (2026-08-27)**
 
 ### Por qué
 
@@ -191,6 +191,30 @@ Y tiene un uso interno: es la fuente de precios con la que `D2` valúa las tenen
 
 - Los precios se ven, se actualizan y **envejecen visiblemente**: la pantalla dice de cuándo es el dato.
 - Con la API caída, la pantalla lo dice y no muestra un precio viejo como si fuera de ahora.
+
+### Resultado (2026-08-27)
+
+**Las fuentes se verificaron antes de elegir, como pedía el ticket** — y una apareció donde en `D2` no había nada:
+
+| Fuente | Qué da | Veredicto |
+|---|---|---|
+| **CoinGecko** (free, sin API key) | Precios, variación 24 h y **series diarias** | Se usa |
+| **data912** (`/live/arg_stocks`) | **96 acciones argentinas** en vivo, con cierre y variación. También CEDEARs y bonos | Se usa |
+| argentinadatos | Índices e inflación desde 1943 | No hacía falta acá |
+
+**El gráfico del dólar sale de la propia base**, no de una API: es el único bloque de la pantalla que no se puede romper por un servicio ajeno, y es justo el que más importa acá. Son los 15 años de blue que sembró `D1`, con selector de 1M / 3M / 1A / 5A.
+
+**Lo que se hizo**: `/finanzas/mercado`, con `lib/finance/market.ts` (acciones y series, con caché de 5 minutos y `fetchedAt`), `getCryptoMarket` para precios y variación, `market-dashboard.tsx` con los tres bloques, y el link en el nav.
+
+**Un arreglo antes de cerrar**: el bloque de cripto decía "actualizado recién" siempre, aunque el dato viniera de un caché de 5 minutos. Rompía justo el criterio de que **el dato tiene que envejecer a la vista**, así que `getCryptoMarket` ahora devuelve su `fetchedAt` real.
+
+**Tres decisiones que valen la pena anotar**:
+
+1. **Nada se pide desde el navegador.** Las dos APIs limitan por rate y con unos pocos usuarios recargando se agotan los planes free en minutos.
+2. **Un dato viejo se muestra, pero siempre con su edad.** Si la fuente falla y hay algo cacheado, se dibuja con su "actualizado hace X" en vez de desaparecer. Lo que no se hace nunca es mostrarlo como si fuera de recién.
+3. **Hay un descargo al pie**: los precios son informativos y pueden estar demorados, y Lumus no recomienda inversiones. Es la misma línea de `D4`, dicha en la pantalla donde alguien podría confundirse.
+
+**Lo que no se hizo**: las acciones no tienen gráfico — data912 da precio en vivo, no historia. Y no se sumaron CEDEARs ni bonos aunque la fuente los tiene: son dos listas más y ninguna las pidió.
 
 ---
 

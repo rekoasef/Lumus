@@ -97,6 +97,12 @@ lumus/
 │   │   │   └── unsubscribe-token.ts           → HMAC del link de baja
 │   │   ├── finance/
 │   │   │   ├── rules.ts                       → reglas de negocio puras (metas, presupuestos, recurrentes)
+│   │   │   ├── purchasing-power.ts            → qué le pasó a los pesos quietos (puro, con tests)
+│   │   │   ├── holdings.ts                    → valuación y rendimiento de inversiones (puro, con tests)
+│   │   │   ├── crypto-prices.ts               → precios de cripto (CoinGecko), server-only
+│   │   │   ├── market.ts                      → acciones argentinas y series, server-only
+│   │   │   ├── frequent-defaults.ts           → categoría/billetera más usadas
+│   │   │   ├── report-limits.ts               → tope de regeneraciones del reporte
 │   │   │   ├── rules.test.ts
 │   │   │   ├── summary.ts                     → agregados del resumen financiero
 │   │   │   ├── exchange-rates.ts
