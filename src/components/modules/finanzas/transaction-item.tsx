@@ -3,6 +3,7 @@
 import { Pencil, Trash2, SlidersHorizontal } from 'lucide-react'
 import type { Transaction } from '@/types/finance.types'
 import { CategoryIcon } from '@/lib/utils/category-icons'
+import { formatCurrency } from '@/lib/utils/format-currency'
 
 interface TransactionItemProps {
   transaction: Transaction
@@ -19,11 +20,7 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
     ? 'text-[var(--accent-lumus)]'
     : isGasto ? 'text-[var(--danger)]' : 'text-[var(--success)]'
 
-  const formattedAmount = new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    minimumFractionDigits: 0,
-  }).format(Math.abs(transaction.amount))
+  const formattedAmount = formatCurrency(Math.abs(transaction.amount), 'ARS', 'auto')
 
   const formattedDate = new Date(transaction.date + 'T12:00:00').toLocaleDateString('es-AR', {
     day: '2-digit',

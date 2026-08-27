@@ -11,19 +11,15 @@ import type { Wallet as WalletFull } from '@/types/finance.types'
 import { CategoryIcon } from '@/lib/utils/category-icons'
 import { confirm } from '@/components/shared/confirm-dialog'
 import { toast } from 'sonner'
+import { formatCurrency } from '@/lib/utils/format-currency'
+import { monthlyRecurringAmount } from '@/lib/finance/rules'
 
 const REPEAT_LABELS: Record<string, string> = {
   daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual',
 }
 
-function monthlyEquivalent(r: RecurringTransaction) {
-  if (r.repeat_type === 'daily') return r.amount * 30
-  if (r.repeat_type === 'weekly') return r.amount * (52 / 12)
-  return r.amount
-}
-
 function fmt(n: number) {
-  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(n)
+  return formatCurrency(n, 'ARS', 'auto')
 }
 
 function getNextLabel(dateStr: string): { label: string; color: string } {
@@ -89,8 +85,8 @@ export function RecurringTransactionList({
   const inactive = recurring.filter(r => !r.active)
   const activeExpenses = active.filter(r => r.type === 'gasto')
   const activeIncome = active.filter(r => r.type === 'ingreso')
-  const monthlyExpenses = activeExpenses.reduce((sum, r) => sum + monthlyEquivalent(r), 0)
-  const monthlyIncome = activeIncome.reduce((sum, r) => sum + monthlyEquivalent(r), 0)
+  const monthlyExpenses = activeExpenses.reduce((sum, r) => sum + monthlyRecurringAmount(r.amount, r.repeat_type), 0)
+  const monthlyIncome = activeIncome.reduce((sum, r) => sum + monthlyRecurringAmount(r.amount, r.repeat_type), 0)
   const dueSoonCount = active.filter(r => {
     const next = new Date(r.next_date + 'T12:00:00')
     const today = new Date()

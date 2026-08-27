@@ -136,7 +136,7 @@ src/components/modules/  → componentes por módulo (finanzas/, billing/, dashb
 src/components/lumus/    → solo el orbe decorativo (lumus-orb.tsx) — ya no hay chat de IA
 src/lib/supabase/        → clientes de Supabase (client/server/service) + helper del proxy de auth
 src/lib/billing/         → constantes del plan de Mercado Pago
-src/lib/finance/         → cotizaciones, parseo/PDF de reportes
+src/lib/finance/         → reglas de negocio (rules.ts), cotizaciones, agregados, parseo/PDF de reportes
 src/lib/utils/           → funciones utilitarias puras
 src/hooks/               → custom hooks (todos de finanzas, más use-user)
 src/stores/              → Zustand — solo ui-store.ts (sidebar, tema)
@@ -144,7 +144,7 @@ src/types/               → tipos TypeScript globales
 src/proxy.ts             → el "middleware" de Next 16 (gate de auth/onboarding/billing)
 ```
 
-No hay `src/lib/ai/` ni `tests/` — se borraron junto con el chat de IA (nunca hubo test suite).
+No hay `src/lib/ai/` — se borró junto con el chat de IA. Tampoco hay carpeta `tests/`: los tests van al lado del archivo que prueban.
 
 ---
 
@@ -179,7 +179,13 @@ Referenciala explícitamente en el prompt: *"Usando la skill de frontend-design,
 
 ## Testing
 
-No hay test suite en este proyecto (no hay Vitest instalado ni carpeta `tests/`). Verificar cambios con `npx tsc --noEmit`, `npm run lint` y `npm run build` antes de darlos por terminados.
+Hay **Vitest**, y cubre solo funciones puras: las reglas financieras de `src/lib/finance/` y los formateadores de `src/lib/utils/`. No hay tests de componentes ni de API routes, y no es un olvido — la idea es red donde es barata, no cobertura.
+
+- Se corren con `npm test` (una pasada) o `npm run test:watch`.
+- Los tests viven al lado del archivo que prueban: `rules.ts` → `rules.test.ts`.
+- Si agregás una regla de negocio a `src/lib/finance/`, va con su test. Si tocás UI, no hace falta.
+
+Los cuatro chequeos antes de dar algo por terminado: `npm test`, `npx tsc --noEmit`, `npm run lint` y `npm run build`.
 
 ---
 
@@ -191,6 +197,8 @@ No hay test suite en este proyecto (no hay Vitest instalado ni carpeta `tests/`)
 - ❌ No proponer ni implementar clasificación automática de gastos por IA — el usuario prefiere carga manual
 - ❌ No hardcodear strings de texto de la UI — usar variables
 - ❌ No poner lógica de negocio en los componentes — va en hooks o lib
+- ❌ No calcular a mano el progreso de una meta, el uso de un presupuesto ni el equivalente mensual de un recurrente — están en `src/lib/finance/rules.ts` (por eso existe ese archivo: la misma meta llegó a mostrar 62% en una pantalla y 0% en otra)
+- ❌ No crear un `Intl.NumberFormat` suelto — usar `formatCurrency` de `src/lib/utils/format-currency.ts`
 - ❌ No borrar registros físicamente en tablas con soft delete (`transactions`, `wallets`, `finance_categories`)
 - ❌ No usar `service_role` en código del cliente
 - ❌ No agregar `'use client'` si el componente no lo necesita
@@ -207,5 +215,5 @@ No hay test suite en este proyecto (no hay Vitest instalado ni carpeta `tests/`)
 5. Crear el componente de UI
 6. Crear el hook o la API route
 7. Conectar con Supabase
-8. Verificar con `npx tsc --noEmit`, `npm run lint` y `npm run build`
+8. Verificar con `npm test`, `npx tsc --noEmit`, `npm run lint` y `npm run build`
 9. Verificar que se ve bien en mobile y desktop

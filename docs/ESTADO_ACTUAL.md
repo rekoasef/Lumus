@@ -1,6 +1,6 @@
 # Lumus — Estado actual del proyecto
 
-Última revisión: 2026-08-20
+Última revisión: 2026-08-27
 
 Este documento es el snapshot técnico y funcional del repo. No reemplaza los docs de producto; funciona como punto de entrada para retomar desarrollo, priorizar trabajo y tener una foto honesta de dónde estamos parados.
 
@@ -38,6 +38,14 @@ Después del backlog se sumaron dos cosas más: el **aviso por mail** de cada fe
 
 **Usuarios reales: 2.** El dueño (`renzoasef02@gmail.com`, 2.306 transacciones) y un beta tester (`tiagotossi10@gmail.com`), ambos con acceso de cortesía. `billing_subscriptions` quedó en **0 filas**: ya no hay datos falsos de facturación en la base. Las dos cuentas de prueba que quedaban se borraron tras verificar que no tenían ningún dato.
 
+### Sesión del 2026-08-27 — `C3` cerrado, `C2` a medias
+
+**`C3` cerrado y verificado**: las reglas financieras que estaban escritas dos veces (progreso de una meta, uso de un presupuesto, equivalente mensual de un recurrente) viven ahora en `src/lib/finance/rules.ts`, los nueve `Intl.NumberFormat` sueltos se unificaron en `format-currency.ts`, y el proyecto tiene **Vitest** con 21 tests sobre esas funciones puras. Es la deuda que dejó el bug de las metas del 2026-08-26 (62% en una pantalla, 0% en otra).
+
+**`C2` quedó a mitad de camino**: todo el código de Sentry está escrito y probado en local — con un sink falso se confirmó que el evento sale sin cookies, headers, body, query string ni variables locales del stack. Falta lo que depende de una cuenta: crear el proyecto en Sentry, cargar `NEXT_PUBLIC_SENTRY_DSN` en Vercel **antes** de buildear (se inlinea en build time), deployar, y confirmar que un error llega desde producción. Recién ahí se borra la ruta temporal `/api/debug/sentry-check` y se cierra el ticket.
+
+**Nada de esta sesión está deployado.**
+
 ---
 
 ## Stack real instalado
@@ -58,6 +66,7 @@ Después del backlog se sumaron dos cosas más: el **aviso por mail** de cada fe
 | Mercado Pago | sin SDK — llamadas directas a la API REST de `/preapproval` desde `src/lib/billing/` |
 | Resend | SMTP de Supabase Auth para los mails de verificación/recuperación (`supabase/templates/`) |
 | shadcn/ui | base instalada — `components/ui/` |
+| Vitest | desde el 2026-08-27 (`C3`) — 21 tests sobre funciones puras, `npm test` |
 
 > El SDK de OpenAI (`gpt-4o-mini`, usado antes para clasificación y TTS) se desinstaló al borrar el módulo de chat/voz. Ya no hay clasificación automática de gastos por IA — consistente con la preferencia del usuario de cargar todo manualmente.
 
@@ -218,10 +227,11 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 
 ---
 
-## Chequeos locales al 2026-08-20
+## Chequeos locales al 2026-08-27
 
 | Comando | Resultado |
 |---|---|
+| `npm test` | 21 tests en 2 archivos, verde |
 | `npx tsc --noEmit` | Sin errores |
 | `npm run lint` | 0 errores, **12 warnings** (bajaron de 14) |
 | `npm run build` | Compila |
@@ -295,7 +305,13 @@ No son código, pero sin ellas parte del trabajo no sirve:
 
 ## Próximo foco recomendado
 
-**Hay una ronda de backlog abierta**: `C1`–`C8` en `docs/BACKLOG.md` (ronda 2, 2026-08-26). `C1` ya está cerrado: los totales se agregan en SQL (`get_finance_summary`, `00021`) y dejaron de depender de un tope fijo de filas — filtrar por 2025 mostraba 53 gastos de menos. Sigue `C2` (errores de producción visibles).
+**Hay una ronda de backlog abierta**: `C1`–`C8` en `docs/BACKLOG.md` (ronda 2, 2026-08-26).
+
+- `C1` cerrado: los totales se agregan en SQL (`get_finance_summary`, `00021`) y dejaron de depender de un tope fijo de filas — filtrar por 2025 mostraba 53 gastos de menos.
+- `C3` cerrado (2026-08-27): las reglas financieras viven en `src/lib/finance/rules.ts`, los nueve formateadores sueltos se unificaron en `format-currency.ts`, y el proyecto tiene Vitest.
+- **`C2` quedó a mitad de camino**: el código de Sentry está escrito y verificado en local, pero falta el DSN, cargarlo en Vercel y confirmar que un error llega desde producción. Es lo primero a retomar.
+
+Después de `C2`, sigue `C4` (motor de avisos + vencimientos por mail).
 
 Dicho eso, el orden de esa lista cede ante lo de abajo:
 

@@ -3,8 +3,8 @@
 import { Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import type { Budget } from '@/types/finance.types'
 import { CategoryIcon } from '@/lib/utils/category-icons'
-
-const ALERT_THRESHOLD = 0.8 // 80%
+import { budgetUsage } from '@/lib/finance/rules'
+import { formatCurrency } from '@/lib/utils/format-currency'
 
 interface BudgetCardProps {
   budget: Budget
@@ -14,18 +14,7 @@ interface BudgetCardProps {
 }
 
 export function BudgetCard({ budget, currency = 'ARS', onEdit, onDelete }: BudgetCardProps) {
-  const spent = budget.spent ?? 0
-  const limit = budget.amount
-  const pct = limit > 0 ? spent / limit : 0
-  const pctClamped = Math.min(pct, 1)
-  const remaining = Math.max(limit - spent, 0)
-  const overspent = spent > limit
-
-  const status: 'ok' | 'warning' | 'danger' = overspent
-    ? 'danger'
-    : pct >= ALERT_THRESHOLD
-      ? 'warning'
-      : 'ok'
+  const { spent, limit, ratioClamped, percent, remaining, overspent, overspentBy, status } = budgetUsage(budget)
 
   const statusColor = {
     ok:      'var(--accent-lumus)',
@@ -35,13 +24,7 @@ export function BudgetCard({ budget, currency = 'ARS', onEdit, onDelete }: Budge
 
   const accentColor = budget.category?.color ?? statusColor
 
-  const format = (v: number) =>
-    new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(v)
+  const format = (v: number) => formatCurrency(v, currency, 'rounded')
 
   return (
     <div className="lumus-glass group relative rounded-xl p-5 transition-all hover:border-white/15">
@@ -106,7 +89,7 @@ export function BudgetCard({ budget, currency = 'ARS', onEdit, onDelete }: Budge
             {format(spent)}
           </p>
           <p className="text-xs text-[var(--text-muted)]">
-            {(pct * 100).toFixed(0)}%
+            {percent}%
           </p>
         </div>
 
@@ -114,7 +97,7 @@ export function BudgetCard({ budget, currency = 'ARS', onEdit, onDelete }: Budge
           <div
             className="h-full rounded-full transition-all"
             style={{
-              width: `${pctClamped * 100}%`,
+              width: `${ratioClamped * 100}%`,
               backgroundColor: statusColor,
             }}
           />
@@ -122,7 +105,7 @@ export function BudgetCard({ budget, currency = 'ARS', onEdit, onDelete }: Budge
 
         <p className="text-xs text-[var(--text-muted)]">
           {overspent
-            ? `Sobregirado ${format(spent - limit)}`
+            ? `Sobregirado ${format(overspentBy)}`
             : `Te queda ${format(remaining)}`}
         </p>
       </div>

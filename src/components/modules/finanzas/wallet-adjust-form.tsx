@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X, SlidersHorizontal } from 'lucide-react'
 import type { Wallet } from '@/types/finance.types'
+import { formatCurrency } from '@/lib/utils/format-currency'
 
 interface WalletAdjustFormProps {
   wallet: Wallet
@@ -20,13 +21,7 @@ export function WalletAdjustForm({ wallet, onAdjust, onClose }: WalletAdjustForm
   const diff = isValid ? parsed - wallet.balance : 0
   const changed = Math.abs(diff) > 0.01
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: wallet.currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(n)
+  const fmt = (n: number) => formatCurrency(n, wallet.currency, 'rounded')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

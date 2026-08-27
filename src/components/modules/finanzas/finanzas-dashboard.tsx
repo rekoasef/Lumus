@@ -23,6 +23,7 @@ import { useWallets } from '@/hooks/use-wallets'
 import { useBudgets } from '@/hooks/use-budgets'
 import { useSavingGoals } from '@/hooks/use-saving-goals'
 import { useExchangeRates } from '@/hooks/use-exchange-rates'
+import { formatCurrency } from '@/lib/utils/format-currency'
 import { useTransactions } from '@/hooks/use-transactions'
 import { useFinanceSummary } from '@/hooks/use-finance-summary'
 import { sumSummary } from '@/lib/finance/summary'
@@ -125,8 +126,7 @@ export function FinanzasDashboard({
     return deleteTransaction(id)
   }
 
-  const fmt = (n: number, currency = 'ARS') =>
-    new Intl.NumberFormat('es-AR', { style: 'currency', currency, minimumFractionDigits: 0 }).format(n)
+  const fmt = (n: number, currency = 'ARS') => formatCurrency(n, currency, 'auto')
 
   async function handleSaveWallet(data: CreateWalletInput) {
     if (editingWallet) {
@@ -293,12 +293,7 @@ export function FinanzasDashboard({
                   <div className="mt-2 space-y-0.5">
                     {Object.entries(balanceByCurrency).map(([currency, amount]) => (
                       <p key={currency} className={`lumus-heading text-xl font-bold leading-tight ${amount >= 0 ? 'text-[var(--accent-lumus)]' : 'text-[var(--danger)]'}`}>
-                        {new Intl.NumberFormat('es-AR', {
-                          style: 'currency',
-                          currency,
-                          minimumFractionDigits: currency === 'ARS' ? 0 : 2,
-                          maximumFractionDigits: currency === 'ARS' ? 0 : 2,
-                        }).format(amount)}
+                        {formatCurrency(amount, currency, 'byCurrency')}
                       </p>
                     ))}
                     {wallets.length === 0 && (

@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { CategoryIcon } from '@/lib/utils/category-icons'
 import { Pencil, Trash2, CheckCircle2, Plus, Wallet } from 'lucide-react'
 import type { SavingGoal, Wallet as WalletType } from '@/types/finance.types'
+import { savingGoalProgress } from '@/lib/finance/rules'
+import { formatCurrency } from '@/lib/utils/format-currency'
 
 function daysUntil(dateStr: string | null): { label: string; urgent: boolean } | null {
   if (!dateStr) return null
@@ -38,28 +40,16 @@ export function SavingGoalCard({ goal, wallets, toARS, onEdit, onDelete, onContr
 
   const associatedWallets = wallets.filter(w => goal.wallet_ids.includes(w.id))
 
-  // Si hay billeteras vinculadas, la suma de sus balances (convertidos a ARS) ES el progreso de la meta
-  const currentAmount = associatedWallets.length > 0
-    ? associatedWallets.reduce((sum, w) => sum + toARS(w.balance, w.currency), 0)
-    : goal.current_amount
+  const { currentAmount, ratio, percent, remaining, reached } = savingGoalProgress(goal, associatedWallets, toARS)
+  const deadline = daysUntil(goal.target_date)
 
-  const pct       = goal.target_amount > 0 ? Math.min(currentAmount / goal.target_amount, 1) : 0
-  const remaining = Math.max(goal.target_amount - currentAmount, 0)
-  const deadline  = daysUntil(goal.target_date)
-
-  const color = goal.achieved || pct >= 1
+  const color = goal.achieved || reached
     ? 'var(--success)'
     : deadline?.urgent
     ? 'var(--warning)'
     : 'var(--accent-lumus)'
 
-  const fmt = (v: number) =>
-    new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(v)
+  const fmt = (v: number) => formatCurrency(v, 'ARS', 'rounded')
 
   async function handleContribute() {
     const n = parseFloat(amount)
@@ -159,12 +149,12 @@ export function SavingGoalCard({ goal, wallets, toARS, onEdit, onDelete, onContr
             <div className="h-2 overflow-hidden rounded-full bg-white/5">
               <div
                 className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${pct * 100}%`, backgroundColor: color }}
+                style={{ width: `${ratio * 100}%`, backgroundColor: color }}
               />
             </div>
 
             <p className="text-xs text-[var(--text-muted)]">
-              Faltan {fmt(remaining)} · {(pct * 100).toFixed(0)}% completado
+              Faltan {fmt(remaining)} · {percent}% completado
             </p>
           </>
         )}

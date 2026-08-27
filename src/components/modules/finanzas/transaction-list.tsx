@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { useFinanceSummary } from '@/hooks/use-finance-summary'
 import { useTransactionRows } from '@/hooks/use-transaction-rows'
 import { NO_CATEGORY, sumSummary, totalsByCategory, type ToARS } from '@/lib/finance/summary'
+import { formatCurrency } from '@/lib/utils/format-currency'
 
 // ——— tipos ———
 
@@ -172,8 +173,7 @@ export function TransactionList({
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing]   = useState<Transaction | null>(null)
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(n)
+  const fmt = (n: number) => formatCurrency(n, 'ARS', 'auto')
 
   // ——— rangos pre-calculados ———
 

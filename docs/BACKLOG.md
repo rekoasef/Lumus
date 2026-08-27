@@ -1,6 +1,6 @@
 # Lumus — Backlog de trabajo
 
-Última revisión: 2026-08-26
+Última revisión: 2026-08-27
 
 Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es un conjunto acotado de tickets que se toman **de a uno**, se cierran, se verifican y recién ahí se pasa al siguiente. Las rondas cerradas quedan abajo como historial, no se borran.
 
@@ -21,7 +21,7 @@ Siete tickets, ordenados por severidad y dependencia, no por ganas. El criterio 
 |---|---|---|---|
 | ~~`C1`~~ | ~~Transacciones por rango en vez de tope fijo~~ | **Cerrado 2026-08-26** | M |
 | `C2` | Errores de producción visibles (Sentry) | Barato, y a partir de acá cada ticket siguiente se deploya con red. Por eso va antes que las features | S |
-| `C3` | Lógica financiera en un solo lugar + primeros tests | `C4`, `C5` y `C7` van a reusar esa lógica. Extraerla antes evita triplicar el bug de las metas | M |
+| ~~`C3`~~ | ~~Lógica financiera en un solo lugar + primeros tests~~ | **Cerrado 2026-08-27** | M |
 | `C4` | Motor de avisos + vencimientos por mail | Es la infraestructura de todo aviso que mande Lumus, y arranca con el que más falta hace | M |
 | `C5` | Centro de notificaciones in-app + resto de los avisos | Depende del motor de `C4`. Sin él, cada aviso nuevo se implementa desde cero | M |
 | `C6` | PWA instalable + carga rápida de gasto | Impacto alto en uso real, nada depende de él. Se puede adelantar si hay poco tiempo | S |
@@ -131,7 +131,7 @@ Va segundo a propósito: los cinco tickets que siguen tocan plata, mails y factu
 
 ## `C3` — Lógica financiera en un solo lugar + primeros tests
 
-Estado: **abierto**
+Estado: **cerrado (2026-08-27)**
 
 ### Por qué
 
@@ -166,6 +166,38 @@ Va antes que `C4`, `C5` y `C7` porque los tres van a necesitar estas mismas regl
 - `npm test` corre verde.
 - `grep -rn "Intl.NumberFormat" src/` devuelve **solo** `format-currency.ts`.
 - Ninguna regla financiera queda escrita dos veces.
+
+### Resultado (2026-08-27)
+
+**Lo que se hizo**:
+
+| Pieza | Qué |
+|---|---|
+| `lib/finance/rules.ts` | Las tres reglas que estaban duplicadas, como funciones puras: `savingGoalProgress`, `budgetUsage` y `monthlyRecurringAmount`. La conversión a ARS ya vivía en un solo lugar (`exchange-rates.ts`), no hizo falta moverla |
+| `lib/utils/format-currency.ts` | `formatCurrency(monto, moneda, formato)` con cinco variantes nombradas — `auto`, `rounded`, `exact`, `byCurrency`, `compact`. Los nueve formateadores locales se borraron |
+| `dashboard/page.tsx` | Tenía las tres reglas duplicadas más dos formateadores. Ahora no calcula ninguna |
+| `saving-goal-card` · `budget-card` · `recurring-transaction-list` | Consumen las reglas en vez de repetirlas |
+| `wallet-card` · `wallet-adjust-form` · `transaction-item` · `transaction-list` · `finanzas-dashboard` | Solo formateo |
+| `vitest.config.mts` + `npm test` | Vitest, `environment: 'node'`, tests al lado del archivo que prueban |
+
+**Verificación**:
+
+| Qué | Resultado |
+|---|---|
+| `npm test` | **21 tests, 2 archivos, verde** |
+| `grep -rn "Intl.NumberFormat" src/` | Solo `format-currency.ts` |
+| `npx tsc --noEmit` / `npm run lint` / `npm run build` | Sin errores; 12 warnings, igual que el baseline |
+| Decimales en pantalla | Sin cambios: los 7 tests de `format-currency.test.ts` fijan la salida exacta de cada variante contra lo que devolvía el `Intl.NumberFormat` que reemplazó |
+
+**Tres decisiones que valen la pena anotar**:
+
+1. **No se unificó la precisión, se le puso nombre.** Los nueve formateadores no coincidían y eso no era un bug: un saldo de billetera se muestra al centavo (`exact`) y una meta redondeada (`rounded`) a propósito. Forzar una sola precisión habría sido un cambio de producto disfrazado de refactor. Lo que se unificó es *dónde vive la regla*, no la regla.
+2. **`byCurrency` era una regla real escondida.** El dashboard y `finanzas-dashboard` repetían `currency === 'ARS' ? 0 : 2` decimales. Es la regla "los pesos no llevan centavos, el dólar sí" y ahora tiene nombre.
+3. **El umbral de riesgo del dashboard (75%) quedó en el dashboard.** Es una decisión de qué mostrar en esa pantalla, no una regla de negocio. El de alerta del presupuesto (80%) sí bajó a `rules.ts`, porque define el color de la card en cualquier lugar donde se muestre.
+
+**Un cambio de comportamiento, chico y a favor**: el progreso de una meta ya no puede ser negativo. Si una billetera vinculada está en rojo, la card dibujaba una barra de ancho negativo; ahora corta en 0. El resto del refactor no cambia ni un píxel.
+
+**Lo que no se hizo**: nada de tests de componentes ni de API routes, como decía el ticket. La red está donde es barata.
 
 ---
 

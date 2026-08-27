@@ -3,6 +3,7 @@
 import { Pencil, Trash2, Wallet, Building2, Smartphone, SlidersHorizontal } from 'lucide-react'
 import { CategoryIcon } from '@/lib/utils/category-icons'
 import type { Wallet as WalletType } from '@/types/finance.types'
+import { formatCurrency } from '@/lib/utils/format-currency'
 
 const WALLET_ICONS: Record<string, React.ReactNode> = {
   efectivo: <Wallet size={18} />,
@@ -24,11 +25,7 @@ interface WalletCardProps {
 }
 
 export function WalletCard({ wallet, onEdit, onAdjust, onDelete }: WalletCardProps) {
-  const formattedBalance = new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: wallet.currency,
-    minimumFractionDigits: 2,
-  }).format(wallet.balance)
+  const formattedBalance = formatCurrency(wallet.balance, wallet.currency, 'exact')
 
   return (
     <div className="lumus-glass group relative rounded-xl p-5 transition-all hover:border-white/15">

@@ -15,11 +15,11 @@ Mercado Pago (API REST directa, sin SDK) — paywall
 Vercel (deploy)
 ```
 
-Sin Vitest, sin `tests/`, sin `tailwind.config.ts` (Tailwind v4 se configura vía `@theme` en `globals.css`).
+Vitest desde el 2026-08-27, solo sobre funciones puras (`src/lib/finance/rules.ts` y los formateadores). Sin carpeta `tests/` — los tests van al lado del archivo que prueban. Sin `tailwind.config.ts` (Tailwind v4 se configura vía `@theme` en `globals.css`).
 
 ---
 
-## Estructura de Carpetas (real, 2026-08-18)
+## Estructura de Carpetas (real, 2026-08-27)
 
 ```
 lumus/
@@ -85,13 +85,17 @@ lumus/
 │   │   ├── billing/
 │   │   │   └── plan.ts                        → precio, moneda, frecuencia del plan
 │   │   ├── finance/
+│   │   │   ├── rules.ts                       → reglas de negocio puras (metas, presupuestos, recurrentes)
+│   │   │   ├── rules.test.ts
+│   │   │   ├── summary.ts                     → agregados del resumen financiero
 │   │   │   ├── exchange-rates.ts
 │   │   │   ├── report-parser.ts
 │   │   │   └── report-pdf.ts
 │   │   ├── validations/
 │   │   │   └── finance.ts                     → todos los schemas Zod
 │   │   ├── utils/
-│   │   │   ├── format-currency.ts
+│   │   │   ├── format-currency.ts             → único lugar con `Intl.NumberFormat`
+│   │   │   ├── format-currency.test.ts
 │   │   │   ├── format-date.ts
 │   │   │   ├── category-icons.tsx
 │   │   │   └── animations.ts
@@ -125,11 +129,12 @@ lumus/
 │
 ├── .env.example
 ├── next.config.ts
+├── vitest.config.mts
 ├── tsconfig.json
 └── package.json
 ```
 
-No existen: `src/lib/ai/`, `src/components/lumus/lumus-chat.tsx` (ni fullscreen ni voice-modal), `src/stores/ai-store.ts`, `src/types/ai.types.ts`, `tests/`, `tailwind.config.ts`. Se borraron el 2026-08-18 junto con el chat/voz de IA.
+No existen: `src/lib/ai/`, `src/components/lumus/lumus-chat.tsx` (ni fullscreen ni voice-modal), `src/stores/ai-store.ts`, `src/types/ai.types.ts`, `tailwind.config.ts`. Se borraron el 2026-08-18 junto con el chat/voz de IA.
 
 ---
 

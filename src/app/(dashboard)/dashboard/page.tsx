@@ -17,6 +17,8 @@ import { DailyGreeting } from '@/components/modules/dashboard/daily-greeting'
 import type { FinanceSummaryRow, RecurringRepeatType, TransactionType } from '@/types/finance.types'
 import { getExchangeRates, convertToARS } from '@/lib/finance/exchange-rates'
 import { countSummary, sumSummary, totalsByCategory } from '@/lib/finance/summary'
+import { budgetUsage, monthlyRecurringAmount, savingGoalProgress } from '@/lib/finance/rules'
+import { formatCurrency } from '@/lib/utils/format-currency'
 
 /** Movimientos que muestra la tarjeta de "Últimos movimientos". */
 const RECENT_TRANSACTIONS = 6
@@ -88,26 +90,19 @@ type RawSavingGoalRow = {
   saving_goal_wallets: { wallet_id: string }[] | null
 }
 
+/** Desde qué porcentaje un presupuesto entra en el panel de riesgo. */
+const BUDGET_RISK_THRESHOLD = 75
+
 function getLocalDate(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 function formatMoney(n: number, currency = 'ARS') {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: currency === 'ARS' ? 0 : 2,
-    maximumFractionDigits: currency === 'ARS' ? 0 : 2,
-  }).format(n)
+  return formatCurrency(n, currency, 'byCurrency')
 }
 
 function formatCompactMoney(n: number) {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  }).format(n)
+  return formatCurrency(n, 'ARS', 'compact')
 }
 
 function formatDate(date: string | null) {
@@ -116,12 +111,6 @@ function formatDate(date: string | null) {
     day: 'numeric',
     month: 'short',
   })
-}
-
-function normalizeRecurringMonthlyAmount(amount: number, repeatType: RecurringRepeatType) {
-  if (repeatType === 'daily') return amount * 30
-  if (repeatType === 'weekly') return amount * (52 / 12)
-  return amount
 }
 
 function getDaysUntil(date: string | null) {
@@ -275,7 +264,7 @@ export default async function DashboardPage() {
   const totalBudget = budgets.reduce((sum, b) => sum + Number(b.amount), 0)
   const totalBudgetSpent = budgets.reduce((sum, b) => sum + Number(b.spent), 0)
   const budgetRemaining = totalBudget - totalBudgetSpent
-  const budgetUsage = totalBudget > 0 ? Math.round((totalBudgetSpent / totalBudget) * 100) : 0
+  const totalBudgetUsage = budgetUsage({ amount: totalBudget, spent: totalBudgetSpent }).percent
   const runwayDays = dailyBurn > 0 ? Math.floor(Math.max(0, totalBalanceARS) / dailyBurn) : null
 
   const categoryById = new Map(categories.map(c => [c.id, c]))
@@ -290,13 +279,13 @@ export default async function DashboardPage() {
   })
 
   const budgetRisks = budgets
-    .map(b => ({ ...b, usage: b.amount > 0 ? Math.round((b.spent / b.amount) * 100) : 0 }))
-    .filter(b => b.usage >= 75)
+    .map(b => ({ ...b, usage: budgetUsage(b).percent }))
+    .filter(b => b.usage >= BUDGET_RISK_THRESHOLD)
     .sort((a, b) => b.usage - a.usage)
     .slice(0, 4)
 
   const monthlyFixedExpenses = recurring.filter(r => r.type === 'gasto').reduce(
-    (sum, rec) => sum + toARS(normalizeRecurringMonthlyAmount(Number(rec.amount), rec.repeat_type), rec.wallet?.currency ?? 'ARS'),
+    (sum, rec) => sum + toARS(monthlyRecurringAmount(Number(rec.amount), rec.repeat_type), rec.wallet?.currency ?? 'ARS'),
     0
   )
   const upcomingRecurring = recurring
@@ -306,19 +295,9 @@ export default async function DashboardPage() {
 
   const goalsPreview = goals
     .map(goal => {
-      // Si la meta tiene billeteras vinculadas, la suma de sus balances (en ARS)
-      // ES el progreso — mismo criterio que la card de finanzas
       const linkedWallets = wallets.filter(w => goal.wallet_ids.includes(w.id))
-      const currentAmount = linkedWallets.length > 0
-        ? linkedWallets.reduce((sum, w) => sum + toARS(Number(w.balance ?? 0), w.currency ?? 'ARS'), 0)
-        : goal.current_amount
-      return {
-        ...goal,
-        currentAmount,
-        progress: goal.target_amount > 0
-          ? Math.min(100, Math.max(0, Math.round((currentAmount / goal.target_amount) * 100)))
-          : 0,
-      }
+      const { currentAmount, percent } = savingGoalProgress(goal, linkedWallets, toARS)
+      return { ...goal, currentAmount, progress: percent }
     })
     .sort((a, b) => b.progress - a.progress)
     .slice(0, 3)
@@ -442,8 +421,8 @@ export default async function DashboardPage() {
               </div>
               <div>
                 <p className="text-[0.65rem] uppercase tracking-wider text-[var(--text-muted)]">Presupuesto usado</p>
-                <p className="mt-1 text-lg font-bold" style={{ color: budgetUsage >= 100 ? '#ef4444' : '#bdb4ff' }}>
-                  {totalBudget > 0 ? `${budgetUsage}%` : 'Sin definir'}
+                <p className="mt-1 text-lg font-bold" style={{ color: totalBudgetUsage >= 100 ? '#ef4444' : '#bdb4ff' }}>
+                  {totalBudget > 0 ? `${totalBudgetUsage}%` : 'Sin definir'}
                 </p>
               </div>
               <div>
@@ -462,7 +441,7 @@ export default async function DashboardPage() {
                 <div className="h-2 overflow-hidden rounded-full bg-white/[0.055]">
                   <div
                     className="h-full rounded-full bg-[#bdb4ff]"
-                    style={{ width: `${Math.min(100, budgetUsage)}%` }}
+                    style={{ width: `${Math.min(100, totalBudgetUsage)}%` }}
                   />
                 </div>
               </div>
