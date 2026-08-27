@@ -142,3 +142,35 @@ export const financeSummaryQuerySchema = z.object({
 })
 
 export type FinanceSummaryQuery = z.infer<typeof financeSummaryQuerySchema>
+
+// ——— Tenencias (inversiones) — ver migración 00026 ———
+
+/**
+ * Una tenencia necesita un precio para poder valuarse: el de una fuente
+ * automática (cripto) o uno cargado a mano. Sin ninguno de los dos no suma al
+ * patrimonio, que es lo único que esta tabla vino a arreglar — por eso la base
+ * también lo exige con un `check`.
+ */
+const holdingBase = z.object({
+  name: z.string().min(1, 'El nombre es requerido').max(60),
+  kind: z.enum(['cripto', 'accion', 'otro']),
+  price_source: z.string().max(60).nullable().optional(),
+  quantity: z.number().positive('La cantidad tiene que ser mayor a cero'),
+  purchase_price: z.number().min(0, 'El precio no puede ser negativo'),
+  purchase_currency: z.enum(['ARS', 'USD']),
+  purchase_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD'),
+  manual_price: z.number().min(0).nullable().optional(),
+})
+
+const hasSomePrice = (data: { price_source?: string | null; manual_price?: number | null }) =>
+  Boolean(data.price_source) || typeof data.manual_price === 'number'
+
+export const createHoldingSchema = holdingBase.refine(hasSomePrice, {
+  message: 'Elegí una cripto o cargá el precio actual a mano',
+  path: ['manual_price'],
+})
+
+export const updateHoldingSchema = holdingBase.partial()
+
+export type CreateHoldingInput = z.infer<typeof createHoldingSchema>
+export type UpdateHoldingInput = z.infer<typeof updateHoldingSchema>

@@ -11,6 +11,9 @@ function toLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 import type { TransactionDefaults } from './transaction-form'
+import { HoldingsSection } from './holdings-section'
+import type { Holding } from '@/lib/finance/holdings'
+import type { DailyRate } from '@/lib/finance/purchasing-power'
 import { WalletCard } from './wallet-card'
 import { WalletForm } from './wallet-form'
 import { WalletAdjustForm } from './wallet-adjust-form'
@@ -55,12 +58,17 @@ interface FinanzasDashboardProps {
   initialRecurring: RecurringTransaction[]
   /** Categoría y billetera más usadas — precargan un movimiento nuevo. */
   frequentDefaults?: TransactionDefaults
+  initialHoldings: Holding[]
+  /** Precios de cripto en USD, resueltos en el server. */
+  cryptoPrices: Record<string, number>
+  /** Historia de cotizaciones, para valuar el costo de las compras en pesos. */
+  rateHistory: DailyRate[]
 }
 
-type Section = 'transacciones' | 'billeteras' | 'categorias' | 'presupuestos' | 'metas' | 'recurrentes'
+type Section = 'transacciones' | 'billeteras' | 'categorias' | 'presupuestos' | 'metas' | 'recurrentes' | 'inversiones'
 
 const SECTION_IDS: readonly Section[] = [
-  'transacciones', 'billeteras', 'categorias', 'presupuestos', 'metas', 'recurrentes',
+  'transacciones', 'billeteras', 'categorias', 'presupuestos', 'metas', 'recurrentes', 'inversiones',
 ]
 
 function parseSection(value: string | null): Section | null {
@@ -77,6 +85,9 @@ export function FinanzasDashboard({
   initialGoals,
   initialRecurring,
   frequentDefaults,
+  initialHoldings,
+  cryptoPrices,
+  rateHistory,
 }: FinanzasDashboardProps) {
   const { wallets, totalBalance: _totalBalance, balanceByCurrency, loading, createWallet, updateWallet, adjustBalance, deleteWallet, localUpdateBalance: _localUpdateBalance, setWalletBalance } =
     useWallets(initialWallets)
@@ -267,6 +278,7 @@ export function FinanzasDashboard({
     { id: 'categorias',    label: 'Categorías' },
     { id: 'presupuestos',  label: 'Presupuestos' },
     { id: 'metas',         label: 'Metas' },
+    { id: 'inversiones',   label: 'Inversiones' },
   ]
 
   return (
@@ -625,6 +637,20 @@ export function FinanzasDashboard({
                 ))}
               </div>
             )}
+          </section>
+        )}
+
+        {activeSection === 'inversiones' && (
+          <section>
+            <HoldingsSection
+              initialHoldings={initialHoldings}
+              prices={cryptoPrices}
+              // Si la cotización todavía no cargó, la conversión a pesos espera:
+              // mostrar un valor en ARS con un dólar inventado es peor que no
+              // mostrarlo, y el valor en dólares se ve igual.
+              arsPerUsd={exchangeRates?.USD ?? 0}
+              rateHistory={rateHistory}
+            />
           </section>
         )}
       </div>

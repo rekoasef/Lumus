@@ -20,6 +20,9 @@ import { countSummary, sumSummary, totalsByCategory } from '@/lib/finance/summar
 import { budgetUsage, monthlyRecurringAmount, savingGoalProgress } from '@/lib/finance/rules'
 import { purchasingPowerChange, rateOn, type DailyRate } from '@/lib/finance/purchasing-power'
 import { PurchasingPowerCard } from '@/components/modules/dashboard/purchasing-power-card'
+import { NetWorthCard } from '@/components/modules/dashboard/net-worth-card'
+import { getCryptoPrices } from '@/lib/finance/crypto-prices'
+import { portfolioTotals, resolvePriceUsd, valuateHolding, type Holding } from '@/lib/finance/holdings'
 import { formatCurrency } from '@/lib/utils/format-currency'
 
 /** Movimientos que muestra la tarjeta de "Últimos movimientos". */
@@ -222,7 +225,26 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
 
   const rateHistory: DailyRate[] = (rateHistoryRes.data ?? []).map(r => ({ date: r.date, usd: Number(r.usd) }))
 
-  return { wallets, recentTransactions, monthSummary, categories, budgets, recurring, goals, monthStart, monthEnd, month, year, rates, rateHistory }
+  // Las inversiones son parte del patrimonio: el saldo de las billeteras no es
+  // todo lo que tiene el usuario.
+  const { data: holdingRows } = await supabase
+    .from('holdings')
+    .select('id, name, kind, price_source, quantity, purchase_price, purchase_currency, purchase_date, manual_price')
+    .eq('user_id', userId)
+
+  const holdings = (holdingRows ?? []) as unknown as Holding[]
+  const cryptoPrices = await getCryptoPrices(
+    holdings.map(h => h.price_source).filter((id): id is string => Boolean(id)),
+  )
+
+  const holdingsArs = portfolioTotals(
+    holdings.map(holding => {
+      const price = resolvePriceUsd(holding, cryptoPrices)
+      return price === null ? null : valuateHolding(holding, price, rates.USD, rateHistory)
+    }),
+  ).valueArs
+
+  return { wallets, recentTransactions, monthSummary, categories, budgets, recurring, goals, monthStart, monthEnd, month, year, rates, rateHistory, holdingsArs }
 }
 
 function getFormattedDate(): string {
@@ -248,7 +270,7 @@ export default async function DashboardPage() {
     getDashboardData(supabase, user.id),
   ])
 
-  const { wallets, recentTransactions, monthSummary, categories, budgets, recurring, goals, rates, rateHistory } = dashboardData
+  const { wallets, recentTransactions, monthSummary, categories, budgets, recurring, goals, rates, rateHistory, holdingsArs } = dashboardData
   const toARS = (amount: number, currency: string) => convertToARS(amount, currency, rates)
   const hasForeignCurrency = wallets.some(w => (w.currency ?? 'ARS') !== 'ARS')
 
@@ -382,7 +404,12 @@ export default async function DashboardPage() {
         ))}
       </section>
 
-      <section className="mx-auto max-w-[1120px]">
+      <section className="mx-auto grid max-w-[1120px] gap-4 lg:grid-cols-2">
+        <NetWorthCard
+          walletsArs={totalBalanceARS}
+          holdingsArs={holdingsArs}
+          arsPerUsd={rates.USD}
+        />
         <PurchasingPowerCard
           amountArs={arsBalance}
           change={purchasingPower}

@@ -251,6 +251,51 @@ export type Database = {
         }
         Relationships: []
       }
+      holdings: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          manual_price: number | null
+          name: string
+          price_source: string | null
+          purchase_currency: string
+          purchase_date: string
+          purchase_price: number
+          quantity: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          manual_price?: number | null
+          name: string
+          price_source?: string | null
+          purchase_currency?: string
+          purchase_date: string
+          purchase_price: number
+          quantity: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          manual_price?: number | null
+          name?: string
+          price_source?: string | null
+          purchase_currency?: string
+          purchase_date?: string
+          purchase_price?: number
+          quantity?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           email_enabled: boolean

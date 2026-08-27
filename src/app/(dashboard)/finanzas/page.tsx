@@ -3,6 +3,9 @@ import { redirect } from 'next/navigation'
 import { FinanzasDashboard } from '@/components/modules/finanzas/finanzas-dashboard'
 import type { Wallet, FinanceCategory, Budget, SavingGoal, RecurringTransaction, FinanceSummaryRow } from '@/types/finance.types'
 import { frequentDefaults, FREQUENT_WINDOW_DAYS } from '@/lib/finance/frequent-defaults'
+import { getCryptoPrices } from '@/lib/finance/crypto-prices'
+import type { Holding } from '@/lib/finance/holdings'
+import type { DailyRate } from '@/lib/finance/purchasing-power'
 import { rawTotalsByCategory } from '@/lib/finance/summary'
 
 export default async function FinanzasPage() {
@@ -94,6 +97,30 @@ export default async function FinanzasPage() {
 
   const defaults = frequentDefaults(recentRows ?? [])
 
+  // ── Inversiones ──
+  // Los precios se buscan en el server: CoinGecko limita por rate y con varios
+  // usuarios recargando la pantalla el plan free se agota en minutos.
+  const { data: holdingRows } = await supabase
+    .from('holdings')
+    .select('id, name, kind, price_source, quantity, purchase_price, purchase_currency, purchase_date, manual_price')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  const holdings = (holdingRows ?? []) as unknown as Holding[]
+
+  const [cryptoPrices, { data: rateRows }] = await Promise.all([
+    getCryptoPrices(holdings.map(h => h.price_source).filter((id): id is string => Boolean(id))),
+    // El costo de una compra en pesos se lleva a dólares con la cotización de
+    // **ese** día, así que hace falta la historia, no solo la de hoy.
+    supabase
+      .from('exchange_rate_history')
+      .select('date, usd')
+      .order('date', { ascending: false })
+      .limit(2000),
+  ])
+
+  const rateHistory: DailyRate[] = (rateRows ?? []).map(r => ({ date: r.date, usd: Number(r.usd) }))
+
   return (
     <FinanzasDashboard
       initialWallets={wallets}
@@ -104,6 +131,9 @@ export default async function FinanzasPage() {
       initialGoals={goals}
       initialRecurring={recurring}
       frequentDefaults={defaults}
+      initialHoldings={holdings}
+      cryptoPrices={Object.fromEntries(cryptoPrices)}
+      rateHistory={rateHistory}
     />
   )
 }
