@@ -27,13 +27,21 @@
 -- porque no era de un módulo puntual, pero quedó igual de muerta: 0 filas,
 -- 0 referencias entrantes, sin un solo uso en el código.
 --
--- El guard no es ceremonia: si alguna vez esa tabla tuviera datos, esta
--- migración tiene que fallar y no borrarlos.
+-- El guard mira la columna `module`, que solo existe en la tabla vieja, y no
+-- si la tabla existe a secas. Primera versión de esto: dropeaba cualquier
+-- `notifications` vacía, o sea que **volver a correr esta migración borraba la
+-- tabla nueva**. Salió a la luz porque el re-run falló más adelante y Postgres
+-- revirtió el lote entero — o sea que no lo salvó el guard, lo salvó la suerte.
+--
+-- Además chequea que esté vacía: si alguna vez tuviera datos, esta migración
+-- tiene que fallar y no borrarlos.
 do $$
 begin
   if exists (
-    select 1 from information_schema.tables
-    where table_schema = 'public' and table_name = 'notifications'
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'notifications'
+      and column_name = 'module'
   ) then
     if (select count(*) from public.notifications) > 0 then
       raise exception 'notifications (00001) tiene filas — no se dropea a ciegas';

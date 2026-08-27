@@ -325,6 +325,8 @@ El recurrente de prueba, su aviso y la preferencia quedaron borrados: la base vo
 
 **Efecto colateral buscado**: el cron diario consulta la base todos los días, así que el proyecto free de Supabase deja de estar a tiro de pausarse por 7 días de inactividad.
 
+**Un bug en el guard del drop, encontrado al re-correr la migración**: la primera versión dropeaba cualquier `notifications` vacía, así que **volver a correr la migración borraba la tabla nueva**. No lo salvó el guard: lo salvó que el re-run falló más adelante (`notification_preferences already exists`) y Postgres revirtió el lote entero. Ahora el guard mira la columna `module`, que solo existe en la tabla de `00001`. La lección general: una migración con un `drop` tiene que identificar *qué* está dropeando, no solo que el nombre coincida.
+
 **Un texto que mentía, corregido antes de cerrar**: la pantalla de baja decía "podés volver a activarlos desde tu perfil" y esa pantalla no existe. En vez de prometerla, el mismo link del mail ahora sirve para las dos cosas — el token firmado vale igual para prender que para apagar, y quien ya no entra a la app no tiene otra cosa que ese link.
 
 **Lo que no se hizo**: no hay UI de preferencias dentro de la app. Va en `C5`, junto con el centro de notificaciones.
