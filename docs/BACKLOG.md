@@ -417,6 +417,8 @@ El mail es para lo que necesita sacarte de la app (algo vence, algo se rompió).
 
 El presupuesto quedó restaurado en `$300.000` y las preferencias volvieron a no tener fila (o sea, a sus defaults).
 
+**Un arreglo después de la primera prueba real**: tocar un aviso de presupuesto parecía no hacer nada. Linkeaba a `/finanzas`, pero esa pantalla **abre siempre en Movimientos** porque la sección era estado del cliente sin presencia en la URL — o sea que el click llevaba a la página correcta y a la pestaña equivocada, y lo único visible era la fila apagándose. Las secciones ahora son direccionables (`/finanzas?seccion=presupuestos`) y cada aviso apunta a la suya. Los clicks de pestaña siguen usando estado local, así que cambiar de tab no cuesta una vuelta al server; el parámetro se ajusta **durante el render** y no en un efecto, para que llegar desde un aviso estando ya en la pantalla mueva la pestaña sin un frame mostrando la anterior. La fila además ahora dice que se puede tocar (una flecha que se corre en hover), y sin link se renderiza como texto: un botón que no hace nada es peor que un texto.
+
 **Cuatro decisiones que valen la pena anotar**:
 
 1. **El canal se resuelve al leer, no se guarda en la fila.** Un aviso es una fila y los dos canales la miran: el feed filtra por las preferencias in-app del momento y el digest por las de mail. Efecto: apagar un tipo esconde también lo que ya se había generado, y volver a prenderlo lo recupera. Guardar el canal en la fila habría dejado avisos huérfanos con la preferencia vieja adentro.
