@@ -76,7 +76,7 @@ Ningún aviso nuevo recalcula una regla: el uso de un presupuesto y el progreso 
 | Mercado Pago | sin SDK — llamadas directas a la API REST de `/preapproval` desde `src/lib/billing/` |
 | Resend | SMTP de Supabase Auth para los mails de verificación/recuperación (`supabase/templates/`) |
 | shadcn/ui | base instalada — `components/ui/` |
-| Vitest | desde el 2026-08-27 (`C3`) — 83 tests sobre funciones puras, `npm test` |
+| Vitest | desde el 2026-08-27 (`C3`) — 94 tests sobre funciones puras, `npm test` |
 
 > El SDK de OpenAI (`gpt-4o-mini`, usado antes para clasificación y TTS) se desinstaló al borrar el módulo de chat/voz. Ya no hay clasificación automática de gastos por IA — consistente con la preferencia del usuario de cargar todo manualmente.
 
@@ -238,6 +238,7 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 | `00022_notifications.sql` | Motor de avisos: tablas `notifications` y `notification_preferences`. El `unique (user_id, dedupe_key)` es lo que hace idempotente al cron. Dropea de paso la `notifications` de `00001` (era de la era "Sistema Operativo Personal": vacía, sin referencias y sin uso en el código), con un guard que aborta si tuviera filas. Ver `C4` |
 | `00023_notification_types.sql` | Suma `notification_preferences.in_app_enabled` y los seis tipos de aviso a los `check` de las dos tablas. Los defaults por tipo viven en el código (`NOTIFICATION_TYPE_INFO`), no en la base. Ver `C5` |
 | `00024_report_regenerations.sql` | Agrega `finance_reports.regenerations` — el botón "Regenerar" del reporte no tenía tope y cada click era una llamada paga a la API. El límite (1) vive en `lib/finance/report-limits.ts` |
+| `00025_exchange_rate_history.sql` | Una fila por día con la cotización, sembrada con 4.622 días de blue desde 2011 (bluelytics). Sin `user_id`: es el primer dato compartido de la app. Ver `D1` |
 
 ---
 
@@ -245,7 +246,7 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 
 | Comando | Resultado |
 |---|---|
-| `npm test` | 83 tests en 9 archivos, verde |
+| `npm test` | 94 tests en 11 archivos, verde |
 | `npx tsc --noEmit` | Sin errores |
 | `npm run lint` | 0 errores, **12 warnings** (bajaron de 14) |
 | `npm run build` | Compila |
@@ -332,7 +333,7 @@ No son código, pero sin ellas parte del trabajo no sirve:
 
 Queda **`C8`** (cerrar el paywall). **El precio ya está decidido** (30 fundadores a 9.500, público 15.000 — está en el ticket), así que `C8` dejó de depender de una decisión y es solo trabajo.
 
-Y hay una **ronda 3 anotada sin abrir** (`D1`–`D4`, 2026-08-27), salida de una charla de producto: cotización histórica, tenencias en el patrimonio, mercado cripto/acciones y análisis de patrimonio con IA. No se arranca hasta cerrar `C8`.
+La **ronda 3 está abierta** (`D1`–`D4`, 2026-08-27), salida de una charla de producto. **`D1` ya está cerrado**: Lumus guarda la cotización de cada día (con 15 años de historia del blue sembrados desde bluelytics) y el dashboard muestra qué le pasó a tus pesos por quedarse quietos. Quedan `D2` (tenencias en el patrimonio), `D3` (mercado cripto/acciones) y `D4` (análisis de patrimonio con IA).
 
 Dicho eso, el orden de esa lista cede ante lo de abajo:
 

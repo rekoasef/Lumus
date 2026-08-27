@@ -26,7 +26,7 @@ Cuatro tickets que salieron de una conversación sobre **en qué se diferencia L
 
 | # | Ticket | Por qué está en esa posición | Tamaño |
 |---|---|---|---|
-| `D1` | Cotización histórica y el costo de estar en pesos | Chico y desbloquea a `D4`. Sin historia de cotización no hay ninguna comparación posible | S |
+| ~~`D1`~~ | ~~Cotización histórica y el costo de estar en pesos~~ | **Cerrado 2026-08-27** | S |
 | `D2` | Que las inversiones cuenten en el patrimonio | Es lo que separa a Lumus de una app de gastos. Necesita precios, que trae `D3` | M |
 | `D3` | Mercado: cripto y acciones | Independiente. Aporta los precios que `D2` necesita para valuar | M |
 | `D4` | Análisis de patrimonio con IA | Va último: sin la historia de `D1` no tiene qué analizar | M |
@@ -35,7 +35,7 @@ Cuatro tickets que salieron de una conversación sobre **en qué se diferencia L
 
 ## `D1` — Cotización histórica y el costo de estar en pesos
 
-Estado: **en curso (2026-08-27)**
+Estado: **cerrado (2026-08-27)**
 
 ### Por qué
 
@@ -61,6 +61,48 @@ Y el cron diario de `C4` ya corre todos los días. Guardar la cotización es una
 
 - Hay una fila por día desde que se implementó, y el euro sale de `blue_euro` y no de una multiplicación.
 - Se puede ver el patrimonio de un mes viejo valuado con la cotización **de ese mes**, no con la de hoy.
+
+### Resultado (2026-08-27)
+
+**El hallazgo que cambió el ticket**: bluelytics publica `/v2/evolution.json` con la **evolución diaria del blue desde 2011**. En vez de empezar a juntar historia desde el deploy —que era la premisa del ticket— se sembraron **4.622 días** y la feature funciona desde el minuto uno sobre los 2.325 movimientos que ya estaban cargados. El riesgo de "no se puede sembrar hacia atrás" resultó ser falso para el dólar.
+
+**Lo que se hizo**:
+
+| Pieza | Qué |
+|---|---|
+| `00025_exchange_rate_history.sql` | Una fila por día. **Sin `user_id`**: el dólar vale lo mismo para todos, así que la RLS va al revés que en el resto — cualquiera logueado lee, nadie escribe salvo `service_role` |
+| `scripts/seed-exchange-rates.mjs` | Siembra el histórico. Idempotente, con upsert que no pisa el euro de las filas nuevas |
+| `lib/finance/exchange-rates.ts` | El euro sale de `blue_euro`, no de una multiplicación. Y el fallback dejó de tener los valores de 2024 hardcodeados sueltos |
+| `lib/finance/purchasing-power.ts` | El cálculo, puro y testeado. `rateOn` mira **hacia atrás**: un domingo usa la del viernes, porque valuar con una cotización que todavía no había pasado es mirar el futuro |
+| `collect.ts` → `recordTodayRate` | El cron guarda la cotización **antes** de los avisos: la de hoy no se puede recuperar mañana |
+| `purchasing-power-card.tsx` | La card del dashboard |
+
+**El euro, con evidencia** (2026-08-27):
+
+| Fuente | Ratio EUR/USD |
+|---|---|
+| bluelytics (blue, el que usa la app) | **1,0868** |
+| BCE / paridad internacional | **1,1645** |
+| argentinadatos (histórico **oficial**) | 1,1692 |
+
+El euro argentino **no sigue la paridad internacional**: derivarlo del EUR/USD del BCE metía un 7% de error, peor que el 1,08 clavado que había. Y `argentinadatos` sirve pero su serie es del **dólar oficial**, así que pegarle su euro a una serie de blue sería tener el dólar de un mercado y el euro de otro. **No hay fuente gratuita de euro blue histórico**, así que esas filas quedan en `null`. Un campo vacío es mejor que un número con un 7% de error incorporado. En la práctica hoy no afecta a nadie: no hay ni una billetera en euros.
+
+**Verificación, contra producción**:
+
+| Qué | Resultado |
+|---|---|
+| Siembra | 4.622 días, de 2011-01-03 a 2026-08-27 |
+| El cron guarda la del día | `{"rateSaved":true}`, y la fila de hoy es la primera con euro |
+| La card, con datos reales | Saldo `$3.555.042` → **US$ 2.310**; el dólar pasó de 1.546,50 a 1.539 en 30 días, o sea **+0,49%**, que cae bajo el umbral y se muestra como "quedó igual" |
+| `npm test` / `tsc` / `lint` / `build` | 94 tests verdes, sin errores |
+
+**Tres decisiones que valen la pena anotar**:
+
+1. **Se mide sobre el saldo en pesos, no sobre el patrimonio total.** Lo que ya está en dólares no perdió nada por estar en dólares; meterlo adentro diluiría el número hasta que no diga nada.
+2. **Se muestra aunque sea a favor.** Si el mes fue bueno para el peso, se dice. Una app que solo avisa las malas se vuelve ruido y se ignora.
+3. **Un umbral de 0,5% para decir "quedó igual".** Sin eso, un movimiento de 0,1% se reporta como noticia y el número pierde autoridad. Y de hecho pasó en la primera corrida real.
+
+**Lo que no se hizo**: la ventana es fija en 30 días. Poder elegir 3, 6 o 12 meses es donde este número se vuelve dramático de verdad — pero eso ya es una pantalla de análisis, y va con `D4`.
 
 ---
 
