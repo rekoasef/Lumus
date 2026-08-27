@@ -330,7 +330,9 @@ No son código, pero sin ellas parte del trabajo no sirve:
 
 - `C7` **postergado** (2026-08-27), por decisión del usuario: poca gente sube el resumen del banco, el uso real es una línea por gasto. La fricción que importaba era la de `C6`, que ya está cerrada. Sigue siendo válido para el día que haya que migrar usuarios desde otra app.
 
-Queda **`C8`** (cerrar el paywall), que no depende de ningún otro ticket: depende de que definas el precio.
+Queda **`C8`** (cerrar el paywall). **El precio ya está decidido** (30 fundadores a 9.500, público 15.000 — está en el ticket), así que `C8` dejó de depender de una decisión y es solo trabajo.
+
+Y hay una **ronda 3 anotada sin abrir** (`D1`–`D4`, 2026-08-27), salida de una charla de producto: cotización histórica, tenencias en el patrimonio, mercado cripto/acciones y análisis de patrimonio con IA. No se arranca hasta cerrar `C8`.
 
 Dicho eso, el orden de esa lista cede ante lo de abajo:
 

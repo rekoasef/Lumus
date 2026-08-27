@@ -4,10 +4,159 @@
 
 Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es un conjunto acotado de tickets que se toman **de a uno**, se cierran, se verifican y recién ahí se pasa al siguiente. Las rondas cerradas quedan abajo como historial, no se borran.
 
-- **Ronda 2 (`C1`–`C8`)** — abierta, 2026-08-26. Es la que está en curso.
+- **Ronda 3 (`D1`–`D4`)** — **anotada, sin abrir** (2026-08-27). Salió de una charla de producto, no de una revisión técnica. No se arranca hasta cerrar `C8`.
+- **Ronda 2 (`C1`–`C8`)** — abierta, 2026-08-26. Es la que está en curso: queda `C8`.
 - **Ronda 1 (`B1`–`B7`)** — cerrada y deployada el 2026-08-20. Más abajo.
 
+> Ojo con las letras: los `D1`, `F1`, `S1` de `docs/ISSUES_PENDIENTES.md` son de un esquema viejo y cerrado, sin relación con la ronda 3 de acá.
+
 > **El deploy es manual** (`vercel --prod --yes`) y la base y el código deployado tienen que moverse juntos. El 2026-08-20 quedaron desfasados unos minutos y eso dejó al dueño fuera de su propia app hasta el deploy siguiente. Si un ticket toca el gate de acceso o una migración, deployar en el mismo tramo.
+
+---
+
+# Ronda 3 — anotada, sin abrir (2026-08-27)
+
+Cuatro tickets que salieron de una conversación sobre **en qué se diferencia Lumus** de las otras cincuenta apps de gastos, y qué le agrega valor aunque no lo diferencie. No están para hacerse ya: primero se cierra `C8`, que es lo que separa a Lumus de poder cobrar.
+
+**La idea de fondo, que ordena los cuatro:** toda app de finanzas del mundo asume que tu moneda mantiene su valor, porque están hechas donde ahorrar en la moneda local significa algo. Acá *"ahorraste 200.000 pesos este mes"* no dice nada si no sabés qué hizo el dólar en esos treinta días — podés haber ahorrado y ser más pobre. Ese es el problema que ninguna app importada va a resolver, porque donde las hacen no existe.
+
+## Orden de trabajo
+
+| # | Ticket | Por qué está en esa posición | Tamaño |
+|---|---|---|---|
+| `D1` | Cotización histórica y el costo de estar en pesos | Chico y desbloquea a `D4`. Sin historia de cotización no hay ninguna comparación posible | S |
+| `D2` | Que las inversiones cuenten en el patrimonio | Es lo que separa a Lumus de una app de gastos. Necesita precios, que trae `D3` | M |
+| `D3` | Mercado: cripto y acciones | Independiente. Aporta los precios que `D2` necesita para valuar | M |
+| `D4` | Análisis de patrimonio con IA | Va último: sin la historia de `D1` no tiene qué analizar | M |
+
+---
+
+## `D1` — Cotización histórica y el costo de estar en pesos
+
+Estado: **anotado, sin abrir**
+
+### Por qué
+
+Lumus sabe cuánto vale el dólar **ahora** y nada más: la cotización vive en un caché en memoria de una hora (`lib/finance/exchange-rates.ts`) y se pierde. No tiene idea de cuánto valía en marzo.
+
+Sin esa historia, la app no puede contestar la única pregunta que importa acá: *¿tu plata creció o solo creció el número?*
+
+Y el cron diario de `C4` ya corre todos los días. Guardar la cotización es una tabla de dos columnas y unas líneas en un colector que ya existe — la infraestructura para esto se construyó sin querer.
+
+### Alcance
+
+1. Tabla `exchange_rate_history`: fecha, USD, EUR, fuente. Una fila por día, escrita por el cron.
+2. **Arreglar el euro de paso.** Hoy no se consulta: se estima como `dólar blue × 1,08`, con el 1,08 clavado en el código. La misma respuesta de bluelytics que la app ya pide **trae `blue_euro` de verdad** y lo estamos tirando. El 2026-08-27 el real era 1.672 y el estimado 1.661,6 — erra poco por casualidad, y el día que el euro/dólar se mueva va a mentir en silencio.
+3. Patrimonio en dólares a lo largo del tiempo, no solo en pesos.
+4. "Tu plata quieta perdió un X% este mes" — el costo de no hacer nada.
+
+### Riesgos
+
+- Sembrar la historia hacia atrás no se puede: arranca el día que se implemente. Cuanto antes empiece a guardar, antes sirve. **Es un argumento para hacerlo temprano aunque la feature que lo usa venga después.**
+- Si el cron falla un día queda un hueco. Decidir si se interpola o se muestra el hueco (yo mostraría el hueco).
+
+### Done cuando
+
+- Hay una fila por día desde que se implementó, y el euro sale de `blue_euro` y no de una multiplicación.
+- Se puede ver el patrimonio de un mes viejo valuado con la cotización **de ese mes**, no con la de hoy.
+
+---
+
+## `D2` — Que las inversiones cuenten en el patrimonio
+
+Estado: **anotado, sin abrir**
+
+### Por qué
+
+Las billeteras *Ahorro en dólares* e *Inversiones MP* son plata real guardada como un número opaco que hay que actualizar a mano. Lumus sabe que hay algo ahí, pero no sabe si creció o se achicó.
+
+**Las apps de gastos terminan donde empiezan las inversiones.** Que tus tenencias cuenten en tu patrimonio, en la moneda que importa, es lo que hace que Lumus deje de ser una app de gastos.
+
+### Alcance
+
+- Tenencias: qué tenés, cuánto, a qué precio lo compraste.
+- Valuación con precios de mercado (los trae `D3`) y conversión a ARS/USD.
+- El patrimonio total incluye las tenencias, no solo los saldos.
+- Rendimiento contra el precio de compra, y contra el dólar.
+
+### Decisiones a tomar
+
+- **Carga manual, como todo el resto.** Nada de conectarse a un exchange o a un broker: son credenciales de la plata de alguien, y eso es otro producto y otro nivel de responsabilidad.
+
+### Riesgos
+
+- Una tenencia mal cargada distorsiona el patrimonio entero, que es el número del que cuelga todo lo demás.
+- El precio de compra en pesos de algo comprado hace dos años no se compara con nada sin `D1`.
+
+### Done cuando
+
+- El patrimonio total incluye las tenencias valuadas al precio del día.
+- Se ve el rendimiento de cada tenencia contra lo que se pagó por ella.
+
+---
+
+## `D3` — Mercado: cripto y acciones
+
+Estado: **anotado, sin abrir**
+
+### Por qué
+
+Esto **no es un diferencial y no se hace como si lo fuera.** Binance, TradingView e Investing lo hacen mejor y son gratis.
+
+Se hace por otra razón, que es buena: **no tener que salir de la app.** Binance te muestra el precio pero no sabe que gastaste 40.000 en el súper; Lumus puede tener las dos cosas en la misma pantalla. Es consolidación, y la consolidación es una razón legítima para elegir una app.
+
+Y tiene un uso interno: es la fuente de precios con la que `D2` valúa las tenencias.
+
+### Alcance
+
+- Precios de cripto (BTC, ETH y las principales) y de acciones, con gráficos.
+- **Verificar las APIs contra la doc actual antes de elegir**, no de memoria: cuáles son gratis, con qué límite de rate y con qué condiciones.
+
+### Riesgos
+
+- **Las APIs de mercado se rompen**: cambian, limitan por rate y algunas se vuelven pagas de un día para el otro. Un precio viejo o equivocado en una app de finanzas es peor que no mostrar nada.
+- Mitigación, que ya tiene molde en `lib/finance/exchange-rates.ts`: cacheado del lado del servidor, **nunca llamando desde el navegador** (límites de rate y claves expuestas), y si la fuente falla que diga "sin datos" en vez de un número mentiroso.
+
+### Done cuando
+
+- Los precios se ven, se actualizan y **envejecen visiblemente**: la pantalla dice de cuándo es el dato.
+- Con la API caída, la pantalla lo dice y no muestra un precio viejo como si fuera de ahora.
+
+---
+
+## `D4` — Análisis de patrimonio con IA
+
+Estado: **anotado, sin abrir**
+
+### Por qué
+
+Hoy la IA resume el mes. Con `D1` y `D2` puede contestar algo mucho más útil, y que **nadie más puede contestar porque nadie más tiene esos datos**.
+
+### La línea que no se cruza
+
+**La IA analiza tu plata. No recomienda qué comprar.** Se decidió el 2026-08-27 y no es un detalle de implementación:
+
+- **Recomendar inversiones es una actividad regulada.** En Argentina la regula la CNV y requiere estar registrado. Una app que le dice a la gente dónde poner la plata puede estar ejerciendo asesoramiento sin matrícula — riesgo legal del dueño, no de Lumus.
+- **Los modelos de lenguaje son malos prediciendo mercados, y de una forma traicionera**: suenan seguros. Van a escribir tres párrafos convincentes con el mismo tono con el que hoy dicen que gastaste mucho en supermercado.
+- Es el mismo veneno que las comisiones de afiliados: **rompe lo único que hace valioso a un consejo financiero, que es que sea neutral.**
+
+Del lado bueno de la línea:
+
+- *"El 80% de tu patrimonio está en pesos y este trimestre perdió un 14% contra el dólar."*
+- *"Tenés seis meses de gastos parados en una caja de ahorro."*
+- *"Tu meta de ahorro está creciendo más lento que la inflación."*
+
+Todo eso es verdadero, verificable, sale de datos propios, y **no le dice a nadie qué comprar**: es información para que decida el usuario.
+
+### Riesgos
+
+- El modelo va a querer recomendar igual — hay que prohibírselo en el system prompt de forma explícita y verificarlo, no confiar.
+- Aplica el tope de `lib/finance/report-limits.ts`: es otra llamada paga por usuario.
+
+### Done cuando
+
+- El análisis usa datos reales de patrimonio y cotización, no generalidades.
+- **Pedirle explícitamente "¿en qué invierto?" no devuelve una recomendación**, y eso está probado, no supuesto.
 
 ---
 
