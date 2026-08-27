@@ -9,6 +9,7 @@ import { portfolioTotals, resolvePriceUsd, valuateHolding, type Holding } from '
 import { rateOn } from '@/lib/finance/purchasing-power'
 import { fetchRateHistory, yearsAgo } from '@/lib/finance/rate-history'
 import { monthsOfRunway, pesoLossOverWindows, wealthComposition } from '@/lib/finance/wealth'
+import { savingGoalProgress } from '@/lib/finance/rules'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import { todayInArgentina } from '@/lib/notifications/due-notification'
 import { WEALTH_SYSTEM_PROMPT } from '@/lib/finance/wealth-prompt'
@@ -30,7 +31,7 @@ async function buildWealthContext(
   const today = todayInArgentina()
 
   const [walletsRes, holdingsRes, rateHistory, rates, goalsRes] = await Promise.all([
-    supabase.from('wallets').select('balance, currency').eq('user_id', userId).is('deleted_at', null),
+    supabase.from('wallets').select('id, balance, currency').eq('user_id', userId).is('deleted_at', null),
     supabase
       .from('holdings')
       .select('id, name, kind, price_source, quantity, purchase_price, purchase_currency, purchase_date, manual_price')
@@ -38,7 +39,10 @@ async function buildWealthContext(
     // Dos años alcanzan para las ventanas que se comparan acá.
     fetchRateHistory(supabase, yearsAgo(2)),
     getExchangeRates(),
-    supabase.from('saving_goals').select('name, target_amount, current_amount, achieved').eq('user_id', userId),
+    supabase
+      .from('saving_goals')
+      .select('name, target_amount, current_amount, achieved, saving_goal_wallets(wallet_id)')
+      .eq('user_id', userId),
   ])
 
   const wallets = walletsRes.data ?? []
@@ -92,7 +96,29 @@ async function buildWealthContext(
     { label: 'el último año', rateThen: windowFor(365) },
   ])
 
-  const goals = (goalsRes.data ?? []).filter(g => !g.achieved)
+  // El progreso de una meta **no** es `current_amount`: si tiene billeteras
+  // vinculadas, es la suma de sus saldos convertidos a ARS. Leer el campo crudo
+  // es el bug que `C3` vino a eliminar — una meta con plata real informada como
+  // $0 — y se coló de nuevo acá hasta que el usuario lo vio en su análisis.
+  // Por eso la regla vive en `lib/finance/rules.ts` y no se recalcula a mano.
+  const toARS = (amount: number, currency: string) => convertToARS(amount, currency, rates)
+
+  const goals = (goalsRes.data ?? [])
+    .filter(g => !g.achieved)
+    .map(goal => {
+      const walletIds = (goal.saving_goal_wallets ?? []).map(w => w.wallet_id)
+      const linked = wallets
+        .filter(w => walletIds.includes(w.id))
+        .map(w => ({ balance: Number(w.balance ?? 0), currency: w.currency ?? 'ARS' }))
+
+      const progress = savingGoalProgress(
+        { target_amount: Number(goal.target_amount), current_amount: Number(goal.current_amount ?? 0) },
+        linked,
+        toARS,
+      )
+
+      return { name: goal.name, target: Number(goal.target_amount), progress, linkedCount: linked.length }
+    })
 
   const money = (n: number) => formatCurrency(n, 'ARS', 'rounded')
 
@@ -118,7 +144,7 @@ ${losses.length > 0
   : '  - No hay cotizaciones suficientes para comparar.'}
 
 ${goals.length > 0
-  ? `METAS DE AHORRO ABIERTAS\n${goals.map(g => `  - ${g.name}: ${money(Number(g.current_amount ?? 0))} de ${money(Number(g.target_amount))}`).join('\n')}`
+  ? `METAS DE AHORRO ABIERTAS\n${goals.map(g => `  - ${g.name}: ${money(g.progress.currentAmount)} de ${money(g.target)} (${g.progress.percent}%)${g.linkedCount > 0 ? ` — el avance sale del saldo de ${g.linkedCount} billetera(s) vinculada(s)` : ''}`).join('\n')}`
   : 'METAS DE AHORRO\n  - No hay metas abiertas.'}
 
 Analizá esta situación.`

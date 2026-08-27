@@ -15,6 +15,7 @@ import type { FinanceReport } from '@/types/finance.types'
 import { FinanceReportDocument } from './finance-report-document'
 import { downloadFinanceReportPdf } from '@/lib/finance/report-pdf'
 import { regenerationState } from '@/lib/finance/report-limits'
+import { WealthAnalysisCard, type WealthAnalysis } from './wealth-analysis-card'
 
 const LABELS = {
   regenerate: 'Regenerar',
@@ -55,6 +56,8 @@ interface ReportsDashboardProps {
   aiReports: FinanceReport[]
   selectedMonth: number
   selectedYear: number
+  /** El análisis de patrimonio del mes, si ya se generó. */
+  wealthAnalysis: WealthAnalysis | null
 }
 
 const MONTH_NAMES = [
@@ -268,6 +271,7 @@ export function ReportsDashboard({
   aiReports,
   selectedMonth,
   selectedYear,
+  wealthAnalysis,
 }: ReportsDashboardProps) {
   const { rates: exchangeRates, toARS } = useExchangeRates()
 
@@ -345,6 +349,10 @@ export function ReportsDashboard({
               )}
             </div>
             <MonthYearFilter selectedMonth={selectedMonth} selectedYear={selectedYear} />
+          </div>
+
+          <div className="mt-8">
+            <WealthAnalysisCard initial={wealthAnalysis} />
           </div>
         </header>
 

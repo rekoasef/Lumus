@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { ReportsDashboard } from '@/components/modules/finanzas/reports-dashboard'
-import { WealthAnalysisCard } from '@/components/modules/finanzas/wealth-analysis-card'
 import type { CategoryStat, MonthStat } from '@/components/modules/finanzas/reports-dashboard'
 import type { FinanceReport } from '@/types/finance.types'
 
@@ -119,10 +118,6 @@ export default async function ReportesPage({
     .maybeSingle()
 
   return (
-    <>
-    <div className="mx-auto mb-6 max-w-[900px] px-4 pt-6 sm:px-5 lg:px-12">
-      <WealthAnalysisCard initial={wealthAnalysis} />
-    </div>
     <ReportsDashboard
       expensesByCategory={expensesByCategory}
       monthlyEvolution={monthlyEvolution}
@@ -130,7 +125,7 @@ export default async function ReportesPage({
       aiReports={aiReports}
       selectedMonth={selectedMonth}
       selectedYear={selectedYear}
+      wealthAnalysis={wealthAnalysis}
     />
-    </>
   )
 }
