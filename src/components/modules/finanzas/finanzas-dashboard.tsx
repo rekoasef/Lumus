@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, TrendingUp, TrendingDown, Wallet as WalletIcon, ChevronLeft, ChevronRight, BarChart2, Minus } from 'lucide-react'
 import type { Wallet, FinanceCategory, Budget, SavingGoal, FinanceSummaryRow } from '@/types/finance.types'
@@ -55,6 +56,14 @@ interface FinanzasDashboardProps {
 
 type Section = 'transacciones' | 'billeteras' | 'categorias' | 'presupuestos' | 'metas' | 'recurrentes'
 
+const SECTION_IDS: readonly Section[] = [
+  'transacciones', 'billeteras', 'categorias', 'presupuestos', 'metas', 'recurrentes',
+]
+
+function parseSection(value: string | null): Section | null {
+  return value && SECTION_IDS.includes(value as Section) ? (value as Section) : null
+}
+
 
 export function FinanzasDashboard({
   initialWallets,
@@ -94,7 +103,21 @@ export function FinanzasDashboard({
   const [showWalletForm, setShowWalletForm] = useState(false)
   const [editingWallet, setEditingWallet] = useState<Wallet | null>(null)
   const [adjustingWallet, setAdjustingWallet] = useState<Wallet | null>(null)
-  const [activeSection, setActiveSection] = useState<Section>('transacciones')
+  // La sección vive en estado local para que cambiar de pestaña no dispare una
+  // vuelta al server. Pero se puede entrar apuntando a una: `?seccion=metas`
+  // es lo que hace que un aviso del centro de notificaciones aterrice donde
+  // corresponde, y no siempre en Movimientos.
+  const sectionParam = parseSection(useSearchParams().get('seccion'))
+  const [activeSection, setActiveSection] = useState<Section>(sectionParam ?? 'transacciones')
+  const [lastSectionParam, setLastSectionParam] = useState(sectionParam)
+
+  // Ajuste durante el render, no en un efecto: si el parámetro cambia estando
+  // ya en la pantalla (venís de un aviso y ya estabas acá), la pestaña tiene
+  // que seguirlo sin un render intermedio mostrando la anterior.
+  if (sectionParam !== lastSectionParam) {
+    setLastSectionParam(sectionParam)
+    if (sectionParam) setActiveSection(sectionParam)
+  }
 
   const { budgets, month, year, loading: budgetsLoading, autoCopied, refresh: refreshBudgets, createBudget, updateBudget, deleteBudget } =
     useBudgets(initialBudgets, now.getMonth() + 1, now.getFullYear())

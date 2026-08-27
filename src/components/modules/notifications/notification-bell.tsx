@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, Check, Loader2 } from 'lucide-react'
+import { Bell, Check, ChevronRight, Loader2 } from 'lucide-react'
 import { useNotifications } from '@/hooks/use-notifications'
 import { timeAgo } from '@/lib/utils/format-date'
 import { isNotificationType } from '@/lib/notifications/preferences'
@@ -30,6 +30,65 @@ const DOT: Record<NotificationType, string> = {
 
 function dotColor(notification: Notification): string {
   return isNotificationType(notification.type) ? DOT[notification.type] : 'var(--text-muted)'
+}
+
+/**
+ * Una fila del panel.
+ *
+ * Con link es un botón y lo dice: la flecha de la derecha es la diferencia
+ * entre "no pasó nada" y "esto te lleva a algún lado". Sin link es un `div`,
+ * porque un botón que no hace nada es peor que un texto.
+ */
+function NotificationRow({
+  notification,
+  onClick,
+}: {
+  notification: Notification
+  onClick: () => void
+}) {
+  const content = (
+    <>
+      <span
+        className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{ background: dotColor(notification) }}
+        aria-hidden
+      />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-[var(--text-primary)]">
+          {notification.title}
+        </span>
+        {notification.body && (
+          <span className="mt-0.5 block text-xs leading-relaxed text-[var(--text-secondary)]">
+            {notification.body}
+          </span>
+        )}
+        <span className="mt-1 block text-[0.68rem] text-[var(--text-muted)]">
+          {timeAgo(notification.created_at)}
+        </span>
+      </span>
+      {notification.link && (
+        <ChevronRight
+          size={14}
+          aria-hidden
+          className="mt-1 shrink-0 text-[var(--text-muted)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--text-secondary)]"
+        />
+      )}
+    </>
+  )
+
+  const base = `flex w-full gap-3 border-b border-white/[0.04] px-4 py-3 text-left last:border-0 ${
+    notification.read_at ? 'opacity-55' : ''
+  }`
+
+  if (!notification.link) {
+    return <div className={base}>{content}</div>
+  }
+
+  return (
+    <button onClick={onClick} className={`group ${base} transition-colors hover:bg-white/[0.04]`}>
+      {content}
+    </button>
+  )
 }
 
 export function NotificationBell({ initialUnread }: { initialUnread: number }) {
@@ -63,7 +122,7 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
   }, [open])
 
   async function handleClick(notification: Notification) {
-    if (!notification.read_at) await markRead(notification.id)
+    if (!notification.read_at) markRead(notification.id)
     if (notification.link) {
       setOpen(false)
       router.push(notification.link)
@@ -125,32 +184,11 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
                 </div>
               ) : (
                 notifications.map(notification => (
-                  <button
+                  <NotificationRow
                     key={notification.id}
+                    notification={notification}
                     onClick={() => handleClick(notification)}
-                    className={`flex w-full gap-3 border-b border-white/[0.04] px-4 py-3 text-left transition-colors last:border-0 hover:bg-white/[0.03] ${
-                      notification.read_at ? 'opacity-60' : ''
-                    }`}
-                  >
-                    <span
-                      className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
-                      style={{ background: dotColor(notification) }}
-                      aria-hidden
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium text-[var(--text-primary)]">
-                        {notification.title}
-                      </span>
-                      {notification.body && (
-                        <span className="mt-0.5 block text-xs leading-relaxed text-[var(--text-secondary)]">
-                          {notification.body}
-                        </span>
-                      )}
-                      <span className="mt-1 block text-[0.68rem] text-[var(--text-muted)]">
-                        {timeAgo(notification.created_at)}
-                      </span>
-                    </span>
-                  </button>
+                  />
                 ))
               )}
             </div>

@@ -62,7 +62,7 @@ export function selectBudgetNotices(
         type: 'presupuesto_excedido',
         title: `Te pasaste del presupuesto de ${budget.category_name}`,
         body: `${spent} de ${limit} · ${formatCurrency(usage.overspentBy, 'ARS', 'rounded')} de más`,
-        link: '/finanzas',
+        link: '/finanzas?seccion=presupuestos',
         dedupeKey: `presu100:${budget.category_id}:${period}`,
       })
       continue
@@ -74,7 +74,7 @@ export function selectBudgetNotices(
         type: 'presupuesto_alerta',
         title: `Presupuesto de ${budget.category_name} al ${usage.percent}%`,
         body: `${spent} de ${limit} · te quedan ${formatCurrency(usage.remaining, 'ARS', 'rounded')}`,
-        link: '/finanzas',
+        link: '/finanzas?seccion=presupuestos',
         dedupeKey: `presu80:${budget.category_id}:${period}`,
       })
     }
@@ -125,7 +125,7 @@ export function selectGoalNotices(
       type: 'meta_alcanzada',
       title: `Llegaste a la meta: ${goal.name}`,
       body: `${formatCurrency(progress.currentAmount, 'ARS', 'rounded')} de ${formatCurrency(goal.target_amount, 'ARS', 'rounded')}`,
-      link: '/finanzas',
+      link: '/finanzas?seccion=metas',
       // Sin mes ni fecha: una meta se alcanza una vez.
       dedupeKey: `meta:${goal.id}`,
     })
@@ -249,7 +249,8 @@ export function selectWeeklyNotice(
     type: 'resumen_semanal',
     title: `Gastaste ${spent} la semana pasada`,
     body: comparison,
-    link: '/finanzas',
+    // El resumen es de gastos: la pestaña de movimientos es la que lo respalda.
+    link: '/finanzas?seccion=transacciones',
     dedupeKey: `semana:${weekStart}`,
   }
 }
