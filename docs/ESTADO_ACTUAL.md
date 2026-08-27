@@ -38,13 +38,13 @@ Después del backlog se sumaron dos cosas más: el **aviso por mail** de cada fe
 
 **Usuarios reales: 2.** El dueño (`renzoasef02@gmail.com`, 2.306 transacciones) y un beta tester (`tiagotossi10@gmail.com`), ambos con acceso de cortesía. `billing_subscriptions` quedó en **0 filas**: ya no hay datos falsos de facturación en la base. Las dos cuentas de prueba que quedaban se borraron tras verificar que no tenían ningún dato.
 
-### Sesión del 2026-08-27 — `C3` cerrado, `C2` a medias
+### Sesión del 2026-08-27 — `C2` y `C3` cerrados
 
 **`C3` cerrado y verificado**: las reglas financieras que estaban escritas dos veces (progreso de una meta, uso de un presupuesto, equivalente mensual de un recurrente) viven ahora en `src/lib/finance/rules.ts`, los nueve `Intl.NumberFormat` sueltos se unificaron en `format-currency.ts`, y el proyecto tiene **Vitest** con 21 tests sobre esas funciones puras. Es la deuda que dejó el bug de las metas del 2026-08-26 (62% en una pantalla, 0% en otra).
 
-**`C2` quedó a mitad de camino**: todo el código de Sentry está escrito y probado en local — con un sink falso se confirmó que el evento sale sin cookies, headers, body, query string ni variables locales del stack. Falta lo que depende de una cuenta: crear el proyecto en Sentry, cargar `NEXT_PUBLIC_SENTRY_DSN` en Vercel **antes** de buildear (se inlinea en build time), deployar, y confirmar que un error llega desde producción. Recién ahí se borra la ruta temporal `/api/debug/sentry-check` y se cierra el ticket.
+**`C2` cerrado y deployado**: hay **Sentry** en los tres runtimes. Un error de servidor deja de morirse en silencio — antes, el único canal de detección era que a alguien se le ocurriera apretar el botón de feedback. El grueso del ticket fue el scrubbing: los defaults del SDK mandan bodies, cookies, headers, query strings y las variables locales del stack, que en un handler de transacciones son el monto y la descripción. Verificado dos veces, en local contra un sink falso y desde producción con una ruta temporal ya borrada.
 
-**Nada de esta sesión está deployado.**
+**Pendiente chico de `C2`**: los stack traces de producción apuntan al chunk compilado. Para verlos contra el código fuente falta cargar un `SENTRY_AUTH_TOKEN` (permiso `project:releases`) en Vercel — `next.config.ts` ya lo lee si está. Y la alerta por mail se configura en el dashboard de Sentry: conviene dejarla en **errores nuevos**, no en cada ocurrencia repetida.
 
 ---
 
@@ -309,9 +309,9 @@ No son código, pero sin ellas parte del trabajo no sirve:
 
 - `C1` cerrado: los totales se agregan en SQL (`get_finance_summary`, `00021`) y dejaron de depender de un tope fijo de filas — filtrar por 2025 mostraba 53 gastos de menos.
 - `C3` cerrado (2026-08-27): las reglas financieras viven en `src/lib/finance/rules.ts`, los nueve formateadores sueltos se unificaron en `format-currency.ts`, y el proyecto tiene Vitest.
-- **`C2` quedó a mitad de camino**: el código de Sentry está escrito y verificado en local, pero falta el DSN, cargarlo en Vercel y confirmar que un error llega desde producción. Es lo primero a retomar.
+- `C2` cerrado (2026-08-27): Sentry en los tres runtimes, con scrubbing de montos, descripciones y mails. Verificado desde producción.
 
-Después de `C2`, sigue `C4` (motor de avisos + vencimientos por mail).
+Sigue **`C4`** (motor de avisos + vencimientos por mail).
 
 Dicho eso, el orden de esa lista cede ante lo de abajo:
 

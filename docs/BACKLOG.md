@@ -20,7 +20,7 @@ Siete tickets, ordenados por severidad y dependencia, no por ganas. El criterio 
 | # | Ticket | Por qué está en esa posición | Tamaño |
 |---|---|---|---|
 | ~~`C1`~~ | ~~Transacciones por rango en vez de tope fijo~~ | **Cerrado 2026-08-26** | M |
-| `C2` | Errores de producción visibles (Sentry) | Barato, y a partir de acá cada ticket siguiente se deploya con red. Por eso va antes que las features | S |
+| ~~`C2`~~ | ~~Errores de producción visibles (Sentry)~~ | **Cerrado 2026-08-27** | S |
 | ~~`C3`~~ | ~~Lógica financiera en un solo lugar + primeros tests~~ | **Cerrado 2026-08-27** | M |
 | `C4` | Motor de avisos + vencimientos por mail | Es la infraestructura de todo aviso que mande Lumus, y arranca con el que más falta hace | M |
 | `C5` | Centro de notificaciones in-app + resto de los avisos | Depende del motor de `C4`. Sin él, cada aviso nuevo se implementa desde cero | M |
@@ -102,7 +102,7 @@ La API ya acepta `date_from` y `date_to` (`src/app/api/finance/transactions/rout
 
 ## `C2` — Errores de producción visibles (Sentry)
 
-Estado: **abierto**
+Estado: **cerrado (2026-08-27)**
 
 ### Por qué
 
@@ -126,6 +126,38 @@ Va segundo a propósito: los cinco tickets que siguen tocan plata, mails y factu
 
 - Un error forzado en una API route aparece en Sentry **desde producción**, no desde local.
 - El evento capturado no contiene montos, descripciones ni mails.
+
+### Resultado (2026-08-27)
+
+**Lo que se hizo**:
+
+| Pieza | Qué |
+|---|---|
+| `lib/observability/sentry.ts` | Toda la configuración y el scrubbing, compartidos por los tres runtimes |
+| `src/instrumentation.ts` | `register()` + `onRequestError = Sentry.captureRequestError` — el hook de Next 15+ que hace que un error de una API route o un Server Component llegue a Sentry |
+| `src/sentry.server.config.ts` · `src/sentry.edge.config.ts` · `src/instrumentation-client.ts` | Los tres `init`, todos con la misma config |
+| `src/app/global-error.tsx` | No existía ningún boundary raíz. Reporta a Sentry y muestra una pantalla de la app en vez del error crudo de Next |
+| `next.config.ts` | `withSentryConfig` |
+
+**El scrubbing es el grueso del ticket.** Los defaults del SDK adjuntan bodies, cookies, headers, query strings y **las variables locales de cada frame del stack** — que en un handler de transacciones son, literalmente, el monto y la descripción. Se apagan con `dataCollection` (`userInfo: false`, `httpBodies: []`, `cookies: false`, `httpHeaders: false`, `urlQueryParams: false`, `stackFrameVariables: false`, `databaseQueryData: false`), y encima `beforeSend` y `beforeBreadcrumb` limpian lo que igual se cuele. Los breadcrumbs de consola se descartan enteros: las API routes hacen `console.error` del error crudo de Supabase, que a veces trae la fila que se intentó insertar.
+
+**Verificación**:
+
+| Qué | Resultado |
+|---|---|
+| Prueba local contra un sink falso | Se disparó un error con `128450.75`, `Supermercado Coto — compra semanal` y un mail metidos a propósito en un `console.error` y en variables locales. El evento llegó con **cero coincidencias**: sin `request.data`, sin cookies, sin headers, sin query string, sin breadcrumbs y con **0 frames con `vars`** |
+| Prueba desde producción | `/api/debug/sentry-check` (ruta temporal, ya borrada) devolvió 500 y el issue apareció en Sentry con stack trace y sin panel de variables locales |
+| DSN en el bundle de producción | Confirmado: el chunk servido por `www.gestorlumus.site` tiene el host de ingest |
+| `npm test` / `npx tsc --noEmit` / `npm run lint` / `npm run build` | Sin errores |
+
+**Cuatro decisiones que valen la pena anotar**:
+
+1. **Sin Session Replay.** Graba la pantalla del usuario, o sea todo su detalle financiero. Es exactamente lo que el resto del ticket se ocupa de no mandar.
+2. **Sin tracing** (`tracesSampleRate: 0`). Lo que falta es ver errores, no performance, y cada transacción manda la URL completa de cada request.
+3. **Sin `tunnelRoute`.** Esquivaría a los bloqueadores de publicidad, pero abre una ruta en nuestro dominio que `proxy.ts` gatea con el resto — habría que hacerle un agujero al gate de auth. Con dos usuarios conocidos no lo vale.
+4. **`disableLogger` y `automaticVercelMonitors` quedaron afuera**: son opciones de webpack y Next 16 buildea con Turbopack, así que lo único que hacían era imprimir un warning de deprecación en cada build.
+
+**Lo que no se hizo**: no se subieron source maps. Los stack traces de producción apuntan al chunk compilado (`chunks/[root-of-the-server]__117vqp8._.js:2:1484`), que ubica el error pero no la línea de código. Para arreglarlo hace falta un `SENTRY_AUTH_TOKEN` con permiso `project:releases`; `next.config.ts` ya lo lee si está. Tampoco se configuró la alerta por mail — se hace en el dashboard de Sentry, no en el repo.
 
 ---
 

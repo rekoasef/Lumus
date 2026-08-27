@@ -84,6 +84,8 @@ lumus/
 │   │   │   └── middleware.ts                  → updateSession(), la usa src/proxy.ts
 │   │   ├── billing/
 │   │   │   └── plan.ts                        → precio, moneda, frecuencia del plan
+│   │   ├── observability/
+│   │   │   └── sentry.ts                      → config y scrubbing de Sentry, compartidos por los 3 runtimes
 │   │   ├── finance/
 │   │   │   ├── rules.ts                       → reglas de negocio puras (metas, presupuestos, recurrentes)
 │   │   │   ├── rules.test.ts
@@ -116,7 +118,11 @@ lumus/
 │   │   ├── billing.types.ts
 │   │   └── index.ts                           → re-exports
 │   │
-│   └── proxy.ts                                → el "middleware" de Next 16 — gate de auth/onboarding/billing
+│   ├── proxy.ts                                → el "middleware" de Next 16 — gate de auth/onboarding/billing
+│   ├── instrumentation.ts                      → carga Sentry en node/edge + onRequestError
+│   ├── instrumentation-client.ts               → init de Sentry en el browser
+│   ├── sentry.server.config.ts
+│   └── sentry.edge.config.ts
 │
 ├── supabase/
 │   ├── migrations/                             → 00001 a 00016, ver docs/ESTADO_ACTUAL.md para el detalle
