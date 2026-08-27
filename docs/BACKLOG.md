@@ -27,7 +27,7 @@ Cuatro tickets que salieron de una conversación sobre **en qué se diferencia L
 | # | Ticket | Por qué está en esa posición | Tamaño |
 |---|---|---|---|
 | ~~`D1`~~ | ~~Cotización histórica y el costo de estar en pesos~~ | **Cerrado 2026-08-27** | S |
-| `D2` | Que las inversiones cuenten en el patrimonio | Es lo que separa a Lumus de una app de gastos. Necesita precios, que trae `D3` | M |
+| ~~`D2`~~ | ~~Que las inversiones cuenten en el patrimonio~~ | **Cerrado 2026-08-27** | M |
 | `D3` | Mercado: cripto y acciones | Independiente. Aporta los precios que `D2` necesita para valuar | M |
 | `D4` | Análisis de patrimonio con IA | Va último: sin la historia de `D1` no tiene qué analizar | M |
 
@@ -108,7 +108,7 @@ El euro argentino **no sigue la paridad internacional**: derivarlo del EUR/USD d
 
 ## `D2` — Que las inversiones cuenten en el patrimonio
 
-Estado: **anotado, sin abrir**
+Estado: **cerrado (2026-08-27)**
 
 ### Por qué
 
@@ -136,6 +136,32 @@ Las billeteras *Ahorro en dólares* e *Inversiones MP* son plata real guardada c
 
 - El patrimonio total incluye las tenencias valuadas al precio del día.
 - Se ve el rendimiento de cada tenencia contra lo que se pagó por ella.
+
+### Resultado (2026-08-27)
+
+**La dependencia con `D3` se resolvió al revés de como estaba escrita.** El ticket decía que los precios los traía `D3`, pero el precio de mercado ahí no es la feature, es el insumo — así que el *fetch* de precios se hizo acá, con lo que se necesita para valuar, y `D3` queda como la pantalla de mercado. Se probaron las fuentes antes de decidir: **CoinGecko free anda** (sin API key) y **no hay fuente gratuita decente de acciones argentinas**. Por eso una tenencia sin fuente automática lleva **precio manual**, igual que hoy se lleva a mano el saldo de una billetera.
+
+**Acá `D1` se paga solo.** Una compra en pesos se lleva a dólares con la cotización **del día que se compró**. Medido con la tenencia de prueba: 0,05 BTC pagados a $55.000.000 el 2024-06-03, con el dólar a 1.220, dan un costo real de US$ 2.254 y un rendimiento de **+79,2%**. Usando el dólar de hoy para el costo, el mismo caso reporta **+126%** — 47 puntos de devaluación disfrazados de rendimiento.
+
+**Lo que se hizo**:
+
+| Pieza | Qué |
+|---|---|
+| `00026_holdings.sql` | La tabla, con un `check` que exige precio: sin precio no se puede valuar, y una tenencia que no se valúa no suma al patrimonio |
+| `lib/finance/holdings.ts` | Valuación, costo histórico y totales de cartera — puro y testeado |
+| `lib/finance/crypto-prices.ts` | CoinGecko con caché de 5 minutos, mismo molde que `exchange-rates.ts` |
+| `/api/finance/holdings` + `[id]` | ABM |
+| `holdings-section.tsx` · `holding-form.tsx` | Pestaña "Inversiones" en Finanzas |
+| `net-worth-card.tsx` | El patrimonio del dashboard = billeteras + inversiones, mostrados por separado |
+
+**Cuatro decisiones que valen la pena anotar**:
+
+1. **Los precios se buscan solo en el server.** CoinGecko limita por rate: con unos pocos usuarios recargando la pantalla, el plan free se agota en minutos. Y si la fuente falla, la tenencia se muestra **sin precio** en vez de con uno inventado, y el total dice cuántas no pudo valuar.
+2. **Sin cotización de la fecha de compra, la tenencia igual suma al patrimonio** — lo único que no hace es afirmar un rendimiento. Vale lo que vale aunque no se sepa qué costó.
+3. **El rendimiento del total se calcula solo sobre las tenencias con costo conocido.** Mezclar las que no lo tienen inflaría el porcentaje.
+4. **Billeteras e inversiones se muestran separadas.** Una cosa es la plata a la que podés echar mano y otra la que está invertida — y por eso el *runway* de días sigue contando solo las billeteras.
+
+**Lo que no se hizo**: no hay precios de acciones automáticos, por falta de fuente. Y no hay conexión a exchanges ni brokers, a propósito: son las credenciales de la plata de alguien, y eso es otro producto y otro nivel de responsabilidad.
 
 ---
 

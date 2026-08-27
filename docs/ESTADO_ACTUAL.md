@@ -76,7 +76,7 @@ Ningún aviso nuevo recalcula una regla: el uso de un presupuesto y el progreso 
 | Mercado Pago | sin SDK — llamadas directas a la API REST de `/preapproval` desde `src/lib/billing/` |
 | Resend | SMTP de Supabase Auth para los mails de verificación/recuperación (`supabase/templates/`) |
 | shadcn/ui | base instalada — `components/ui/` |
-| Vitest | desde el 2026-08-27 (`C3`) — 94 tests sobre funciones puras, `npm test` |
+| Vitest | desde el 2026-08-27 (`C3`) — 107 tests sobre funciones puras, `npm test` |
 
 > El SDK de OpenAI (`gpt-4o-mini`, usado antes para clasificación y TTS) se desinstaló al borrar el módulo de chat/voz. Ya no hay clasificación automática de gastos por IA — consistente con la preferencia del usuario de cargar todo manualmente.
 
@@ -239,6 +239,7 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 | `00023_notification_types.sql` | Suma `notification_preferences.in_app_enabled` y los seis tipos de aviso a los `check` de las dos tablas. Los defaults por tipo viven en el código (`NOTIFICATION_TYPE_INFO`), no en la base. Ver `C5` |
 | `00024_report_regenerations.sql` | Agrega `finance_reports.regenerations` — el botón "Regenerar" del reporte no tenía tope y cada click era una llamada paga a la API. El límite (1) vive en `lib/finance/report-limits.ts` |
 | `00025_exchange_rate_history.sql` | Una fila por día con la cotización, sembrada con 4.622 días de blue desde 2011 (bluelytics). Sin `user_id`: es el primer dato compartido de la app. Ver `D1` |
+| `00026_holdings.sql` | Tabla `holdings` — inversiones cargadas a mano, valuadas con CoinGecko (cripto) o precio manual. El costo de una compra en pesos se lleva a dólares con la cotización del día de compra. Ver `D2` |
 
 ---
 
@@ -246,7 +247,7 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 
 | Comando | Resultado |
 |---|---|
-| `npm test` | 94 tests en 11 archivos, verde |
+| `npm test` | 107 tests en 12 archivos, verde |
 | `npx tsc --noEmit` | Sin errores |
 | `npm run lint` | 0 errores, **12 warnings** (bajaron de 14) |
 | `npm run build` | Compila |
@@ -333,7 +334,7 @@ No son código, pero sin ellas parte del trabajo no sirve:
 
 Queda **`C8`** (cerrar el paywall). **El precio ya está decidido** (30 fundadores a 9.500, público 15.000 — está en el ticket), así que `C8` dejó de depender de una decisión y es solo trabajo.
 
-La **ronda 3 está abierta** (`D1`–`D4`, 2026-08-27), salida de una charla de producto. **`D1` ya está cerrado**: Lumus guarda la cotización de cada día (con 15 años de historia del blue sembrados desde bluelytics) y el dashboard muestra qué le pasó a tus pesos por quedarse quietos. Quedan `D2` (tenencias en el patrimonio), `D3` (mercado cripto/acciones) y `D4` (análisis de patrimonio con IA).
+La **ronda 3 está abierta** (`D1`–`D4`, 2026-08-27), salida de una charla de producto. **`D1` ya está cerrado**: Lumus guarda la cotización de cada día (con 15 años de historia del blue sembrados desde bluelytics) y el dashboard muestra qué le pasó a tus pesos por quedarse quietos. **`D2` también está cerrado**: hay una pestaña de Inversiones, las tenencias se valúan con CoinGecko (cripto) o precio manual, y el patrimonio del dashboard ya las incluye. Quedan `D3` (mercado cripto/acciones) y `D4` (análisis de patrimonio con IA).
 
 Dicho eso, el orden de esa lista cede ante lo de abajo:
 
