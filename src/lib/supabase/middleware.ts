@@ -33,6 +33,14 @@ export async function updateSession(request: NextRequest) {
   const isPublicPath = publicPaths.some(p => pathname.startsWith(p))
   const isApiRoute = pathname.startsWith('/api/')
 
+  // Abiertas para todos, con sesión o sin ella. `/baja` sale del pie de un
+  // mail: si la tratáramos como pública a secas, un usuario logueado que hace
+  // clic terminaría rebotado al dashboard sin poder darse de baja.
+  const openPaths = ['/baja']
+  if (openPaths.some(p => pathname.startsWith(p))) {
+    return supabaseResponse
+  }
+
   if (!user && !isPublicPath && !isApiRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'

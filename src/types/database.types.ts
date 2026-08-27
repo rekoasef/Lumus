@@ -224,33 +224,60 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_preferences: {
+        Row: {
+          email_enabled: boolean
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          email_enabled?: boolean
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          email_enabled?: boolean
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
-          created_at: string | null
+          created_at: string
+          dedupe_key: string
+          emailed_at: string | null
           id: string
-          module: string | null
-          read: boolean | null
+          link: string | null
+          read_at: string | null
           title: string
           type: string
           user_id: string
         }
         Insert: {
           body?: string | null
-          created_at?: string | null
+          created_at?: string
+          dedupe_key: string
+          emailed_at?: string | null
           id?: string
-          module?: string | null
-          read?: boolean | null
+          link?: string | null
+          read_at?: string | null
           title: string
           type: string
           user_id: string
         }
         Update: {
           body?: string | null
-          created_at?: string | null
+          created_at?: string
+          dedupe_key?: string
+          emailed_at?: string | null
           id?: string
-          module?: string | null
-          read?: boolean | null
+          link?: string | null
+          read_at?: string | null
           title?: string
           type?: string
           user_id?: string
