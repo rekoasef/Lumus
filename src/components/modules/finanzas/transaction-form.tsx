@@ -8,6 +8,13 @@ import { createTransactionSchema, type CreateTransactionInput } from '@/lib/vali
 import type { Transaction, Wallet, FinanceCategory } from '@/types/finance.types'
 import { CategoryIcon } from '@/lib/utils/category-icons'
 
+/** Lo que más usa el usuario, para no hacerle elegir siempre lo mismo. */
+export interface TransactionDefaults {
+  type?: 'gasto' | 'ingreso' | 'transferencia'
+  wallet_id?: string | null
+  category_id?: string | null
+}
+
 interface TransactionFormProps {
   wallets: Wallet[]
   categories: FinanceCategory[]
@@ -15,6 +22,8 @@ interface TransactionFormProps {
   onClose: () => void
   initial?: Transaction
   defaultDate?: string
+  /** Solo aplica al crear: al editar mandan los valores del movimiento. */
+  defaults?: TransactionDefaults
 }
 
 export function TransactionForm({
@@ -24,11 +33,12 @@ export function TransactionForm({
   onClose,
   initial,
   defaultDate,
+  defaults,
 }: TransactionFormProps) {
   const initialType =
     initial?.type === 'gasto' || initial?.type === 'ingreso' || initial?.type === 'transferencia'
       ? initial.type
-      : 'gasto'
+      : defaults?.type ?? 'gasto'
 
   const {
     register,
@@ -39,8 +49,11 @@ export function TransactionForm({
   } = useForm<CreateTransactionInput>({
     resolver: zodResolver(createTransactionSchema),
     defaultValues: {
-      wallet_id:   initial?.wallet_id   ?? wallets[0]?.id ?? '',
-      category_id: initial?.category_id ?? null,
+      // Al editar mandan los valores del movimiento; al crear, lo que más usás.
+      // Un formulario que arranca con la categoría y la billetera de siempre
+      // convierte cargar un gasto en escribir un monto y tocar guardar.
+      wallet_id:   initial?.wallet_id   ?? defaults?.wallet_id   ?? wallets[0]?.id ?? '',
+      category_id: initial?.category_id ?? defaults?.category_id ?? null,
       type:        initialType,
       amount:      initial?.amount      ?? undefined,
       description: initial?.description ?? '',

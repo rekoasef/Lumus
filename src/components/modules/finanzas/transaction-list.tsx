@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { AlertTriangle, Plus, ChevronLeft, ChevronRight, ArrowLeft, CalendarDays } from 'lucide-react'
 import type { DateRange, Transaction, Wallet, FinanceCategory } from '@/types/finance.types'
 import { TransactionItem } from './transaction-item'
-import { TransactionForm } from './transaction-form'
+import { TransactionForm, type TransactionDefaults } from './transaction-form'
 import type { CreateTransactionInput, UpdateTransactionInput } from '@/lib/validations/finance'
 import { CategoryIcon } from '@/lib/utils/category-icons'
 import { confirm } from '@/components/shared/confirm-dialog'
@@ -135,6 +135,14 @@ interface TransactionListProps {
    */
   categoryLookup: Pick<FinanceCategory, 'id' | 'name' | 'color' | 'icon'>[]
   toARS: ToARS
+  /** Lo que más usa el usuario — precarga el formulario de un movimiento nuevo. */
+  frequentDefaults?: TransactionDefaults
+  /**
+   * Abre el formulario apenas se monta. Lo usa el acceso directo "Cargar
+   * gasto" de la app instalada: el punto del atajo es que el teclado esté
+   * arriba antes de que el usuario piense en buscar el botón.
+   */
+  openOnMount?: TransactionDefaults | null
   onCreate: (data: CreateTransactionInput) => Promise<Transaction | null>
   onUpdate: (id: string, data: UpdateTransactionInput) => Promise<Transaction | null>
   onDelete: (id: string) => Promise<boolean>
@@ -156,6 +164,8 @@ export function TransactionList({
   categories,
   categoryLookup,
   toARS,
+  frequentDefaults,
+  openOnMount,
   onCreate,
   onUpdate,
   onDelete,
@@ -170,7 +180,7 @@ export function TransactionList({
   const [rangeTo, setRangeTo]   = useState('')
 
   const [selectedCategoryKey, setSelectedCategoryKey] = useState<string | null>(null)
-  const [showForm, setShowForm] = useState(false)
+  const [showForm, setShowForm] = useState(Boolean(openOnMount))
   const [editing, setEditing]   = useState<Transaction | null>(null)
 
   const fmt = (n: number) => formatCurrency(n, 'ARS', 'auto')
@@ -692,6 +702,7 @@ export function TransactionList({
           onClose={() => { setShowForm(false); setEditing(null) }}
           initial={editing ?? undefined}
           defaultDate={editing ? undefined : getDefaultDate()}
+          defaults={editing ? undefined : { ...frequentDefaults, ...openOnMount }}
         />
       )}
     </div>

@@ -10,6 +10,7 @@ import type { Wallet, FinanceCategory, Budget, SavingGoal, FinanceSummaryRow } f
 function toLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+import type { TransactionDefaults } from './transaction-form'
 import { WalletCard } from './wallet-card'
 import { WalletForm } from './wallet-form'
 import { WalletAdjustForm } from './wallet-adjust-form'
@@ -52,6 +53,8 @@ interface FinanzasDashboardProps {
   initialBudgets: Budget[]
   initialGoals: SavingGoal[]
   initialRecurring: RecurringTransaction[]
+  /** Categoría y billetera más usadas — precargan un movimiento nuevo. */
+  frequentDefaults?: TransactionDefaults
 }
 
 type Section = 'transacciones' | 'billeteras' | 'categorias' | 'presupuestos' | 'metas' | 'recurrentes'
@@ -73,6 +76,7 @@ export function FinanzasDashboard({
   initialBudgets,
   initialGoals,
   initialRecurring,
+  frequentDefaults,
 }: FinanzasDashboardProps) {
   const { wallets, totalBalance: _totalBalance, balanceByCurrency, loading, createWallet, updateWallet, adjustBalance, deleteWallet, localUpdateBalance: _localUpdateBalance, setWalletBalance } =
     useWallets(initialWallets)
@@ -107,7 +111,8 @@ export function FinanzasDashboard({
   // vuelta al server. Pero se puede entrar apuntando a una: `?seccion=metas`
   // es lo que hace que un aviso del centro de notificaciones aterrice donde
   // corresponde, y no siempre en Movimientos.
-  const sectionParam = parseSection(useSearchParams().get('seccion'))
+  const searchParams = useSearchParams()
+  const sectionParam = parseSection(searchParams.get('seccion'))
   const [activeSection, setActiveSection] = useState<Section>(sectionParam ?? 'transacciones')
   const [lastSectionParam, setLastSectionParam] = useState(sectionParam)
 
@@ -118,6 +123,14 @@ export function FinanzasDashboard({
     setLastSectionParam(sectionParam)
     if (sectionParam) setActiveSection(sectionParam)
   }
+
+  // `?nuevo=gasto` viene del acceso directo de la app instalada. Se lee una
+  // sola vez, al montar: si quedara vivo, cerrar el formulario y cambiar de
+  // pestaña lo volvería a abrir.
+  const [openOnMount] = useState(() => {
+    const nuevo = searchParams.get('nuevo')
+    return nuevo === 'gasto' || nuevo === 'ingreso' ? { type: nuevo } as const : null
+  })
 
   const { budgets, month, year, loading: budgetsLoading, autoCopied, refresh: refreshBudgets, createBudget, updateBudget, deleteBudget } =
     useBudgets(initialBudgets, now.getMonth() + 1, now.getFullYear())
@@ -412,6 +425,8 @@ export function FinanzasDashboard({
               categories={initialCategories}
               categoryLookup={initialCategoryLookup}
               toARS={toARS}
+              frequentDefaults={frequentDefaults}
+              openOnMount={openOnMount}
               onCreate={handleTransactionCreate}
               onUpdate={handleTransactionUpdate}
               onDelete={handleTransactionDelete}

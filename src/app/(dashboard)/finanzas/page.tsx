@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { FinanzasDashboard } from '@/components/modules/finanzas/finanzas-dashboard'
 import type { Wallet, FinanceCategory, Budget, SavingGoal, RecurringTransaction, FinanceSummaryRow } from '@/types/finance.types'
+import { frequentDefaults, FREQUENT_WINDOW_DAYS } from '@/lib/finance/frequent-defaults'
 import { rawTotalsByCategory } from '@/lib/finance/summary'
 
 export default async function FinanzasPage() {
@@ -75,6 +76,24 @@ export default async function FinanzasPage() {
   const goals = ((goalsRes.data ?? []) as unknown as (Omit<SavingGoal, 'wallet_ids'> & { saving_goal_wallets: { wallet_id: string }[] })[])
     .map(({ saving_goal_wallets, ...goal }) => ({ ...goal, wallet_ids: saving_goal_wallets.map(w => w.wallet_id) }))
 
+  // Con qué precargar el formulario de un gasto nuevo. Se pide acá y no en el
+  // cliente: son dos columnas de los últimos movimientos, y el formulario
+  // tiene que abrir ya lleno, no llenarse después.
+  const frequentWindowStart = new Date()
+  frequentWindowStart.setDate(frequentWindowStart.getDate() - FREQUENT_WINDOW_DAYS)
+
+  const { data: recentRows } = await supabase
+    .from('transactions')
+    .select('category_id, wallet_id')
+    .eq('user_id', user.id)
+    .eq('type', 'gasto')
+    .is('deleted_at', null)
+    .gte('date', frequentWindowStart.toISOString().slice(0, 10))
+    .order('date', { ascending: false })
+    .limit(200)
+
+  const defaults = frequentDefaults(recentRows ?? [])
+
   return (
     <FinanzasDashboard
       initialWallets={wallets}
@@ -84,6 +103,7 @@ export default async function FinanzasPage() {
       initialBudgets={budgets}
       initialGoals={goals}
       initialRecurring={recurring}
+      frequentDefaults={defaults}
     />
   )
 }
