@@ -70,9 +70,25 @@ function noticeRow(notification: Notification): string {
     </td></tr>`
 }
 
+/** La pantalla con el botón, para una persona. */
+export function unsubscribePageUrl(userId: string): string {
+  return `${appUrl()}/baja?token=${encodeURIComponent(createUnsubscribeToken(userId))}`
+}
+
+/**
+ * El endpoint que aprieta el cliente de correo por su cuenta.
+ *
+ * Va en `List-Unsubscribe`, que es lo que Gmail mira para mostrar su propio
+ * botón de "Cancelar suscripción" arriba del mail — y cuya ausencia pesa en
+ * que un remitente termine en spam.
+ */
+export function unsubscribeOneClickUrl(userId: string): string {
+  return `${appUrl()}/api/notifications/unsubscribe?token=${encodeURIComponent(createUnsubscribeToken(userId))}`
+}
+
 export function buildDigestHtml(notifications: readonly Notification[], userId: string): string {
   const base = appUrl()
-  const unsubscribeUrl = `${base}/baja?token=${encodeURIComponent(createUnsubscribeToken(userId))}`
+  const unsubscribeUrl = unsubscribePageUrl(userId)
   const count = notifications.length
   const subtitle = count === 1
     ? 'Tenés un vencimiento para mirar.'
@@ -136,7 +152,7 @@ export function buildDigestText(notifications: readonly Notification[], userId: 
     ...lines,
     '',
     `Ver en Lumus: ${base}/finanzas`,
-    `Dejar de recibir estos avisos: ${base}/baja?token=${encodeURIComponent(createUnsubscribeToken(userId))}`,
+    `Dejar de recibir estos avisos: ${unsubscribePageUrl(userId)}`,
   ].join('\n')
 }
 
@@ -176,6 +192,13 @@ export async function sendDigestEmail(
         subject,
         html: buildDigestHtml(notifications, userId),
         text: buildDigestText(notifications, userId),
+        headers: {
+          // Los dos juntos son la baja en un clic que pide Gmail desde 2024.
+          // Sin ellos, el link del pie sirve para la persona pero no le dice
+          // nada al filtro, y un aviso en spam es un aviso que no existe.
+          'List-Unsubscribe': `<${unsubscribeOneClickUrl(userId)}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
       }),
     })
 
