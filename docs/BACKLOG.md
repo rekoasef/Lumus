@@ -310,6 +310,7 @@ Este ticket construye **la cañería que van a usar todos los avisos** (`C5` y `
 | Aviso generado | `"Vence en 2 días · $ 45.000"`, con `dedupe_key = venc:<id>:2026-08-29:proximo` |
 | `/baja` sin sesión | Abre y muestra el botón; con token inválido dice que el link no sirve |
 | `GET` al endpoint de baja | `405` — un escáner de links de un cliente de correo no puede dar de baja a nadie |
+| One-click de Gmail (`POST` form-encoded con el token en la query) | Da de baja; sin token, `400` |
 | `POST` con firma manipulada | Rechazado |
 | Trigger de `notifications`, como `authenticated` | Marcar `read_at` funciona; reescribir el `title` y borrarse el `emailed_at` fallan |
 | `npm test` / `tsc` / `lint` / `build` | 42 tests verdes, sin errores |
@@ -324,6 +325,10 @@ El recurrente de prueba, su aviso y la preferencia quedaron borrados: la base vo
 4. **`/baja` es una ruta abierta, no una ruta pública.** Las públicas (`/login`, `/register`) rebotan al dashboard si ya tenés sesión — y con esa regla, un usuario logueado que hace clic en el link del pie terminaba en el dashboard sin poder darse de baja.
 
 **Efecto colateral buscado**: el cron diario consulta la base todos los días, así que el proyecto free de Supabase deja de estar a tiro de pausarse por 7 días de inactividad.
+
+**El primer mail real cayó en spam**, que para este ticket es lo mismo que no haber llegado. La autenticación del dominio no era el problema — DKIM (`resend._domainkey`), SPF (`send.gestorlumus.site`, `include:amazonses.com`) y DMARC (`p=none`) resuelven bien. Lo que faltaba eran los headers **`List-Unsubscribe` y `List-Unsubscribe-Post`**, que Gmail exige a los remitentes masivos desde 2024 y que son los que le ponen su propio botón de "Cancelar suscripción" arriba del mail. El link del pie conformaba a una persona pero no le decía nada al filtro. El endpoint ahora atiende a los dos: JSON desde `/baja`, y el POST form-encoded de un clic que manda el cliente de correo solo, con el token en la query.
+
+Lo que **no** se puede arreglar desde el código: el dominio casi no tiene historial de envío, y el contenido de la prueba (asunto "PRUEBA C4 — borrar") se lee exactamente como spam. Marcar ese mail como "no es spam" en Gmail ayuda para esa casilla. Si más adelante los avisos siguen cayendo, el paso siguiente es endurecer DMARC de `p=none` a `p=quarantine`, que es un cambio de DNS y no de repo.
 
 **Un bug en el guard del drop, encontrado al re-correr la migración**: la primera versión dropeaba cualquier `notifications` vacía, así que **volver a correr la migración borraba la tabla nueva**. No lo salvó el guard: lo salvó que el re-run falló más adelante (`notification_preferences already exists`) y Postgres revirtió el lote entero. Ahora el guard mira la columna `module`, que solo existe en la tabla de `00001`. La lección general: una migración con un `drop` tiene que identificar *qué* está dropeando, no solo que el nombre coincida.
 
