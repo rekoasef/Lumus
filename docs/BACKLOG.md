@@ -4,8 +4,8 @@
 
 Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es un conjunto acotado de tickets que se toman **de a uno**, se cierran, se verifican y recién ahí se pasa al siguiente. Las rondas cerradas quedan abajo como historial, no se borran.
 
-- **Ronda 3 (`D1`–`D4`)** — **anotada, sin abrir** (2026-08-27). Salió de una charla de producto, no de una revisión técnica. No se arranca hasta cerrar `C8`.
-- **Ronda 2 (`C1`–`C8`)** — abierta, 2026-08-26. Es la que está en curso: queda `C8`.
+- **Ronda 3 (`D1`–`D4`)** — **abierta, 2026-08-27**. Es la que está en curso.
+- **Ronda 2 (`C1`–`C8`)** — cerrada salvo `C8`, que **se movió al final de todo** por decisión del usuario (2026-08-27): el precio ya está decidido y el ticket es solo trabajo, así que puede esperar. `D1` se adelantó porque **la historia de cotizaciones no se puede sembrar hacia atrás** — arranca el día que se implemente.
 - **Ronda 1 (`B1`–`B7`)** — cerrada y deployada el 2026-08-20. Más abajo.
 
 > Ojo con las letras: los `D1`, `F1`, `S1` de `docs/ISSUES_PENDIENTES.md` son de un esquema viejo y cerrado, sin relación con la ronda 3 de acá.
@@ -14,9 +14,11 @@ Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es u
 
 ---
 
-# Ronda 3 — anotada, sin abrir (2026-08-27)
+# Ronda 3 — abierta (2026-08-27)
 
-Cuatro tickets que salieron de una conversación sobre **en qué se diferencia Lumus** de las otras cincuenta apps de gastos, y qué le agrega valor aunque no lo diferencie. No están para hacerse ya: primero se cierra `C8`, que es lo que separa a Lumus de poder cobrar.
+Cuatro tickets que salieron de una conversación sobre **en qué se diferencia Lumus** de las otras cincuenta apps de gastos, y qué le agrega valor aunque no lo diferencie.
+
+`C8` (cerrar el paywall) quedó **para el final de todo**: el precio ya está decidido, así que dejó de bloquear nada y puede esperar. `D1` se hace primero porque es el único ticket que **pierde valor cada día que se posterga**.
 
 **La idea de fondo, que ordena los cuatro:** toda app de finanzas del mundo asume que tu moneda mantiene su valor, porque están hechas donde ahorrar en la moneda local significa algo. Acá *"ahorraste 200.000 pesos este mes"* no dice nada si no sabés qué hizo el dólar en esos treinta días — podés haber ahorrado y ser más pobre. Ese es el problema que ninguna app importada va a resolver, porque donde las hacen no existe.
 
@@ -33,7 +35,7 @@ Cuatro tickets que salieron de una conversación sobre **en qué se diferencia L
 
 ## `D1` — Cotización histórica y el costo de estar en pesos
 
-Estado: **anotado, sin abrir**
+Estado: **en curso (2026-08-27)**
 
 ### Por qué
 

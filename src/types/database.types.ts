@@ -113,6 +113,30 @@ export type Database = {
           },
         ]
       }
+      exchange_rate_history: {
+        Row: {
+          created_at: string
+          date: string
+          eur: number | null
+          source: string
+          usd: number
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          eur?: number | null
+          source?: string
+          usd: number
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          eur?: number | null
+          source?: string
+          usd?: number
+        }
+        Relationships: []
+      }
       feedback: {
         Row: {
           created_at: string

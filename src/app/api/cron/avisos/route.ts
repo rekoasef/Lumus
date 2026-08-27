@@ -17,6 +17,7 @@ import {
   collectGoalNotices,
   collectMonthlyReportNotices,
   collectWeeklyNotices,
+  recordTodayRate,
 } from '@/lib/notifications/collect'
 import { NOTIFICATION_TYPES, type NewNotification, type NotificationType } from '@/types/notifications.types'
 
@@ -54,6 +55,10 @@ export async function GET(req: NextRequest) {
 
   const supabase = createServiceClient()
   const today = todayInArgentina()
+
+  // Lo primero, antes que los avisos: la cotización de hoy no se puede
+  // recuperar mañana. Si falla el resto de la corrida, esto ya quedó guardado.
+  const rateSaved = await recordTodayRate(supabase, today)
 
   const collected: NewNotification[] = []
   const failures: string[] = []
@@ -121,6 +126,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     today,
+    rateSaved,
     collected: collected.length,
     created: created.length,
     usersNotified: usersWithNews.length,

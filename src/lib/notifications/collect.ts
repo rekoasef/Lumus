@@ -28,6 +28,39 @@ import {
 
 type ServiceClient = SupabaseClient<Database>
 
+/**
+ * Guarda la cotización del día.
+ *
+ * No genera avisos: aprovecha que el cron ya corre todos los días para llevar
+ * la historia que necesita el patrimonio en dólares. Sin esto, Lumus sabría
+ * cuánto vale el dólar hoy y nada más.
+ *
+ * Devuelve si guardó, sin tirar: que falle la cotización no puede dejar sin
+ * aviso a un vencimiento.
+ */
+export async function recordTodayRate(supabase: ServiceClient, today: string): Promise<boolean> {
+  try {
+    const rates = await getExchangeRates()
+
+    // Si bluelytics no contestó, lo que hay es el valor de respaldo — guardarlo
+    // sería ensuciar la serie con un número inventado.
+    if (rates.source !== 'live') return false
+
+    const { error } = await supabase
+      .from('exchange_rate_history')
+      .upsert(
+        { date: today, usd: rates.USD, eur: rates.EUR, source: 'bluelytics' },
+        { onConflict: 'date' },
+      )
+
+    if (error) throw new Error(error.message)
+    return true
+  } catch (error) {
+    console.error('[avisos] no se pudo guardar la cotización del día', error)
+    return false
+  }
+}
+
 export async function collectDueNotices(
   supabase: ServiceClient,
   today: string,

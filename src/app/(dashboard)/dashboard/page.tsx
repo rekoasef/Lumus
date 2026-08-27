@@ -18,6 +18,8 @@ import type { FinanceSummaryRow, RecurringRepeatType, TransactionType } from '@/
 import { getExchangeRates, convertToARS } from '@/lib/finance/exchange-rates'
 import { countSummary, sumSummary, totalsByCategory } from '@/lib/finance/summary'
 import { budgetUsage, monthlyRecurringAmount, savingGoalProgress } from '@/lib/finance/rules'
+import { purchasingPowerChange, rateOn, type DailyRate } from '@/lib/finance/purchasing-power'
+import { PurchasingPowerCard } from '@/components/modules/dashboard/purchasing-power-card'
 import { formatCurrency } from '@/lib/utils/format-currency'
 
 /** Movimientos que muestra la tarjeta de "Últimos movimientos". */
@@ -93,6 +95,9 @@ type RawSavingGoalRow = {
 /** Desde qué porcentaje un presupuesto entra en el panel de riesgo. */
 const BUDGET_RISK_THRESHOLD = 75
 
+/** Contra cuántos días atrás se compara el poder de compra de los pesos. */
+const PURCHASING_POWER_DAYS = 30
+
 function getLocalDate(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
@@ -127,7 +132,12 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
   const monthEnd = getLocalDate(new Date(year, month, 0))
 
-  const [walletsRes, recentRes, monthSummaryRes, categoriesRes, budgetsRes, recurringRes, goalsRes, rates] = await Promise.all([
+  // Se pide con margen sobre la ventana: los fines de semana no cotizan, así
+  // que la fecha exacta de hace 30 días puede no tener fila.
+  const rateWindowStart = new Date()
+  rateWindowStart.setDate(rateWindowStart.getDate() - PURCHASING_POWER_DAYS - 7)
+
+  const [walletsRes, recentRes, monthSummaryRes, categoriesRes, budgetsRes, recurringRes, goalsRes, rates, rateHistoryRes] = await Promise.all([
     supabase
       .from('wallets')
       .select('id, name, balance, currency, color')
@@ -175,6 +185,11 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
       .eq('achieved', false)
       .order('target_date', { ascending: true, nullsFirst: false }),
     getExchangeRates(),
+    supabase
+      .from('exchange_rate_history')
+      .select('date, usd')
+      .gte('date', rateWindowStart.toISOString().slice(0, 10))
+      .order('date', { ascending: false }),
   ])
 
   const wallets = (walletsRes.data ?? []) as WalletSummary[]
@@ -205,7 +220,9 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
     spent: spentByCategory[b.category_id] ?? 0,
   })) as BudgetSummary[]
 
-  return { wallets, recentTransactions, monthSummary, categories, budgets, recurring, goals, monthStart, monthEnd, month, year, rates }
+  const rateHistory: DailyRate[] = (rateHistoryRes.data ?? []).map(r => ({ date: r.date, usd: Number(r.usd) }))
+
+  return { wallets, recentTransactions, monthSummary, categories, budgets, recurring, goals, monthStart, monthEnd, month, year, rates, rateHistory }
 }
 
 function getFormattedDate(): string {
@@ -231,7 +248,7 @@ export default async function DashboardPage() {
     getDashboardData(supabase, user.id),
   ])
 
-  const { wallets, recentTransactions, monthSummary, categories, budgets, recurring, goals, rates } = dashboardData
+  const { wallets, recentTransactions, monthSummary, categories, budgets, recurring, goals, rates, rateHistory } = dashboardData
   const toARS = (amount: number, currency: string) => convertToARS(amount, currency, rates)
   const hasForeignCurrency = wallets.some(w => (w.currency ?? 'ARS') !== 'ARS')
 
@@ -266,6 +283,18 @@ export default async function DashboardPage() {
   const budgetRemaining = totalBudget - totalBudgetSpent
   const totalBudgetUsage = budgetUsage({ amount: totalBudget, spent: totalBudgetSpent }).percent
   const runwayDays = dailyBurn > 0 ? Math.floor(Math.max(0, totalBalanceARS) / dailyBurn) : null
+
+  // Qué le pasó al saldo en pesos por quedarse quieto. Se mide sobre `arsBalance`
+  // y no sobre el patrimonio total: lo que ya está en dólares no perdió nada por
+  // estar en dólares, y meterlo adentro diluiría el número hasta que no diga nada.
+  const powerFrom = new Date()
+  powerFrom.setDate(powerFrom.getDate() - PURCHASING_POWER_DAYS)
+
+  const rateBefore = rateOn(rateHistory, powerFrom.toISOString().slice(0, 10))
+  const rateNow = rateOn(rateHistory, getLocalDate())
+  const purchasingPower = rateBefore && rateNow
+    ? purchasingPowerChange(arsBalance, rateBefore, rateNow)
+    : null
 
   const categoryById = new Map(categories.map(c => [c.id, c]))
   const categoryTotals = totalsByCategory(monthSummary, 'gasto', toARS).map(row => {
@@ -351,6 +380,14 @@ export default async function DashboardPage() {
             <p className="mt-1 text-[0.65rem] text-[var(--text-muted)]">{detail}</p>
           </div>
         ))}
+      </section>
+
+      <section className="mx-auto max-w-[1120px]">
+        <PurchasingPowerCard
+          amountArs={arsBalance}
+          change={purchasingPower}
+          days={PURCHASING_POWER_DAYS}
+        />
       </section>
 
       <section className="mx-auto grid max-w-[1120px] gap-4 lg:grid-cols-[1.05fr_0.95fr]">
