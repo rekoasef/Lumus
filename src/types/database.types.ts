@@ -227,18 +227,21 @@ export type Database = {
       notification_preferences: {
         Row: {
           email_enabled: boolean
+          in_app_enabled: boolean
           type: string
           updated_at: string
           user_id: string
         }
         Insert: {
           email_enabled?: boolean
+          in_app_enabled?: boolean
           type: string
           updated_at?: string
           user_id: string
         }
         Update: {
           email_enabled?: boolean
+          in_app_enabled?: boolean
           type?: string
           updated_at?: string
           user_id?: string

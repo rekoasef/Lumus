@@ -23,6 +23,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Suscripción activa o acceso de cortesía vigente — ver lib/billing/access
   if (!(await hasAccess(supabase, user.id))) redirect('/suscripcion')
 
+  // El contador sale de acá y no del nav: es un `count` con `head: true`, o
+  // sea que no trae filas, y evita que la campanita consulte en cada render.
+  const { count: unreadNotifications } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .is('read_at', null)
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--bg-base)] text-[var(--text-primary)]">
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
@@ -31,7 +39,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="absolute inset-0 lumus-panel-grid opacity-60" />
       </div>
 
-      <TopNav />
+      <TopNav unreadNotifications={unreadNotifications ?? 0} />
       <main className="relative min-h-screen pt-16 pb-24 lg:pb-0">
         {children}
       </main>

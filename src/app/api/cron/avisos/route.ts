@@ -1,28 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { selectDueNotices, type RecurringDue, DUE_SOON_DAYS } from '@/lib/notifications/due-recurring'
 import {
   createNotifications,
+  deleteOldNotifications,
+  loadPreferences,
   markEmailed,
   pendingEmailNotifications,
-  usersWithEmailDisabled,
 } from '@/lib/notifications/notifications'
 import { sendDigestEmail } from '@/lib/notifications/digest-email'
-import { buildDueNotification, todayInArgentina } from '@/lib/notifications/due-notification'
-import type { NewNotification } from '@/types/notifications.types'
+import { todayInArgentina } from '@/lib/notifications/due-notification'
+import { isFirstOfMonth, isMonday } from '@/lib/notifications/finance-notices'
+import { channelsFor } from '@/lib/notifications/preferences'
+import {
+  collectBudgetNotices,
+  collectDueNotices,
+  collectGoalNotices,
+  collectMonthlyReportNotices,
+  collectWeeklyNotices,
+} from '@/lib/notifications/collect'
+import { NOTIFICATION_TYPES, type NewNotification, type NotificationType } from '@/types/notifications.types'
 
 /**
  * Cron diario de avisos.
  *
  * Corre con `service_role` y sin sesión, así que RLS no aplica: el aislamiento
- * entre usuarios lo hace este código, agrupando por `user_id` y mandándole a
- * cada uno solo lo suyo.
+ * entre usuarios lo hace este código y las agrupaciones de `collect.ts`.
  *
  * El plan Hobby de Vercel permite una corrida por día y garantiza la hora
- * dentro de la franja, no el minuto — ver `vercel.json`.
+ * dentro de la franja, no el minuto — ver `vercel.json`. Todo lo que Lumus
+ * manda sale de acá, junto, una vez por día: es lo que hace tolerable que un
+ * mes activo genere quince avisos.
  */
 
 export const dynamic = 'force-dynamic'
+
+/** Los avisos de más de esto se borran solos. */
+const RETENTION_DAYS = 90
 
 /**
  * Sin esto, la URL del cron es un botón público para mandarle mails a todos.
@@ -42,47 +55,50 @@ export async function GET(req: NextRequest) {
   const supabase = createServiceClient()
   const today = todayInArgentina()
 
-  // El rango se pide en SQL en vez de traer todos los recurrentes: es el mismo
-  // filtro que aplica `selectDueNotices`, solo que antes de la red.
-  const horizon = new Date(`${today}T12:00:00Z`)
-  horizon.setUTCDate(horizon.getUTCDate() + DUE_SOON_DAYS)
-  const horizonDate = horizon.toISOString().slice(0, 10)
+  const collected: NewNotification[] = []
+  const failures: string[] = []
 
-  const { data, error } = await supabase
-    .from('recurring_transactions')
-    .select('id, user_id, description, amount, type, repeat_type, next_date, active')
-    .eq('active', true)
-    .lte('next_date', horizonDate)
+  // Cada colector va por separado: que falle el de metas no puede dejar sin
+  // aviso a un vencimiento, que es el que tiene fecha.
+  const collectors: [string, () => Promise<NewNotification[]>][] = [
+    ['vencimientos', () => collectDueNotices(supabase, today)],
+    ['presupuestos', () => collectBudgetNotices(supabase, today)],
+    ['metas', () => collectGoalNotices(supabase)],
+  ]
 
-  if (error) {
-    console.error('[avisos] no se pudieron leer los recurrentes', error)
-    return NextResponse.json({ error: 'Error leyendo vencimientos' }, { status: 500 })
+  if (isFirstOfMonth(today)) {
+    collectors.push(['reporte mensual', () => collectMonthlyReportNotices(supabase, today)])
+  }
+  if (isMonday(today)) {
+    collectors.push(['resumen semanal', () => collectWeeklyNotices(supabase, today)])
   }
 
-  const recurring = (data ?? []) as RecurringDue[]
-  const notices = selectDueNotices(recurring, today)
-
-  // Agrupado explícito por usuario: es lo que reemplaza a RLS acá.
-  const byUser = new Map<string, NewNotification[]>()
-  for (const notice of notices) {
-    const list = byUser.get(notice.recurring.user_id) ?? []
-    list.push(buildDueNotification(notice))
-    byUser.set(notice.recurring.user_id, list)
+  for (const [name, run] of collectors) {
+    try {
+      collected.push(...await run())
+    } catch (error) {
+      console.error(`[avisos] falló el colector de ${name}`, error)
+      failures.push(name)
+    }
   }
 
-  await createNotifications(supabase, [...byUser.values()].flat())
+  const userIds = [...new Set(collected.map(n => n.userId))]
+  const preferences = await loadPreferences(supabase, userIds)
 
-  const unsubscribed = await usersWithEmailDisabled(supabase, 'vencimiento')
+  const created = await createNotifications(supabase, collected, preferences)
+  const usersWithNews = [...new Set(created.map(n => n.user_id))]
 
   let emailsSent = 0
   let emailsFailed = 0
 
-  for (const userId of byUser.keys()) {
-    if (unsubscribed.has(userId)) continue
+  for (const userId of usersWithNews) {
+    const allowedTypes = NOTIFICATION_TYPES.filter(
+      (type: NotificationType) => channelsFor(preferences, userId, type).email,
+    )
 
     // El digest se arma sobre lo pendiente y no sobre lo recién creado: así
     // arrastra lo que ayer no se pudo mandar.
-    const pending = await pendingEmailNotifications(supabase, userId)
+    const pending = await pendingEmailNotifications(supabase, userId, allowedTypes)
     if (pending.length === 0) continue
 
     const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId)
@@ -101,12 +117,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const deleted = await deleteOldNotifications(supabase, RETENTION_DAYS)
+
   return NextResponse.json({
     today,
-    recurringChecked: recurring.length,
-    notices: notices.length,
-    usersNotified: byUser.size,
+    collected: collected.length,
+    created: created.length,
+    usersNotified: usersWithNews.length,
     emailsSent,
     emailsFailed,
+    deleted,
+    failures,
   })
 }

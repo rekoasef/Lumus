@@ -1,4 +1,5 @@
-import type { Notification } from '@/types/notifications.types'
+import type { Notification, NotificationType } from '@/types/notifications.types'
+import { isNotificationType } from './preferences'
 import { createUnsubscribeToken } from './unsubscribe-token'
 
 /**
@@ -29,6 +30,10 @@ const C = {
   dangerFg:  '#b42318',
   warnBg:    '#fff5e5',
   warnFg:    '#a15c00',
+  okBg:      '#e9f7ee',
+  okFg:      '#1a7f47',
+  infoBg:    '#eaf1fd',
+  infoFg:    '#1f4fa3',
 }
 
 function escapeHtml(value: string): string {
@@ -43,14 +48,29 @@ function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.gestorlumus.site'
 }
 
+/** El sello de color de cada aviso, por tipo. */
+const CHIPS: Record<NotificationType, { label: string; bg: string; fg: string }> = {
+  vencimiento:          { label: 'POR VENCER',  bg: C.warnBg,   fg: C.warnFg },
+  presupuesto_alerta:   { label: 'PRESUPUESTO', bg: C.warnBg,   fg: C.warnFg },
+  presupuesto_excedido: { label: 'EXCEDIDO',    bg: C.dangerBg, fg: C.dangerFg },
+  meta_alcanzada:       { label: 'META',        bg: C.okBg,     fg: C.okFg },
+  reporte_mensual:      { label: 'REPORTE',     bg: C.infoBg,   fg: C.infoFg },
+  resumen_semanal:      { label: 'RESUMEN',     bg: C.infoBg,   fg: C.infoFg },
+}
+
 /** El título del aviso ya viene armado por quien lo generó. */
 function noticeRow(notification: Notification): string {
-  // La fase sale del `dedupe_key`, que la lleva por diseño. Deducirla del
-  // texto del cuerpo funcionaría hasta que alguien reescriba una frase.
-  const overdue = notification.dedupe_key.endsWith(':vencido')
-  const chipBg = overdue ? C.dangerBg : C.warnBg
-  const chipFg = overdue ? C.dangerFg : C.warnFg
-  const chip = overdue ? 'VENCIDO' : 'POR VENCER'
+  const type = isNotificationType(notification.type) ? notification.type : 'vencimiento'
+  let { label: chip, bg: chipBg, fg: chipFg } = CHIPS[type]
+
+  // Un vencimiento ya vencido se marca distinto. La fase sale del `dedupe_key`,
+  // que la lleva por diseño: deducirla del texto del cuerpo funcionaría hasta
+  // que alguien reescriba una frase.
+  if (type === 'vencimiento' && notification.dedupe_key.endsWith(':vencido')) {
+    chip = 'VENCIDO'
+    chipBg = C.dangerBg
+    chipFg = C.dangerFg
+  }
 
   return `
     <tr><td style="padding:0 0 10px;">
@@ -91,8 +111,8 @@ export function buildDigestHtml(notifications: readonly Notification[], userId: 
   const unsubscribeUrl = unsubscribePageUrl(userId)
   const count = notifications.length
   const subtitle = count === 1
-    ? 'Tenés un vencimiento para mirar.'
-    : `Tenés ${count} vencimientos para mirar.`
+    ? 'Tenés una novedad para mirar.'
+    : `Tenés ${count} novedades para mirar.`
 
   return `<!doctype html>
 <html lang="es">
@@ -107,7 +127,7 @@ export function buildDigestHtml(notifications: readonly Notification[], userId: 
         </td></tr>
 
         <tr><td style="padding:18px 24px 0;">
-          <p style="margin:0;font-size:18px;font-weight:600;color:${C.text};">Vencimientos</p>
+          <p style="margin:0;font-size:18px;font-weight:600;color:${C.text};">Novedades</p>
           <p style="margin:5px 0 0;font-size:13px;color:${C.secondary};">${subtitle}</p>
         </td></tr>
 
@@ -128,7 +148,7 @@ export function buildDigestHtml(notifications: readonly Notification[], userId: 
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid ${C.border};">
             <tr><td style="padding-top:14px;">
               <p style="margin:0;font-size:11px;color:${C.muted};line-height:1.6;">
-                Recibís este mail porque tenés vencimientos cargados en Lumus.
+                Recibís este mail porque tenés avisos activos en Lumus.
                 <a href="${unsubscribeUrl}" style="color:${C.muted};text-decoration:underline;">Dejar de recibirlos</a>.
               </p>
             </td></tr>
@@ -147,7 +167,7 @@ export function buildDigestText(notifications: readonly Notification[], userId: 
   const base = appUrl()
   const lines = notifications.map(n => `- ${n.title}${n.body ? ` — ${n.body}` : ''}`)
   return [
-    'Vencimientos en Lumus',
+    'Novedades en Lumus',
     '',
     ...lines,
     '',
@@ -177,7 +197,7 @@ export async function sendDigestEmail(
 
   const subject = notifications.length === 1
     ? `Lumus — ${notifications[0].title}`
-    : `Lumus — ${notifications.length} vencimientos`
+    : `Lumus — ${notifications.length} novedades`
 
   try {
     const res = await fetch(RESEND_ENDPOINT, {

@@ -1,6 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
-import type { NewNotification, Notification, NotificationType } from '@/types/notifications.types'
+import type {
+  NewNotification,
+  Notification,
+  NotificationChannels,
+  NotificationType,
+} from '@/types/notifications.types'
+import { indexPreferences, channelsFor } from './preferences'
+import { NOTIFICATION_TYPE_INFO } from '@/types/notifications.types'
 
 /**
  * El motor de avisos: crear, saber a quién no mandarle, y marcar lo enviado.
@@ -23,10 +30,18 @@ type ServiceClient = SupabaseClient<Database>
 export async function createNotifications(
   supabase: ServiceClient,
   notifications: readonly NewNotification[],
+  preferences: ReadonlyMap<string, NotificationChannels> = new Map(),
 ): Promise<Notification[]> {
-  if (notifications.length === 0) return []
+  // Un aviso apagado en los dos canales no se crea: guardarlo para no
+  // mostrarlo en ningún lado es basura que después hay que limpiar.
+  const wanted = notifications.filter(n => {
+    const channels = channelsFor(preferences, n.userId, n.type)
+    return channels.inApp || channels.email
+  })
 
-  const rows = notifications.map(n => ({
+  if (wanted.length === 0) return []
+
+  const rows = wanted.map(n => ({
     user_id: n.userId,
     type: n.type,
     title: n.title,
@@ -45,23 +60,24 @@ export async function createNotifications(
 }
 
 /**
- * Quiénes se dieron de baja de este tipo de aviso.
+ * Las preferencias explícitas de un conjunto de usuarios.
  *
- * La ausencia de fila significa activado, así que esto devuelve solo a los que
- * dijeron que no explícitamente.
+ * Devuelve solo las filas que existen: quién tiene qué por default lo resuelve
+ * `channelsFor`, que es puro y está testeado.
  */
-export async function usersWithEmailDisabled(
+export async function loadPreferences(
   supabase: ServiceClient,
-  type: NotificationType,
-): Promise<Set<string>> {
+  userIds: readonly string[],
+): Promise<Map<string, NotificationChannels>> {
+  if (userIds.length === 0) return new Map()
+
   const { data, error } = await supabase
     .from('notification_preferences')
-    .select('user_id')
-    .eq('type', type)
-    .eq('email_enabled', false)
+    .select('user_id, type, in_app_enabled, email_enabled')
+    .in('user_id', [...userIds])
 
   if (error) throw new Error(`No se pudieron leer las preferencias: ${error.message}`)
-  return new Set((data ?? []).map(row => row.user_id))
+  return indexPreferences(data ?? [])
 }
 
 /**
@@ -73,12 +89,16 @@ export async function usersWithEmailDisabled(
 export async function pendingEmailNotifications(
   supabase: ServiceClient,
   userId: string,
+  allowedTypes: readonly NotificationType[],
 ): Promise<Notification[]> {
+  if (allowedTypes.length === 0) return []
+
   const { data, error } = await supabase
     .from('notifications')
     .select('id, user_id, type, title, body, link, dedupe_key, read_at, emailed_at, created_at')
     .eq('user_id', userId)
     .is('emailed_at', null)
+    .in('type', [...allowedTypes])
     .order('created_at', { ascending: true })
 
   if (error) throw new Error(`No se pudieron leer los avisos pendientes: ${error.message}`)
@@ -107,19 +127,73 @@ export async function markEmailed(
   if (error) throw new Error(`No se pudo marcar el envío: ${error.message}`)
 }
 
-/** Apaga (o vuelve a prender) los mails de un tipo para un usuario. */
+/** Guarda los dos canales de un tipo para un usuario. */
+export async function setPreference(
+  supabase: ServiceClient,
+  userId: string,
+  type: NotificationType,
+  channels: NotificationChannels,
+): Promise<void> {
+  const { error } = await supabase
+    .from('notification_preferences')
+    .upsert(
+      {
+        user_id: userId,
+        type,
+        in_app_enabled: channels.inApp,
+        email_enabled: channels.email,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,type' },
+    )
+
+  if (error) throw new Error(`No se pudo guardar la preferencia: ${error.message}`)
+}
+
+/**
+ * Apaga (o vuelve a prender) solo el mail, dejando el in-app como estaba.
+ *
+ * Lo usa el link de baja del pie de los mails: ahí el usuario está diciendo
+ * "no me escribas más", no "no quiero saber nada".
+ */
 export async function setEmailPreference(
   supabase: ServiceClient,
   userId: string,
   type: NotificationType,
   enabled: boolean,
 ): Promise<void> {
-  const { error } = await supabase
+  const { data } = await supabase
     .from('notification_preferences')
-    .upsert(
-      { user_id: userId, type, email_enabled: enabled, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id,type' },
-    )
+    .select('in_app_enabled')
+    .eq('user_id', userId)
+    .eq('type', type)
+    .maybeSingle()
 
-  if (error) throw new Error(`No se pudo guardar la preferencia: ${error.message}`)
+  await setPreference(supabase, userId, type, {
+    inApp: data?.in_app_enabled ?? NOTIFICATION_TYPE_INFO[type].default.inApp,
+    email: enabled,
+  })
+}
+
+/**
+ * Borra los avisos viejos.
+ *
+ * Un centro de notificaciones que acumula dos años de avisos no lo abre nadie,
+ * y la tabla crece para siempre por algo que ya no sirve.
+ */
+export async function deleteOldNotifications(
+  supabase: ServiceClient,
+  days: number,
+): Promise<number> {
+  const cutoff = new Date()
+  cutoff.setUTCDate(cutoff.getUTCDate() - days)
+
+  const { data, error } = await supabase
+    .from('notifications')
+    .delete()
+    .lt('created_at', cutoff.toISOString())
+    .select('id')
+
+  if (error) throw new Error(`No se pudieron borrar los avisos viejos: ${error.message}`)
+  return (data ?? []).length
 }

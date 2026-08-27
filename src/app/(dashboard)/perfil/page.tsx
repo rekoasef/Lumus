@@ -4,6 +4,8 @@ import { ProfileHeader } from '@/components/modules/profile/profile-header'
 import { ProfileForm } from '@/components/modules/profile/profile-form'
 import { SubscriptionCard } from '@/components/modules/profile/subscription-card'
 import { ChangePasswordForm } from '@/components/modules/profile/change-password-form'
+import { NotificationPreferences } from '@/components/modules/profile/notification-preferences'
+import { allChannelsFor, indexPreferences } from '@/lib/notifications/preferences'
 import type { BillingSubscription } from '@/types'
 
 export default async function PerfilPage() {
@@ -30,6 +32,15 @@ export default async function PerfilPage() {
       .maybeSingle(),
     getAccessStatus(supabase, user.id),
   ])
+
+  const { data: preferenceRows } = await supabase
+    .from('notification_preferences')
+    .select('user_id, type, in_app_enabled, email_enabled')
+    .eq('user_id', user.id)
+
+  // Los defaults se resuelven en el server: la UI recibe los seis tipos con su
+  // estado real, sin tener que saber que "sin fila" significa algo.
+  const notificationPreferences = allChannelsFor(indexPreferences(preferenceRows ?? []), user.id)
 
   const resolvedProfile = profile ?? { name: '', occupation: null, birth_date: null, monthly_salary: null }
 
@@ -58,6 +69,9 @@ export default async function PerfilPage() {
           </div>
           <div className="py-10">
             <ChangePasswordForm email={user.email!} />
+          </div>
+          <div className="py-10">
+            <NotificationPreferences initial={notificationPreferences} />
           </div>
         </div>
       </div>

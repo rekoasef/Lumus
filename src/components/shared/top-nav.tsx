@@ -10,6 +10,7 @@ import {
   LogOut,
 } from 'lucide-react'
 import { LumusOrbIcon } from '@/components/lumus/lumus-orb'
+import { NotificationBell } from '@/components/modules/notifications/notification-bell'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV_ITEMS = [
@@ -22,7 +23,11 @@ function isActive(pathname: string, href: string) {
   return pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
 }
 
-export function TopNav() {
+/**
+ * `unreadNotifications` llega del server component del layout y no de un fetch acá:
+ * el badge no puede pegarle a la base en cada render del nav.
+ */
+export function TopNav({ unreadNotifications = 0 }: { unreadNotifications?: number }) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -102,6 +107,8 @@ export function TopNav() {
 
         {/* Right actions */}
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <NotificationBell initialUnread={unreadNotifications} />
+
           <Link
             href="/perfil"
             title="Perfil"
