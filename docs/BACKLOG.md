@@ -551,11 +551,33 @@ Estado: **abierto** — parcialmente anotado en `docs/BILLING.md`
 
 Es lo único que separa a Lumus de poder cobrar. `SUBSCRIPTION_PRICE_ARS = 1000` sigue siendo el precio de prueba (`src/lib/billing/plan.ts`) y el caso `paused` nunca se probó — solo se validó `authorized → cancelled`.
 
-**No depende de ningún otro ticket. Depende de una decisión tuya**, que es el precio. Por eso está último en la lista y no en el orden de trabajo real: se puede adelantar el día que tengas el número.
+**No depende de ningún otro ticket. Dependía de una decisión del usuario**, que era el precio — **ya está tomada** (2026-08-27, abajo). A partir de acá es solo trabajo.
+
+### El precio, decidido el 2026-08-27
+
+| Cohorte | Mensual | Anual | Nota |
+|---|---|---|---|
+| **Fundadores — primeros 30** | **9.500 ARS** | **95.000 ARS** | Congelado para siempre |
+| **Público — del 31 en adelante** | **15.000 ARS** | **150.000 ARS** | |
+
+- **Primer mes gratis solo en el plan mensual.** En el anual el descuento ya es el incentivo; apilarlos deja trece meses por el precio de diez.
+- A 100 usuarios eso da **1.335.000 ARS/mes ≈ 868 USD** (blue 1.538 al 2026-08-27).
+
+**La mecánica es cohortes con precio congelado, y es la decisión de fondo**: nunca se le sube el precio a nadie. Eso saca del camino una incógnita que no se pudo resolver — la doc de Mercado Pago dice que se puede modificar el monto de una suscripción activa con `PUT /preapproval/{id}`, pero **no documenta si el usuario tiene que volver a autorizar** ni si hay tope contra lo autorizado originalmente. Con cohortes eso deja de ser bloqueante. Sigue valiendo la pena averiguarlo el día que haya que corregir el precio público por inflación, y se averigua probándolo: suscribirse con una tarjeta real a un monto bajo, hacer el `PUT` y ver qué hace MP.
+
+**Ojo con la trampa**: cambiar `SUBSCRIPTION_PRICE_ARS` solo afecta a las suscripciones **nuevas**. El monto de las existentes vive en Mercado Pago, no en la base.
+
+### El tope de usuarios (sumado el 2026-08-27, no estaba en el ticket original)
+
+El usuario quiere **limitar la cantidad de cuentas**, y el motivo es **su tiempo**, no la infraestructura ni la escasez: tiene un trabajo y no quiere atender a más gente de la que puede. El plan es abrir de a tandas cuando tenga aire, y si el ingreso alcanza, dedicarse a Lumus y ahí sí escalar.
+
+- **El tope va como número de configuración**, no clavado en el código: subirlo tiene que ser cambiar un número.
+- **Se aplica en la base, con un trigger.** El registro pasa por Supabase Auth desde el navegador: si el tope está solo en la pantalla, se saltea.
+- **Lista de espera** del otro lado. Es la parte con valor: es a quién le escribís cuando abrís cupos, y la única medida real de demanda.
 
 ### Alcance
 
-1. Precio real en `plan.ts` y en el preapproval de Mercado Pago.
+1. Precio real en `plan.ts` y en el preapproval de Mercado Pago, con las dos cohortes.
 2. Probar `paused`: qué ve el usuario, si vuelve solo a `authorized` cuando se regulariza.
 3. **Período de gracia.** Hoy el gate es binario: `authorized` o portazo (`src/lib/billing/access.ts`). Un rechazo transitorio de tarjeta —el caso más común de todos— te deja afuera de tu propia app sin aviso. Unos días de gracia con banner de aviso antes de cortar el acceso.
 4. Qué pasa con los datos de alguien que se da de baja: hoy quedan ahí y el usuario no puede entrar a verlos. Decidir si se exporta, si se avisa antes, o si se deja explícito en algún lado.
@@ -571,6 +593,8 @@ Es lo único que separa a Lumus de poder cobrar. `SUBSCRIPTION_PRICE_ARS = 1000`
 - Una suscripción en `paused` tiene un comportamiento **decidido, implementado y probado**, no descubierto en producción.
 - El precio real está en el código y en Mercado Pago, y coinciden.
 - Un usuario con un pago rechazado ve un aviso antes de perder el acceso.
+- Los 30 lugares fundadores se cuentan de verdad, y el 31 paga el precio público.
+- Con el tope lleno, registrarse desde el link **no crea la cuenta** — ni desde la pantalla ni pegándole al endpoint.
 
 ---
 
