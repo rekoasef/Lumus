@@ -76,6 +76,8 @@ export interface FinanceReport {
   month: string
   content: string
   created_at: string
+  /** Cuántas veces se rehizo. El tope está en `lib/finance/report-limits.ts`. */
+  regenerations: number
 }
 
 export type RecurringRepeatType = 'daily' | 'weekly' | 'monthly'

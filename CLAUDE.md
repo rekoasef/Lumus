@@ -23,7 +23,7 @@ Next.js 16 App Router + TypeScript strict
 Tailwind CSS v4 + shadcn/ui + Framer Motion
 Supabase (PostgreSQL + Auth) — sin Storage ni Realtime en uso
 Zustand + React Hook Form + Zod
-Claude API (claude-sonnet-4-5) — único proveedor de IA, solo para el reporte mensual
+Claude API (claude-sonnet-5) — único proveedor de IA, solo para el reporte mensual
 Mercado Pago (Suscripciones) — paywall
 Resend (SMTP de Supabase Auth) — mails de verificación y recuperación de contraseña
 Vercel (deploy)
@@ -99,12 +99,14 @@ if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
 ## Reglas de IA
 
-El único uso de IA en la app hoy es el reporte financiero mensual (`/api/finance/ai-report`, `claude-sonnet-4-5`). No hay chat, no hay clasificación automática de gastos (el usuario prefiere cargar todo a mano — no proponerla salvo que la pida explícitamente), no hay `ai_cache`/`ai_conversations`/context builder — todo eso se borró el 2026-08-18.
+El único uso de IA en la app hoy es el reporte financiero mensual (`/api/finance/ai-report`, `claude-sonnet-5`). No hay chat, no hay clasificación automática de gastos (el usuario prefiere cargar todo a mano — no proponerla salvo que la pida explícitamente), no hay `ai_cache`/`ai_conversations`/context builder — todo eso se borró el 2026-08-18.
 
 Si se agrega una nueva feature de IA:
 - Nunca llamar al proveedor sin chequear antes si ya existe un resultado guardado para ese pedido — `ai-report` lo hace consultando `finance_reports` por mes antes de generar de nuevo (patrón a repetir, no una tabla de caché genérica).
 - Envolver la llamada en `try/catch` y devolver un error claro a la UI si falla (ver `ai-report` como referencia — valida la env var, atrapa errores del SDK, y rechaza respuestas sin contenido de texto en vez de guardarlas vacías).
 - Validar la env var de la API key antes de llamar.
+- **Ponerle tope a lo que el usuario puede disparar a mano.** El reporte se puede rehacer una sola vez por mes (`MAX_REPORT_REGENERATIONS` en `lib/finance/report-limits.ts`): sin eso, un botón de "regenerar" es un botón de gastar plata, y el techo lo pone las ganas que tenga alguien de apretarlo.
+- **Ojo con el thinking**: en Sonnet 5 y Opus 5, omitir el parámetro `thinking` lo deja **prendido**, y los tokens de razonamiento salen del mismo `max_tokens` — un informe con `max_tokens: 1500` llegaría cortado. Para resumir datos ya calculados va `thinking: { type: 'disabled' }`.
 
 ---
 

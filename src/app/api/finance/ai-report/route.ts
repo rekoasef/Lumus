@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic, { APIError } from '@anthropic-ai/sdk'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { MAX_REPORT_REGENERATIONS, regenerationState } from '@/lib/finance/report-limits'
 
 const bodySchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/, 'Formato YYYY-MM requerido'),
@@ -201,12 +202,26 @@ export async function POST(req: NextRequest) {
 
   const { data: existing } = await supabase
     .from('finance_reports')
-    .select('id, user_id, month, content, created_at')
+    .select('id, user_id, month, content, created_at, regenerations')
     .eq('user_id', user.id)
     .eq('month', month)
     .maybeSingle()
 
   if (existing && !regenerate) return NextResponse.json({ report: existing })
+
+  // El tope se chequea acá, antes de armar el contexto y mucho antes de llamar
+  // a la API: es el único lugar donde Lumus gasta plata por click.
+  if (existing && regenerate && !regenerationState(existing.regenerations).canRegenerate) {
+    return NextResponse.json(
+      {
+        error: MAX_REPORT_REGENERATIONS === 1
+          ? 'Este reporte ya se rehizo una vez. Solo se puede rehacer una vez por mes.'
+          : `Este reporte ya se rehizo ${MAX_REPORT_REGENERATIONS} veces, que es el máximo por mes.`,
+        report: existing,
+      },
+      { status: 409 },
+    )
+  }
 
   const [y, m] = month.split('-').map(Number)
   const monthLabel = new Date(y, m - 1, 1).toLocaleString('es-AR', { month: 'long', year: 'numeric' })
@@ -249,8 +264,13 @@ No uses Markdown: no uses ##, tablas con |, negritas, asteriscos ni bloques de c
   let response
   try {
     response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-sonnet-5',
       max_tokens: 1500,
+      // Sin thinking a propósito. En Sonnet 5, omitir el parámetro lo prende:
+      // los tokens de razonamiento salen del mismo `max_tokens`, así que el
+      // informe llegaría cortado a la mitad. Y para resumir totales que ya
+      // vienen calculados no aporta nada — solo costo.
+      thinking: { type: 'disabled' },
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     })
@@ -269,14 +289,20 @@ No uses Markdown: no uses ##, tablas con |, negritas, asteriscos ni bloques de c
   const saveQuery = existing
     ? supabase
         .from('finance_reports')
-        .update({ content, created_at: new Date().toISOString() })
+        .update({
+          content,
+          created_at: new Date().toISOString(),
+          // Se suma acá y no antes de llamar: si la API falla, el usuario no
+          // pierde su intento.
+          regenerations: existing.regenerations + 1,
+        })
         .eq('id', existing.id)
     : supabase
         .from('finance_reports')
         .insert({ user_id: user.id, month, content })
 
   const { data: saved, error: saveError } = await saveQuery
-    .select('id, user_id, month, content, created_at')
+    .select('id, user_id, month, content, created_at, regenerations')
     .single()
 
   if (saveError || !saved) {

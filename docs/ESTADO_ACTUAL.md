@@ -72,11 +72,11 @@ Ningún aviso nuevo recalcula una regla: el uso de un presupuesto y el progreso 
 | React Hook Form + Zod | en uso en todos los formularios |
 | Recharts | usado en reportes de finanzas |
 | lucide-react | íconos en toda la app |
-| Anthropic SDK | `claude-sonnet-4-5`, único proveedor de IA que queda (resumen de reportes financieros) |
+| Anthropic SDK | `claude-sonnet-5`, único proveedor de IA que queda (resumen de reportes financieros). El reporte se puede rehacer **una sola vez por mes** — ver `lib/finance/report-limits.ts` |
 | Mercado Pago | sin SDK — llamadas directas a la API REST de `/preapproval` desde `src/lib/billing/` |
 | Resend | SMTP de Supabase Auth para los mails de verificación/recuperación (`supabase/templates/`) |
 | shadcn/ui | base instalada — `components/ui/` |
-| Vitest | desde el 2026-08-27 (`C3`) — 80 tests sobre funciones puras, `npm test` |
+| Vitest | desde el 2026-08-27 (`C3`) — 83 tests sobre funciones puras, `npm test` |
 
 > El SDK de OpenAI (`gpt-4o-mini`, usado antes para clasificación y TTS) se desinstaló al borrar el módulo de chat/voz. Ya no hay clasificación automática de gastos por IA — consistente con la preferencia del usuario de cargar todo manualmente.
 
@@ -237,6 +237,7 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 | `00021_finance_summary.sql` | Función `get_finance_summary(p_from, p_to)` — totales por tipo, categoría y moneda agregados en SQL, para que los totales dejen de depender de un tope de filas. `SECURITY INVOKER`, `EXECUTE` revocado a `public`/`anon`. Ver `C1` |
 | `00022_notifications.sql` | Motor de avisos: tablas `notifications` y `notification_preferences`. El `unique (user_id, dedupe_key)` es lo que hace idempotente al cron. Dropea de paso la `notifications` de `00001` (era de la era "Sistema Operativo Personal": vacía, sin referencias y sin uso en el código), con un guard que aborta si tuviera filas. Ver `C4` |
 | `00023_notification_types.sql` | Suma `notification_preferences.in_app_enabled` y los seis tipos de aviso a los `check` de las dos tablas. Los defaults por tipo viven en el código (`NOTIFICATION_TYPE_INFO`), no en la base. Ver `C5` |
+| `00024_report_regenerations.sql` | Agrega `finance_reports.regenerations` — el botón "Regenerar" del reporte no tenía tope y cada click era una llamada paga a la API. El límite (1) vive en `lib/finance/report-limits.ts` |
 
 ---
 
@@ -244,7 +245,7 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 
 | Comando | Resultado |
 |---|---|
-| `npm test` | 80 tests en 8 archivos, verde |
+| `npm test` | 83 tests en 9 archivos, verde |
 | `npx tsc --noEmit` | Sin errores |
 | `npm run lint` | 0 errores, **12 warnings** (bajaron de 14) |
 | `npm run build` | Compila |

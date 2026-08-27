@@ -185,6 +185,7 @@ export type Database = {
           created_at: string
           id: string
           month: string
+          regenerations: number
           user_id: string
         }
         Insert: {
@@ -192,6 +193,7 @@ export type Database = {
           created_at?: string
           id?: string
           month: string
+          regenerations?: number
           user_id: string
         }
         Update: {
@@ -199,6 +201,7 @@ export type Database = {
           created_at?: string
           id?: string
           month?: string
+          regenerations?: number
           user_id?: string
         }
         Relationships: []

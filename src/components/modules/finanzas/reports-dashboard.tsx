@@ -14,6 +14,14 @@ import { useExchangeRates } from '@/hooks/use-exchange-rates'
 import type { FinanceReport } from '@/types/finance.types'
 import { FinanceReportDocument } from './finance-report-document'
 import { downloadFinanceReportPdf } from '@/lib/finance/report-pdf'
+import { regenerationState } from '@/lib/finance/report-limits'
+
+const LABELS = {
+  regenerate: 'Regenerar',
+  regenerating: 'Regenerando...',
+  regenerateDone: 'Ya lo rehiciste',
+  regenerateSpent: 'El informe se puede rehacer una sola vez por mes.',
+} as const
 
 // Montos separados por moneda de billetera (ARS, USD...) — se convierten
 // a un total en ARS en el cliente, con la cotización vigente
@@ -74,6 +82,10 @@ function AIReportCard({ report }: { report: FinanceReport }) {
   const createdAt = new Date(currentReport.created_at).toLocaleDateString('es-AR', {
     day: 'numeric', month: 'short', year: 'numeric',
   })
+
+  // El tope lo impone la API; acá solo se refleja, para que el botón no invite
+  // a apretar algo que va a fallar.
+  const { canRegenerate } = regenerationState(currentReport?.regenerations ?? 0)
 
   async function handleRegenerate() {
     setRegenerating(true)
@@ -139,14 +151,21 @@ function AIReportCard({ report }: { report: FinanceReport }) {
               </button>
               <button
                 onClick={handleRegenerate}
-                disabled={regenerating}
-                className="flex items-center gap-1.5 rounded-lg bg-[var(--accent-lumus)] px-3 py-2 text-xs font-semibold text-[#190f5d] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                disabled={regenerating || !canRegenerate}
+                title={canRegenerate ? undefined : LABELS.regenerateSpent}
+                className="flex items-center gap-1.5 rounded-lg bg-[var(--accent-lumus)] px-3 py-2 text-xs font-semibold text-[#190f5d] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:hover:bg-[var(--accent-lumus)]"
               >
                 <RefreshCw size={12} className={regenerating ? 'animate-spin' : ''} />
-                {regenerating ? 'Regenerando...' : 'Regenerar'}
+                {regenerating ? LABELS.regenerating : canRegenerate ? LABELS.regenerate : LABELS.regenerateDone}
               </button>
             </div>
           </div>
+
+          {!canRegenerate && (
+            <p className="mt-3 text-right text-[0.68rem] text-[var(--text-muted)]">
+              {LABELS.regenerateSpent}
+            </p>
+          )}
         </div>
       )}
     </div>

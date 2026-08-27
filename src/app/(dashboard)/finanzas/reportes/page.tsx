@@ -102,7 +102,7 @@ export default async function ReportesPage({
 
   const { data: aiReportsData } = await supabase
     .from('finance_reports')
-    .select('id, user_id, month, content, created_at')
+    .select('id, user_id, month, content, created_at, regenerations')
     .eq('user_id', user.id)
     .order('month', { ascending: false })
     .limit(24)
