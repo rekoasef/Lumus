@@ -24,7 +24,7 @@ Siete tickets, ordenados por severidad y dependencia, no por ganas. El criterio 
 | ~~`C3`~~ | ~~Lógica financiera en un solo lugar + primeros tests~~ | **Cerrado 2026-08-27** | M |
 | ~~`C4`~~ | ~~Motor de avisos + vencimientos por mail~~ | **Cerrado 2026-08-27** | M |
 | ~~`C5`~~ | ~~Centro de notificaciones in-app + resto de los avisos~~ | **Cerrado 2026-08-27** | M |
-| `C6` | PWA instalable + carga rápida de gasto | Impacto alto en uso real, nada depende de él. Se puede adelantar si hay poco tiempo | S |
+| ~~`C6`~~ | ~~PWA instalable + carga rápida de gasto~~ | **Cerrado 2026-08-27** | S |
 | `C7` | Importador de CSV con mapeo manual | El más grande. Va último de los de producto porque es el que más superficie nueva agrega | L |
 | `C8` | Cerrar el paywall | **No depende de ningún otro ticket, depende de una decisión tuya** (el precio). Se puede adelantar en cualquier momento | M |
 
@@ -434,7 +434,7 @@ El presupuesto quedó restaurado en `$300.000` y las preferencias volvieron a no
 
 ## `C6` — PWA instalable + carga rápida de gasto
 
-Estado: **abierto**
+Estado: **cerrado (2026-08-27)** — falta cronometrarlo en un teléfono real
 
 ### Por qué
 
@@ -459,6 +459,40 @@ No hay `manifest.json` ni service worker: Lumus hoy es una pestaña del navegado
 
 - La app se instala desde Chrome en Android y desde Safari en iOS, y abre sin barra de navegador.
 - Desde el ícono instalado, cargar un gasto toma **menos de 15 segundos** cronometrados.
+
+### Resultado (2026-08-27)
+
+**Lo que se hizo**:
+
+| Pieza | Qué |
+|---|---|
+| `src/app/manifest.ts` | `display: standalone`, tema `#0a0a0f`, `start_url: /dashboard` y el atajo "Cargar gasto" |
+| `scripts/generate-icons.mjs` | Genera los cuatro íconos desde el orbe. Queda como script y no como una tarde de recortes |
+| `public/icon-{192,512}.png`, `icon-maskable-512.png`, `apple-touch-icon.png` | Todos sobre `#0a0a0f`: Android e iOS ponen el ícono sobre fondo propio (blanco casi siempre) y un orbe violeta claro sobre blanco desaparece |
+| `layout.tsx` | Meta tags de iOS y `viewport` con `interactive-widget=resizes-content` |
+| `lib/finance/frequent-defaults.ts` | La categoría y la billetera más usadas de los últimos 60 días, puro y testeado |
+| `finanzas/page.tsx` → `transaction-form.tsx` | El formulario de un movimiento nuevo abre precargado |
+| `?nuevo=gasto` | El atajo abre el formulario ya montado, sin pasar por buscar el botón |
+
+**El bug que apareció al verificar**: `/manifest.webmanifest` contestaba **`307` a `/login`**. El matcher de `proxy.ts` excluía `_next/static` y las extensiones de imagen, pero no el manifest — así que el navegador nunca lo podía leer y **la app no era instalable**. El manifest existía y no lo veía nadie. Es el mismo tipo de agujero que tenía `/baja` en `C4`, del otro lado: ahí una ruta pública gateada, acá un archivo que el navegador pide sin sesión. Ahora el matcher también excluye `robots.txt`, `sitemap.xml` y `.ico`.
+
+**Verificación, contra producción**:
+
+| Qué | Resultado |
+|---|---|
+| `GET /manifest.webmanifest` | `200` y JSON válido, con los tres íconos y el atajo |
+| Los cuatro íconos | `200` |
+| Tags en el HTML servido | `link rel=manifest`, `apple-touch-icon`, `apple-mobile-web-app-title`, `apple-mobile-web-app-status-bar-style=black`, `theme-color`, y `viewport` con `interactive-widget=resizes-content` |
+| `npm test` / `tsc` / `lint` / `build` | 80 tests verdes, sin errores |
+
+**Dos decisiones que valen la pena anotar**:
+
+1. **Barra de estado `black`, no `black-translucent`.** Con translucent el contenido pasa por debajo de la barra de estado, y el `TopNav` es `fixed top-0`: quedaría abajo de la hora y la señal. `black` reserva esa franja y le pone el fondo de la app. Ir a pantalla completa de verdad requiere paddings de `safe-area` en el nav, y eso no se toca sin un dispositivo donde probarlo.
+2. **Sin service worker**, como decía el ticket. No hay offline acá, y uno mal configurado sirve una build vieja después de un deploy.
+
+**Nota sobre `mobile-web-app-capable`**: Next 16 emite el nombre estándar en vez del `apple-mobile-web-app-capable` deprecado. iOS moderno lo lee, y el `display: standalone` del manifest ya alcanza para la pantalla de inicio.
+
+**Lo que falta y no se puede hacer desde acá**: instalar la app en un Android y en un iPhone, confirmar que abre sin barra de navegador, y **cronometrar la carga de un gasto**. Los dos criterios de cierre son de dispositivo.
 
 ---
 

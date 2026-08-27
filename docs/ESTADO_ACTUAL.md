@@ -38,7 +38,7 @@ Después del backlog se sumaron dos cosas más: el **aviso por mail** de cada fe
 
 **Usuarios reales: 2.** El dueño (`renzoasef02@gmail.com`, 2.306 transacciones) y un beta tester (`tiagotossi10@gmail.com`), ambos con acceso de cortesía. `billing_subscriptions` quedó en **0 filas**: ya no hay datos falsos de facturación en la base. Las dos cuentas de prueba que quedaban se borraron tras verificar que no tenían ningún dato.
 
-### Sesión del 2026-08-27 — `C2`, `C3`, `C4` y `C5` cerrados
+### Sesión del 2026-08-27 — `C2` a `C6` cerrados
 
 **`C3` cerrado y verificado**: las reglas financieras que estaban escritas dos veces (progreso de una meta, uso de un presupuesto, equivalente mensual de un recurrente) viven ahora en `src/lib/finance/rules.ts`, los nueve `Intl.NumberFormat` sueltos se unificaron en `format-currency.ts`, y el proyecto tiene **Vitest** con 21 tests sobre esas funciones puras. Es la deuda que dejó el bug de las metas del 2026-08-26 (62% en una pantalla, 0% en otra).
 
@@ -51,6 +51,8 @@ Lo que se construyó es la cañería, no un aviso suelto: `C5` y `C8` mandan por
 **`C5` cerrado y deployado**: el motor de `C4` ahora tiene **seis tipos de aviso** (vencimientos, presupuesto al 80%, presupuesto excedido, meta alcanzada, reporte mensual y resumen semanal) y un lugar donde verlos: campanita con badge en el nav, panel con marcar leído, y preferencias por tipo y por canal en `/perfil` (sección `04 Avisos`). Los avisos de más de 90 días se borran solos en la corrida del cron.
 
 Ningún aviso nuevo recalcula una regla: el uso de un presupuesto y el progreso de una meta salen de `lib/finance/rules.ts` (`C3`). Era exactamente el bug de las metas esperando repetirse, ahora con un mail de por medio.
+
+**`C6` cerrado y deployado**: Lumus es **instalable**. Manifest, íconos, meta tags de iOS y un atajo "Cargar gasto" que abre el formulario ya precargado con la categoría y la billetera que más usás (calculadas sobre los últimos 60 días). Apareció un bug de camino: el gate de auth contestaba `307` a `/manifest.webmanifest`, así que el manifest existía y el navegador no lo podía leer — la app no era instalable. Falta lo que solo se puede hacer con un teléfono en la mano: instalarla en Android y iOS y cronometrar la carga de un gasto.
 
 **Pendiente chico de `C2`**: los stack traces de producción apuntan al chunk compilado. Para verlos contra el código fuente falta cargar un `SENTRY_AUTH_TOKEN` (permiso `project:releases`) en Vercel — `next.config.ts` ya lo lee si está. Y la alerta por mail se configura en el dashboard de Sentry: conviene dejarla en **errores nuevos**, no en cada ocurrencia repetida.
 
@@ -74,7 +76,7 @@ Ningún aviso nuevo recalcula una regla: el uso de un presupuesto y el progreso 
 | Mercado Pago | sin SDK — llamadas directas a la API REST de `/preapproval` desde `src/lib/billing/` |
 | Resend | SMTP de Supabase Auth para los mails de verificación/recuperación (`supabase/templates/`) |
 | shadcn/ui | base instalada — `components/ui/` |
-| Vitest | desde el 2026-08-27 (`C3`) — 75 tests sobre funciones puras, `npm test` |
+| Vitest | desde el 2026-08-27 (`C3`) — 80 tests sobre funciones puras, `npm test` |
 
 > El SDK de OpenAI (`gpt-4o-mini`, usado antes para clasificación y TTS) se desinstaló al borrar el módulo de chat/voz. Ya no hay clasificación automática de gastos por IA — consistente con la preferencia del usuario de cargar todo manualmente.
 
@@ -242,7 +244,7 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 
 | Comando | Resultado |
 |---|---|
-| `npm test` | 75 tests en 7 archivos, verde |
+| `npm test` | 80 tests en 8 archivos, verde |
 | `npx tsc --noEmit` | Sin errores |
 | `npm run lint` | 0 errores, **12 warnings** (bajaron de 14) |
 | `npm run build` | Compila |
@@ -323,8 +325,9 @@ No son código, pero sin ellas parte del trabajo no sirve:
 - `C2` cerrado (2026-08-27): Sentry en los tres runtimes, con scrubbing de montos, descripciones y mails. Verificado desde producción.
 - `C4` cerrado (2026-08-27): motor de avisos + vencimientos por mail, con cron diario, digest, dedupe y baja sin login.
 - `C5` cerrado (2026-08-27): centro de notificaciones in-app, seis tipos de aviso y preferencias por canal.
+- `C6` cerrado (2026-08-27): PWA instalable, íconos, atajo "Cargar gasto" y formulario precargado. **Falta probarlo en un teléfono.**
 
-Quedan **`C6`** (PWA instalable + carga rápida de gasto), **`C7`** (importador de CSV) y **`C8`** (cerrar el paywall). `C8` no depende de ningún otro: depende de que definas el precio.
+Quedan **`C7`** (importador de CSV, el más grande) y **`C8`** (cerrar el paywall). `C8` no depende de ningún otro: depende de que definas el precio.
 
 Dicho eso, el orden de esa lista cede ante lo de abajo:
 
