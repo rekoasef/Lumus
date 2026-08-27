@@ -769,6 +769,33 @@ export type Database = {
         }
         Relationships: []
       }
+      wealth_analyses: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          month: string
+          regenerations: number
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          month: string
+          regenerations?: number
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          month?: string
+          regenerations?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

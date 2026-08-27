@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { ReportsDashboard } from '@/components/modules/finanzas/reports-dashboard'
+import { WealthAnalysisCard } from '@/components/modules/finanzas/wealth-analysis-card'
 import type { CategoryStat, MonthStat } from '@/components/modules/finanzas/reports-dashboard'
 import type { FinanceReport } from '@/types/finance.types'
 
@@ -109,7 +110,19 @@ export default async function ReportesPage({
 
   const aiReports = (aiReportsData ?? []) as FinanceReport[]
 
+  // El análisis de patrimonio del mes en curso, si ya se generó.
+  const { data: wealthAnalysis } = await supabase
+    .from('wealth_analyses')
+    .select('id, month, content, regenerations, created_at')
+    .eq('user_id', user.id)
+    .eq('month', new Date().toISOString().slice(0, 7))
+    .maybeSingle()
+
   return (
+    <>
+    <div className="mx-auto mb-6 max-w-[900px] px-4 pt-6 sm:px-5 lg:px-12">
+      <WealthAnalysisCard initial={wealthAnalysis} />
+    </div>
     <ReportsDashboard
       expensesByCategory={expensesByCategory}
       monthlyEvolution={monthlyEvolution}
@@ -118,5 +131,6 @@ export default async function ReportesPage({
       selectedMonth={selectedMonth}
       selectedYear={selectedYear}
     />
+    </>
   )
 }
