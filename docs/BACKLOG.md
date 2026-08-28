@@ -4,7 +4,7 @@
 
 Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es un conjunto acotado de tickets que se toman **de a uno**, se cierran, se verifican y recién ahí se pasa al siguiente. Las rondas cerradas quedan abajo como historial, no se borran.
 
-- **Ronda 4 (`E1`)** — abierta el 2026-08-28. `E1` (billeteras de inversión con saldo) **cerrado el mismo día**.
+- **Ronda 4 (`E1`)** — abierta y **cerrada el 2026-08-28**. `E1` (billeteras de inversión con saldo) está deployado y probado con datos reales.
 - **Ronda 3 (`D1`–`D4`)** — **cerrada el 2026-08-27**. Queda solo `C8` de la ronda 2, movido al final a propósito.
 
 > **Lo único abierto es `C8`**, y ya no depende de una decisión: el precio está tomado y escrito en el ticket, junto con el tope de usuarios y la lista de espera. Lo que sigue después no es código — es conseguir los ~10 testers.
@@ -18,7 +18,7 @@ Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es u
 
 ---
 
-# Ronda 4 — abierta (2026-08-28)
+# Ronda 4 — cerrada (2026-08-28)
 
 ## `E1` — Billeteras de inversión con saldo
 
@@ -69,10 +69,11 @@ Las dos patas ahora van **firmadas** (negativa la que sale, positiva la que entr
 - Migración aplicada contra la base real: **los cinco saldos quedaron idénticos** antes y después.
 - Trigger probado de punta a punta contra la base con `rollback`: una inversión con base 100.000 + aporte de 250.000 + rendimiento de 2.222 da 352.222, y la billetera de origen queda en −250.000 (antes se quedaba en 0).
 
-### Lo que queda para el dueño
+### Probado en producción (2026-08-28)
 
-- **Convertir `Inversiones MP` a tipo Inversión desde la app.** Eso fija la línea de base en su saldo de hoy (2.928.679) y arranca el contador. Hasta que no se haga, la billetera sigue funcionando como antes.
-- El rendimiento en dólares necesita cotización del día de cada aporte: como la base arranca hoy, la serie ya la tiene.
+Deployado (`63ae6b5`) y **verificado contra datos reales**: `Inversiones MP` se convirtió a tipo Inversión con línea de base **2.928.679** al 2026-08-28, y quedó registrado **el primer `rendimiento` real de la app: 8.682**. El trigger llevó el saldo a **2.937.361**, exactamente base + rendimiento. El ciclo entero —convertir, cargar, recalcular, mostrar— funciona sobre la plata del dueño, no sobre un fixture.
+
+El rendimiento en dólares necesita cotización del día de cada aporte: como la base arranca hoy, la serie ya la tiene.
 
 ---
 

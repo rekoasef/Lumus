@@ -347,7 +347,7 @@ La **ronda 3 está abierta** (`D1`–`D4`, 2026-08-27), salida de una charla de 
 
 **Ronda 4 (2026-08-28): `E1` cerrado el mismo día que se abrió.** Las billeteras de inversión con saldo (Inversiones MP, un plazo fijo, un FCI) ahora distinguen **"puse más plata" de "esto rindió"**: hay un tipo de billetera `inversion` con línea de base, un tipo de transacción `rendimiento` separado de `ajuste`, y el formulario de ajuste acepta las dos cosas en la misma actualización. El rendimiento se muestra en pesos y en dólares. **De paso apareció y se arregló un bug de dos meses**: `transferencia` caía en el `else 0` del trigger de balance, así que una transferencia registraba el movimiento y no movía un peso — el dueño lo venía tapando con ajustes a mano. Detalle completo en el ticket `E1` de `docs/BACKLOG.md`.
 
-**Pendiente del dueño**: convertir `Inversiones MP` a tipo Inversión desde la app. Eso fija la base en el saldo de hoy y arranca el contador de rendimiento; hasta entonces la billetera funciona como antes.
+**Deployado y probado con plata real el mismo día**: `Inversiones MP` ya es una billetera de inversión con base 2.928.679, y el primer rendimiento registrado (8.682) movió el saldo a 2.937.361 pasando por el trigger. No queda nada pendiente de `E1`.
 
 Dicho eso, el orden de esa lista cede ante lo de abajo:
 
