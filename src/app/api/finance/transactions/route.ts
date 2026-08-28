@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     // Una fila de más: si vuelve, es que hay más de las que se piden
     .limit(limit + 1)
 
-  if (type === 'gasto' || type === 'ingreso' || type === 'transferencia' || type === 'ajuste') {
+  if (type === 'gasto' || type === 'ingreso' || type === 'transferencia' || type === 'ajuste' || type === 'rendimiento') {
     query = query.eq('type', type)
   }
   if (category_id === NO_CATEGORY) query = query.is('category_id', null)
@@ -101,6 +101,11 @@ export async function POST(req: NextRequest) {
 
     const desc = d.description?.trim() || null
 
+    // Las dos patas van **firmadas**: negativa la que sale, positiva la que
+    // entra. Iban las dos en positivo y el trigger de balance no las contaba
+    // (caían en su `else 0`), así que una transferencia registraba el
+    // movimiento y no movía un peso — ver la migración 00028.
+
     // Insertar las dos transacciones en paralelo
     const [egreso, ingreso] = await Promise.all([
       supabase
@@ -110,7 +115,7 @@ export async function POST(req: NextRequest) {
           wallet_id: d.wallet_id,
           category_id: null,
           type: 'transferencia',
-          amount: d.amount,
+          amount: -d.amount,
           description: desc,
           date: d.date,
           deleted_at: null,
@@ -144,7 +149,7 @@ export async function POST(req: NextRequest) {
 
     const { data: wallets } = await supabase
       .from('wallets')
-      .select('id, name, type, balance, currency, color, icon, created_at, updated_at')
+      .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, created_at, updated_at')
       .in('id', [d.wallet_id, d.to_wallet_id!])
       .eq('user_id', user.id)
       .is('deleted_at', null)
@@ -181,7 +186,7 @@ export async function POST(req: NextRequest) {
 
   const { data: wallet } = await supabase
     .from('wallets')
-    .select('id, name, type, balance, currency, color, icon, created_at, updated_at')
+    .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, created_at, updated_at')
     .eq('id', d.wallet_id)
     .eq('user_id', user.id)
     .is('deleted_at', null)

@@ -203,6 +203,7 @@ Los cuatro chequeos antes de dar algo por terminado: `npm test`, `npx tsc --noEm
 - ❌ No hardcodear strings de texto de la UI — usar variables
 - ❌ No poner lógica de negocio en los componentes — va en hooks o lib
 - ❌ No calcular a mano el progreso de una meta, el uso de un presupuesto ni el equivalente mensual de un recurrente — están en `src/lib/finance/rules.ts` (por eso existe ese archivo: la misma meta llegó a mostrar 62% en una pantalla y 0% en otra)
+- ❌ No calcular a mano el rendimiento de una billetera de inversión ni el reparto entre aporte y rendimiento — están en `src/lib/finance/investment.ts`. Y no guardar un aporte como `ajuste`: `ajuste` significa "me equivoqué al contar", y mezclarlo con "esto rindió" es lo que hacía incalculable el rendimiento
 - ❌ No crear un `Intl.NumberFormat` suelto — usar `formatCurrency` de `src/lib/utils/format-currency.ts`
 - ❌ No mandar un aviso sin `dedupe_key` — el `unique (user_id, dedupe_key)` de `notifications` es lo único que evita que un cron reintentado mande el mismo mail dos veces
 - ❌ No mandar un mail por evento — todo aviso sale por el digest diario (`/api/cron/avisos`), un mail por usuario por día

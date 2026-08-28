@@ -736,6 +736,8 @@ export type Database = {
           deleted_at: string | null
           icon: string | null
           id: string
+          investment_baseline: number | null
+          investment_baseline_date: string | null
           name: string
           type: string
           updated_at: string | null
@@ -749,6 +751,8 @@ export type Database = {
           deleted_at?: string | null
           icon?: string | null
           id?: string
+          investment_baseline?: number | null
+          investment_baseline_date?: string | null
           name: string
           type: string
           updated_at?: string | null
@@ -762,6 +766,8 @@ export type Database = {
           deleted_at?: string | null
           icon?: string | null
           id?: string
+          investment_baseline?: number | null
+          investment_baseline_date?: string | null
           name?: string
           type?: string
           updated_at?: string | null

@@ -246,6 +246,7 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 | `00025_exchange_rate_history.sql` | Una fila por día con la cotización, sembrada con 4.622 días de blue desde 2011 (bluelytics). Sin `user_id`: es el primer dato compartido de la app. Ver `D1` |
 | `00026_holdings.sql` | Tabla `holdings` — inversiones cargadas a mano, valuadas con CoinGecko (cripto) o precio manual. El costo de una compra en pesos se lleva a dólares con la cotización del día de compra. Ver `D2` |
 | `00027_wealth_analyses.sql` | Tabla `wealth_analyses` — el análisis de patrimonio por IA, uno por usuario y por mes con tope de regeneraciones. Ver `D4` |
+| `00028_investment_wallets.sql` | Billeteras de inversión: `investment_baseline` en `wallets`, tipo de transacción `rendimiento`, y el arreglo de `transferencia` en el trigger de balance (caía en el `else 0` y no movía saldos). Ver `E1` |
 
 ---
 
@@ -343,6 +344,10 @@ Queda **`C8`** (cerrar el paywall). **El precio ya está decidido** (30 fundador
 La **ronda 3 está abierta** (`D1`–`D4`, 2026-08-27), salida de una charla de producto. **`D1` ya está cerrado**: Lumus guarda la cotización de cada día (con 15 años de historia del blue sembrados desde bluelytics) y el dashboard muestra qué le pasó a tus pesos por quedarse quietos. **`D2` y `D3` también están cerrados**: hay una pestaña de Inversiones (tenencias valuadas con CoinGecko o precio manual, ya dentro del patrimonio) y una pantalla de **Mercado** en `/finanzas/mercado` con el dólar —graficado desde la propia base, 15 años—, cripto y 96 acciones argentinas vía data912. **La ronda 3 está cerrada entera.** `D4` sumó el análisis de patrimonio por IA en `/finanzas/reportes`: usa datos reales (composición, reserva, pérdida del peso por ventana) y **tiene prohibido recomendar inversiones** — prohibición verificada contra siete intentos de sacarle una recomendación.
 
 **Queda solo `C8`** (cerrar el paywall), movido al final a propósito. El precio ya está decidido.
+
+**Ronda 4 (2026-08-28): `E1` cerrado el mismo día que se abrió.** Las billeteras de inversión con saldo (Inversiones MP, un plazo fijo, un FCI) ahora distinguen **"puse más plata" de "esto rindió"**: hay un tipo de billetera `inversion` con línea de base, un tipo de transacción `rendimiento` separado de `ajuste`, y el formulario de ajuste acepta las dos cosas en la misma actualización. El rendimiento se muestra en pesos y en dólares. **De paso apareció y se arregló un bug de dos meses**: `transferencia` caía en el `else 0` del trigger de balance, así que una transferencia registraba el movimiento y no movía un peso — el dueño lo venía tapando con ajustes a mano. Detalle completo en el ticket `E1` de `docs/BACKLOG.md`.
+
+**Pendiente del dueño**: convertir `Inversiones MP` a tipo Inversión desde la app. Eso fija la base en el saldo de hoy y arranca el contador de rendimiento; hasta entonces la billetera funciona como antes.
 
 Dicho eso, el orden de esa lista cede ante lo de abajo:
 

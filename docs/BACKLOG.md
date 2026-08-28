@@ -1,9 +1,10 @@
 # Lumus — Backlog de trabajo
 
-Última revisión: 2026-08-27
+Última revisión: 2026-08-28
 
 Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es un conjunto acotado de tickets que se toman **de a uno**, se cierran, se verifican y recién ahí se pasa al siguiente. Las rondas cerradas quedan abajo como historial, no se borran.
 
+- **Ronda 4 (`E1`)** — abierta el 2026-08-28. `E1` (billeteras de inversión con saldo) **cerrado el mismo día**.
 - **Ronda 3 (`D1`–`D4`)** — **cerrada el 2026-08-27**. Queda solo `C8` de la ronda 2, movido al final a propósito.
 
 > **Lo único abierto es `C8`**, y ya no depende de una decisión: el precio está tomado y escrito en el ticket, junto con el tope de usuarios y la lista de espera. Lo que sigue después no es código — es conseguir los ~10 testers.
@@ -13,6 +14,65 @@ Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es u
 > Ojo con las letras: los `D1`, `F1`, `S1` de `docs/ISSUES_PENDIENTES.md` son de un esquema viejo y cerrado, sin relación con la ronda 3 de acá.
 
 > **El deploy es manual** (`vercel --prod --yes`) y la base y el código deployado tienen que moverse juntos. El 2026-08-20 quedaron desfasados unos minutos y eso dejó al dueño fuera de su propia app hasta el deploy siguiente. Si un ticket toca el gate de acceso o una migración, deployar en el mismo tramo.
+
+
+---
+
+# Ronda 4 — abierta (2026-08-28)
+
+## `E1` — Billeteras de inversión con saldo
+
+Estado: **cerrado (2026-08-28)**
+
+### Por qué
+
+`D2` modeló **un solo tipo de inversión**: la que tiene unidades y precio (0,05 BTC), que vive en `holdings`. La otra —Inversiones MP, un plazo fijo, un FCI— **es una billetera**, y no le falta un precio: le falta saber **por qué cambió el saldo**.
+
+Cuando ese número se mueve puede ser por cuatro razones: invertiste más, retiraste, ganó o perdió. Lumus las guardaba todas como el mismo `ajuste`, que significa "me equivoqué al contar". **El dato que lo prueba**: `Inversiones MP` tenía **15 ajustes y 0 ingresos** — las cuatro cosas mezcladas, y por lo tanto ningún rendimiento calculable.
+
+Las cuatro razones colapsan en dos:
+
+- **Mover plata** (aporte / retiro): viene o va a otra billetera. **No es rendimiento**, es la misma plata cambiando de lugar.
+- **Rendimiento** (ganó / perdió): la plata no se movió, cambió de tamaño.
+
+Con eso: `rendimiento acumulado = saldo − (base + aportes − retiros)`.
+
+### Las tres decisiones que lo destrabaron (2026-08-28)
+
+1. **Los 15 ajustes históricos quedan como están.** No se pueden clasificar hacia atrás —solo el dueño sabe cuál fue aporte y cuál ganancia— así que el contador arranca el día que la billetera pasa a ser de inversión: el saldo de ese momento es la **línea de base** y el rendimiento empieza en cero.
+2. **El formulario acepta aporte y rendimiento en la misma actualización.** No obliga a elegir uno: se carga el saldo nuevo y cuánto se puso o sacó, y **lo que sobra es rendimiento**. El caso real que lo justifica está abajo.
+3. **"Ahorro en dólares" no es inversión.** El dólar quieto no rinde, solo cambia de valor en pesos, y eso ya lo muestra la card de patrimonio de `D1`. Se queda como billetera común.
+
+### El bug que apareció haciéndolo
+
+Los aportes y retiros son transferencias, así que antes de apoyarse en ellas había que mirarlas. **La transferencia estaba rota**: el `case` de `recompute_wallet_balance` cubría `ingreso`, `gasto` y `ajuste`, y **`transferencia` caía en el `else 0`**. Insertaba sus dos filas y no movía ningún saldo.
+
+La única transferencia de la base lo cuenta entero: el **2026-06-19 a las 14:56:41** se registraron 714.000 entre BNA y Mercado Pago, y **45 segundos después** aparecieron dos ajustes a mano (−713.934 y +735.744) compensando lo que la transferencia no había hecho. A las 15:02 del mismo día, un aporte a Inversiones MP se cargó como otros dos ajustes: −250.000 de Mercado Pago y +252.222 en Inversiones. **Esos 2.222 de diferencia son el caso de "aporte y rendimiento juntos"** que la decisión 2 vino a soportar.
+
+Las dos patas ahora van **firmadas** (negativa la que sale, positiva la que entra). Las transferencias históricas se dieron de **baja lógica** en la migración: nunca movieron un saldo y ya estaban compensadas a mano, así que contarlas ahora habría duplicado los ajustes y roto saldos que están bien.
+
+### Qué se hizo
+
+1. Tipo de billetera **`inversion`**, con `investment_baseline` e `investment_baseline_date` en `wallets` y un `check` que impide que una inversión exista sin base — sin ella el primer rendimiento sería el saldo entero.
+2. Tipo de transacción **`rendimiento`**, separado de `ajuste` a propósito, firmado.
+3. `recompute_wallet_balance` cuenta los dos tipos nuevos **y arregla `transferencia`** (migración `00028`).
+4. `src/lib/finance/investment.ts` con la aritmética: capital invertido, rendimiento en pesos, **rendimiento en dólares** valuando cada aporte con la cotización de *su* día, y el reparto del cambio de saldo. 23 tests.
+5. El formulario de ajuste pregunta, solo en inversiones, si pusiste o sacaste plata y de qué billetera, y **muestra el reparto en vivo** usando la misma función que guarda la API.
+6. La card muestra rendimiento en pesos y en dólares con su porcentaje, más el capital invertido.
+7. **Las inversiones dejaron de contar en la reserva de emergencia** del análisis de patrimonio: suman al patrimonio, pero no son plata disponible el día que hace falta.
+8. **Las billeteras de inversión aparecen en la pestaña Inversiones**, arriba de las tenencias de `D2`: son las dos mitades de lo mismo —lo que tiene saldo y lo que tiene unidades— y estaban en pantallas distintas.
+9. **Historial de rendimiento**: gráfico del acumulado más el detalle movimiento por movimiento. La serie **solo tiene puntos donde hubo un rendimiento registrado**: entre dos actualizaciones la app no sabe qué pasó, y dibujar una curva suave sería inventar días que nadie midió. Con un solo punto no se grafica nada y se dice por qué.
+
+### Verificación
+
+- `npm test` (138, con 23 nuevos), `npx tsc --noEmit`, `npm run lint` y `npm run build`.
+- Migración aplicada contra la base real: **los cinco saldos quedaron idénticos** antes y después.
+- Trigger probado de punta a punta contra la base con `rollback`: una inversión con base 100.000 + aporte de 250.000 + rendimiento de 2.222 da 352.222, y la billetera de origen queda en −250.000 (antes se quedaba en 0).
+
+### Lo que queda para el dueño
+
+- **Convertir `Inversiones MP` a tipo Inversión desde la app.** Eso fija la línea de base en su saldo de hoy (2.928.679) y arranca el contador. Hasta que no se haga, la billetera sigue funcionando como antes.
+- El rendimiento en dólares necesita cotización del día de cada aporte: como la base arranca hoy, la serie ya la tiene.
 
 ---
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { Pencil, Trash2, SlidersHorizontal } from 'lucide-react'
+import { Pencil, Trash2, SlidersHorizontal, TrendingUp, TrendingDown, ArrowLeftRight } from 'lucide-react'
 import type { Transaction } from '@/types/finance.types'
 import { CategoryIcon } from '@/lib/utils/category-icons'
 import { formatCurrency } from '@/lib/utils/format-currency'
@@ -11,14 +11,41 @@ interface TransactionItemProps {
   onDelete: (id: string) => void
 }
 
+/** Los tipos que no son gasto ni ingreso muestran su propio signo y etiqueta. */
+const LABELS = {
+  ajuste:        'Ajuste',
+  transferencia: 'Transferencia',
+  gain:          'Rendimiento',
+  loss:          'Pérdida',
+} as const
+
 export function TransactionItem({ transaction, onEdit, onDelete }: TransactionItemProps) {
   const isGasto      = transaction.type === 'gasto'
   const isAdjustment = transaction.type === 'ajuste'
-  const color        = isAdjustment ? '#7c6dfa' : transaction.category?.color ?? (isGasto ? '#ef4444' : '#22c55e')
-  const amountSign   = isAdjustment ? (transaction.amount < 0 ? '−' : '+') : isGasto ? '−' : '+'
-  const amountColor  = isAdjustment
-    ? 'text-[var(--accent-lumus)]'
-    : isGasto ? 'text-[var(--danger)]' : 'text-[var(--success)]'
+  const isTransfer   = transaction.type === 'transferencia'
+  const isYield      = transaction.type === 'rendimiento'
+  // Los tres van con `amount` firmado, así que el signo sale del número y no
+  // del tipo: un rendimiento negativo es una pérdida, no un gasto.
+  const isSigned     = isAdjustment || isTransfer || isYield
+  const negative     = transaction.amount < 0
+
+  const color = isYield
+    ? (negative ? '#ef4444' : '#22c55e')
+    : isSigned
+      ? '#7c6dfa'
+      : transaction.category?.color ?? (isGasto ? '#ef4444' : '#22c55e')
+
+  const amountSign  = isSigned ? (negative ? '−' : '+') : isGasto ? '−' : '+'
+  const amountColor = isYield
+    ? (negative ? 'text-[var(--danger)]' : 'text-[var(--success)]')
+    : isSigned
+      ? 'text-[var(--accent-lumus)]'
+      : isGasto ? 'text-[var(--danger)]' : 'text-[var(--success)]'
+
+  const badge = isAdjustment ? LABELS.ajuste
+    : isTransfer ? LABELS.transferencia
+    : isYield ? (negative ? LABELS.loss : LABELS.gain)
+    : null
 
   const formattedAmount = formatCurrency(Math.abs(transaction.amount), 'ARS', 'auto')
 
@@ -36,6 +63,12 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
       >
         {isAdjustment ? (
           <SlidersHorizontal size={15} style={{ color }} />
+        ) : isTransfer ? (
+          <ArrowLeftRight size={15} style={{ color }} />
+        ) : isYield ? (
+          negative
+            ? <TrendingDown size={15} style={{ color }} />
+            : <TrendingUp size={15} style={{ color }} />
         ) : transaction.category?.icon ? (
           <CategoryIcon icon={transaction.category.icon} size={15} style={{ color }} />
         ) : (
@@ -49,16 +82,16 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <p className="truncate text-sm font-medium text-[var(--text-primary)]">
-            {transaction.description ?? (isAdjustment ? 'Ajuste de balance' : transaction.type)}
+            {transaction.description ?? badge ?? transaction.type}
           </p>
         </div>
         <div className="mt-0.5 flex items-center gap-1.5">
-          {isAdjustment && (
+          {badge && (
             <span className="lumus-label text-[0.58rem]" style={{ color }}>
-              Ajuste
+              {badge}
             </span>
           )}
-          {!isAdjustment && transaction.category && (
+          {!isSigned && transaction.category && (
             <span className="lumus-label text-[0.58rem]" style={{ color }}>
               {transaction.category.name}
             </span>
@@ -83,7 +116,7 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
 
       {/* Acciones — visibles siempre en mobile, hover en desktop */}
       <div className="flex shrink-0 gap-0.5 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
-        {!isAdjustment && (
+        {!isSigned && (
           <button
             onClick={() => onEdit(transaction)}
             className="rounded-md p-2 text-[var(--text-muted)] hover:bg-white/10 hover:text-[var(--text-primary)] active:bg-white/10 sm:p-1.5"

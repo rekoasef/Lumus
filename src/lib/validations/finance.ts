@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 export const createWalletSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido').max(100),
-  type: z.enum(['efectivo', 'banco', 'virtual']),
+  type: z.enum(['efectivo', 'banco', 'virtual', 'inversion']),
   balance: z.number().min(0),
   currency: z.string().length(3),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
@@ -13,12 +13,29 @@ export const createWalletSchema = z.object({
 
 export const updateWalletSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  type: z.enum(['efectivo', 'banco', 'virtual']).optional(),
+  type: z.enum(['efectivo', 'banco', 'virtual', 'inversion']).optional(),
   currency: z.string().length(3).optional(),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   icon: z.string().max(50).nullable().optional(),
 })
 
+/**
+ * Ajustar el saldo de una billetera.
+ *
+ * `movement` solo tiene sentido en una billetera de inversión: es la plata que
+ * pusiste (positivo) o sacaste (negativo) en esta misma actualización, y lo que
+ * sobra de la diferencia se guarda como rendimiento. Las dos cosas pueden pasar
+ * juntas, así que el formulario no obliga a elegir una.
+ */
+export const adjustWalletSchema = z.object({
+  new_balance: z.number().finite(),
+  movement: z.number().finite().optional(),
+  /** De dónde salió el aporte, o a dónde fue el retiro. Puede venir de afuera. */
+  counterpart_wallet_id: z.string().uuid().nullable().optional(),
+  note: z.string().max(200).optional(),
+})
+
+export type AdjustWalletInput = z.infer<typeof adjustWalletSchema>
 export type CreateWalletInput = z.infer<typeof createWalletSchema>
 export type UpdateWalletInput = z.infer<typeof updateWalletSchema>
 

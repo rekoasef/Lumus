@@ -8,10 +8,19 @@ import { createWalletSchema, type CreateWalletInput } from '@/lib/validations/fi
 import type { Wallet } from '@/types/finance.types'
 
 const WALLET_TYPES = [
-  { value: 'efectivo', label: 'Efectivo' },
-  { value: 'banco',    label: 'Banco' },
-  { value: 'virtual',  label: 'Virtual' },
+  { value: 'efectivo',  label: 'Efectivo' },
+  { value: 'banco',     label: 'Banco' },
+  { value: 'virtual',   label: 'Virtual' },
+  { value: 'inversion', label: 'Inversión' },
 ] as const
+
+/**
+ * Una billetera de inversión pregunta, cada vez que cambia el saldo, si la
+ * plata entró o si rindió. Conviene decirlo antes de elegir el tipo, no
+ * después de que aparezca un formulario distinto al esperado.
+ */
+const INVESTMENT_HINT =
+  'Cada vez que actualices el saldo te va a preguntar si pusiste plata o si rindió, para poder calcular el rendimiento.'
 
 const CURRENCIES = [
   { value: 'ARS', label: 'ARS', flag: '🇦🇷' },
@@ -77,13 +86,13 @@ export function WalletForm({ onSave, onClose, initial }: WalletFormProps) {
 
           <div>
             <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">TIPO</label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {WALLET_TYPES.map(t => (
                 <button
                   key={t.value}
                   type="button"
                   onClick={() => setValue('type', t.value)}
-                  className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                     watch('type') === t.value
                       ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
                       : 'border-white/10 bg-white/5 text-[var(--text-secondary)] hover:border-white/20'
@@ -93,6 +102,11 @@ export function WalletForm({ onSave, onClose, initial }: WalletFormProps) {
                 </button>
               ))}
             </div>
+            {watch('type') === 'inversion' && (
+              <p className="mt-2 text-[0.65rem] leading-relaxed text-[var(--text-muted)]">
+                {INVESTMENT_HINT}
+              </p>
+            )}
           </div>
 
           <div>

@@ -7,6 +7,7 @@ import { getCryptoPrices } from '@/lib/finance/crypto-prices'
 import type { Holding } from '@/lib/finance/holdings'
 import { fetchRateHistory } from '@/lib/finance/rate-history'
 import { rawTotalsByCategory } from '@/lib/finance/summary'
+import type { InvestmentEvent } from '@/lib/finance/investment'
 
 export default async function FinanzasPage() {
   const supabase = await createClient()
@@ -22,7 +23,7 @@ export default async function FinanzasPage() {
   const [walletsRes, categoriesRes, categoryLookupRes, monthSummaryRes, budgetsRes, goalsRes, recurringRes] = await Promise.all([
     supabase
       .from('wallets')
-      .select('id, name, type, balance, currency, color, icon, created_at, updated_at')
+      .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, created_at, updated_at')
       .eq('user_id', user.id)
       .is('deleted_at', null)
       .order('created_at', { ascending: true }),
@@ -117,9 +118,57 @@ export default async function FinanzasPage() {
     null,
   )
 
+  // ── Billeteras de inversión ──
+  // Los aportes/retiros separan "puse más plata" de "esto rindió", y los
+  // rendimientos son el historial de cuánto fue dando. Solo cuentan los
+  // posteriores a la línea de base: lo anterior ya está dentro de ese número, y
+  // sumarlo de nuevo lo contaría dos veces.
+  const investmentWallets = wallets.filter(
+    w => w.type === 'inversion' && w.investment_baseline_date !== null,
+  )
+
+  const oldestBaseline = investmentWallets.reduce<string | null>(
+    (oldest, w) => {
+      const date = w.investment_baseline_date
+      return date && (!oldest || date < oldest) ? date : oldest
+    },
+    null,
+  )
+
+  const investmentEvents: Record<string, InvestmentEvent[]> = {}
+
+  if (investmentWallets.length > 0 && oldestBaseline) {
+    const { data: eventRows } = await supabase
+      .from('transactions')
+      .select('wallet_id, date, amount, type')
+      .eq('user_id', user.id)
+      .in('type', ['transferencia', 'rendimiento'])
+      .in('wallet_id', investmentWallets.map(w => w.id))
+      .gte('date', oldestBaseline)
+      .is('deleted_at', null)
+      .order('date', { ascending: true })
+
+    for (const wallet of investmentWallets) {
+      const from = wallet.investment_baseline_date!
+      investmentEvents[wallet.id] = (eventRows ?? [])
+        .filter(row => row.wallet_id === wallet.id && row.date >= from)
+        .map(row => ({
+          date: row.date,
+          amount: Number(row.amount),
+          kind: row.type === 'rendimiento' ? 'rendimiento' as const : 'movimiento' as const,
+        }))
+    }
+  }
+
+  // La serie de cotizaciones tiene que llegar hasta lo más viejo que haya que
+  // valuar: la compra más antigua o el arranque de la inversión más vieja.
+  const oldestValued = [oldestPurchase, oldestBaseline]
+    .filter((d): d is string => Boolean(d))
+    .sort()[0] ?? null
+
   const [cryptoPrices, rateHistory] = await Promise.all([
     getCryptoPrices(holdings.map(h => h.price_source).filter((id): id is string => Boolean(id))),
-    fetchRateHistory(supabase, oldestPurchase),
+    fetchRateHistory(supabase, oldestValued),
   ])
 
   return (
@@ -135,6 +184,7 @@ export default async function FinanzasPage() {
       initialHoldings={holdings}
       cryptoPrices={Object.fromEntries(cryptoPrices)}
       rateHistory={rateHistory}
+      initialInvestmentEvents={investmentEvents}
     />
   )
 }

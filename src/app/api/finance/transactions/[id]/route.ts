@@ -51,7 +51,7 @@ export async function PATCH(
 
   const { data: wallets } = await supabase
     .from('wallets')
-    .select('id, name, type, balance, currency, color, icon, created_at, updated_at')
+    .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, created_at, updated_at')
     .in('id', [...walletIds])
     .eq('user_id', user.id)
     .is('deleted_at', null)
@@ -92,7 +92,7 @@ export async function DELETE(
 
     const { data: wallet } = await supabase
       .from('wallets')
-      .select('id, name, type, balance, currency, color, icon, created_at, updated_at')
+      .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, created_at, updated_at')
       .eq('id', existing.wallet_id)
       .eq('user_id', user.id)
       .is('deleted_at', null)

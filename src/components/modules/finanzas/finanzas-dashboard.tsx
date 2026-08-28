@@ -12,11 +12,12 @@ function toLocalDateStr(d: Date): string {
 }
 import type { TransactionDefaults } from './transaction-form'
 import { HoldingsSection } from './holdings-section'
+import { InvestmentWalletsSection } from './investment-wallets-section'
 import type { Holding } from '@/lib/finance/holdings'
 import type { DailyRate } from '@/lib/finance/purchasing-power'
 import { WalletCard } from './wallet-card'
 import { WalletForm } from './wallet-form'
-import { WalletAdjustForm } from './wallet-adjust-form'
+import { WalletAdjustForm, type WalletAdjustSubmit } from './wallet-adjust-form'
 import { CategoryList } from './category-list'
 import { TransactionList } from './transaction-list'
 import { BudgetCard } from './budget-card'
@@ -38,6 +39,12 @@ import { MonthlyReportModal } from './monthly-report-modal'
 import type { CreateWalletInput, UpdateWalletInput, CreateBudgetInput, CreateSavingGoalInput, UpdateTransactionInput } from '@/lib/validations/finance'
 import type { RecurringTransaction } from '@/types/finance.types'
 import type { CreateTransactionInput } from '@/lib/validations/finance'
+import {
+  investmentReturn,
+  investmentReturnUsd,
+  movementsOf,
+  type InvestmentEvent,
+} from '@/lib/finance/investment'
 import { confirm } from '@/components/shared/confirm-dialog'
 import { toast } from 'sonner'
 
@@ -63,6 +70,8 @@ interface FinanzasDashboardProps {
   cryptoPrices: Record<string, number>
   /** Historia de cotizaciones, para valuar el costo de las compras en pesos. */
   rateHistory: DailyRate[]
+  /** Aportes, retiros y rendimientos de cada inversión, por id de billetera. */
+  initialInvestmentEvents: Record<string, InvestmentEvent[]>
 }
 
 type Section = 'transacciones' | 'billeteras' | 'categorias' | 'presupuestos' | 'metas' | 'recurrentes' | 'inversiones'
@@ -88,6 +97,7 @@ export function FinanzasDashboard({
   initialHoldings,
   cryptoPrices,
   rateHistory,
+  initialInvestmentEvents,
 }: FinanzasDashboardProps) {
   const { wallets, totalBalance: _totalBalance, balanceByCurrency, loading, createWallet, updateWallet, adjustBalance, deleteWallet, localUpdateBalance: _localUpdateBalance, setWalletBalance } =
     useWallets(initialWallets)
@@ -115,6 +125,40 @@ export function FinanzasDashboard({
     },
     onMutated: refreshMonthSummary,
   })
+  // Lo que le fue pasando a cada inversión. Se guarda acá y no se relee del
+  // server en cada ajuste: lo que se acaba de registrar vuelve en la respuesta.
+  const [investmentEvents, setInvestmentEvents] =
+    useState<Record<string, InvestmentEvent[]>>(initialInvestmentEvents)
+
+  const investmentWallets = useMemo(
+    () => wallets.filter(w => w.type === 'inversion'),
+    [wallets],
+  )
+
+  // El rendimiento de cada inversión, en pesos y en dólares. La cuenta vive en
+  // `lib/finance/investment.ts`: acá solo se le pasan los datos.
+  const investmentReturns = useMemo(() => {
+    const today = toLocalDateStr(new Date())
+
+    return Object.fromEntries(
+      investmentWallets
+        .filter(w => w.investment_baseline !== null)
+        .map(w => {
+          const movements = movementsOf(investmentEvents[w.id] ?? [])
+          const baseline = w.investment_baseline ?? 0
+          const ars = investmentReturn(w.balance, baseline, movements)
+
+          // Solo tiene sentido para lo que está en pesos: una inversión en
+          // dólares ya está medida en la vara con la que se la quiere medir.
+          const usd = w.currency === 'ARS' && w.investment_baseline_date
+            ? investmentReturnUsd(w.balance, baseline, w.investment_baseline_date, movements, rateHistory, today)
+            : null
+
+          return [w.id, { ars, usd }] as const
+        }),
+    )
+  }, [investmentWallets, investmentEvents, rateHistory])
+
   const [showWalletForm, setShowWalletForm] = useState(false)
   const [editingWallet, setEditingWallet] = useState<Wallet | null>(null)
   const [adjustingWallet, setAdjustingWallet] = useState<Wallet | null>(null)
@@ -188,9 +232,27 @@ export function FinanzasDashboard({
     setEditingWallet(null)
   }
 
-  async function handleAdjustBalance(newBalance: number, note: string) {
+  async function handleAdjustBalance(input: WalletAdjustSubmit) {
     if (!adjustingWallet) return
-    await adjustBalance(adjustingWallet.id, newBalance, note)
+    const walletId = adjustingWallet.id
+
+    const result = await adjustBalance(walletId, {
+      newBalance: input.newBalance,
+      note: input.note,
+      movement: input.movement,
+      counterpartWalletId: input.counterpartWalletId,
+    })
+
+    // Un aporte cambia el capital invertido y un rendimiento suma al historial:
+    // los dos tienen que verse ya, no en la próxima recarga.
+    if (result?.events.length) {
+      const events = result.events
+      setInvestmentEvents(prev => ({
+        ...prev,
+        [walletId]: [...(prev[walletId] ?? []), ...events],
+      }))
+    }
+
     setAdjustingWallet(null)
     toast.success('Balance actualizado')
   }
@@ -493,6 +555,7 @@ export function FinanzasDashboard({
                   <WalletCard
                     key={wallet.id}
                     wallet={wallet}
+                    investment={investmentReturns[wallet.id] ?? null}
                     onEdit={handleEditWallet}
                     onAdjust={handleAdjustWallet}
                     onDelete={handleDeleteWallet}
@@ -641,7 +704,17 @@ export function FinanzasDashboard({
         )}
 
         {activeSection === 'inversiones' && (
-          <section>
+          <section className="space-y-8">
+            {/* Las billeteras de inversión van arriba: son plata que ya está
+                puesta y que se actualiza a mano, así que es lo primero que se
+                viene a mirar acá. */}
+            <InvestmentWalletsSection
+              wallets={investmentWallets}
+              events={investmentEvents}
+              returns={investmentReturns}
+              onAdjust={handleAdjustWallet}
+            />
+
             <HoldingsSection
               initialHoldings={initialHoldings}
               prices={cryptoPrices}
@@ -666,6 +739,7 @@ export function FinanzasDashboard({
       {adjustingWallet && (
         <WalletAdjustForm
           wallet={adjustingWallet}
+          wallets={wallets}
           onAdjust={handleAdjustBalance}
           onClose={() => setAdjustingWallet(null)}
         />

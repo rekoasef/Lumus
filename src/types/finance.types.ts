@@ -1,5 +1,10 @@
-export type WalletType = 'efectivo' | 'banco' | 'virtual'
-export type TransactionType = 'gasto' | 'ingreso' | 'transferencia' | 'ajuste'
+export type WalletType = 'efectivo' | 'banco' | 'virtual' | 'inversion'
+/**
+ * `ajuste` significa "me equivoqué al contar". `rendimiento` significa "esto
+ * ganó o perdió solo". Están separados a propósito: mezclarlos es lo que hacía
+ * imposible calcular el rendimiento de una inversión.
+ */
+export type TransactionType = 'gasto' | 'ingreso' | 'transferencia' | 'ajuste' | 'rendimiento'
 export type CategoryType = 'gasto' | 'ingreso'
 
 export interface Wallet {
@@ -11,6 +16,13 @@ export interface Wallet {
   currency: string
   color: string
   icon: string | null
+  /**
+   * Solo en las billeteras de inversión: el capital que ya estaba adentro
+   * cuando pasó a serlo. El rendimiento se cuenta desde ahí — ver
+   * `src/lib/finance/investment.ts`.
+   */
+  investment_baseline: number | null
+  investment_baseline_date: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null

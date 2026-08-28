@@ -26,12 +26,24 @@ Verde — `#22c55e`
 - Soft delete (`deleted_at`) — necesario porque borrarlas físicamente cascadeaba el borrado de los presupuestos asociados
 
 ### Transacciones
-- Registrar gasto, ingreso, transferencia entre billeteras, o ajuste de balance
+- Registrar gasto, ingreso, transferencia entre billeteras, ajuste de balance o rendimiento de una inversión
 - Campos: monto, billetera, categoría, descripción, fecha
 - Carga 100% manual — **no hay clasificación automática por IA** (se borró junto con el chat de Lumus; el usuario prefiere cargar y categorizar a mano, no proponerla de nuevo salvo que la pida)
 - Listado con filtros: tipo, categoría, billetera, rango de fechas
 - Editar y eliminar (soft delete)
 - Los ajustes de balance (`type = 'ajuste'`) no cuentan como ingreso ni gasto en los totales/KPIs
+- `ajuste`, `transferencia` y `rendimiento` guardan el monto **firmado**: el signo dice la dirección. Los tres suman así en `recompute_wallet_balance` (`00028`)
+- `rendimiento` está separado de `ajuste` a propósito: `ajuste` significa "me equivoqué al contar" y mezclarlo con "mi inversión ganó" hace imposible calcular el rendimiento. Ver `E1` en `docs/BACKLOG.md`
+
+### Billeteras de inversión
+- Tipo `inversion`, junto a `efectivo` / `banco` / `virtual`. Es para lo que tiene **saldo y no unidades** (Inversiones MP, un plazo fijo, un FCI); lo que tiene unidades y precio va en `holdings`
+- Al pasar a ser de inversión se fija una **línea de base** (`investment_baseline`): el saldo de ese día cuenta como capital ya aportado y el rendimiento arranca en cero. Los movimientos anteriores no se pueden clasificar hacia atrás
+- Al actualizar el saldo, el formulario pregunta si se puso o sacó plata; **lo que sobra de la diferencia es rendimiento**, y las dos cosas pueden pasar juntas
+- Un aporte o retiro se guarda como **transferencia** contra la billetera de donde salió la plata (o sin contraparte, si vino de afuera de la app)
+- La aritmética vive en `src/lib/finance/investment.ts`, con tests. **No calcularla a mano en un componente**
+- El rendimiento se muestra en pesos y en dólares: ganar 20% en pesos con el dólar 30% arriba es perder
+- Las inversiones **no cuentan** en la reserva de emergencia del análisis de patrimonio, aunque sí en el patrimonio total
+- Se ven en la pestaña **Inversiones**, arriba de las tenencias con unidades, con el historial de cuánto fue rindiendo (gráfico del acumulado + detalle). El gráfico solo tiene puntos donde hubo un rendimiento registrado: entre dos actualizaciones la app no sabe qué pasó
 
 ### Presupuestos
 - Límite mensual por categoría

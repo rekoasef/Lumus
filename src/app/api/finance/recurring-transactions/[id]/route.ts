@@ -119,7 +119,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: wallet } = await supabase
     .from('wallets')
-    .select('id, name, type, balance, currency, color, icon, created_at, updated_at')
+    .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, created_at, updated_at')
     .eq('id', rec.wallet_id)
     .single()
 

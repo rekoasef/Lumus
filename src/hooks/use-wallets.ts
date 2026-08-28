@@ -2,7 +2,23 @@
 
 import { useState, useCallback } from 'react'
 import type { Wallet } from '@/types/finance.types'
+import type { InvestmentEvent } from '@/lib/finance/investment'
 import type { CreateWalletInput, UpdateWalletInput } from '@/lib/validations/finance'
+
+export interface AdjustBalanceInput {
+  newBalance: number
+  note?: string
+  /** Solo en billeteras de inversión: + aporte, − retiro. */
+  movement?: number
+  /** De dónde salió el aporte o a dónde fue el retiro. */
+  counterpartWalletId?: string | null
+}
+
+export interface AdjustBalanceResult {
+  wallet: Wallet
+  /** El aporte y/o el rendimiento que se registraron. Alimentan el historial. */
+  events: InvestmentEvent[]
+}
 
 export function useWallets(initialWallets: Wallet[]) {
   const [wallets, setWallets] = useState<Wallet[]>(initialWallets)
@@ -60,19 +76,35 @@ export function useWallets(initialWallets: Wallet[]) {
     }
   }, [])
 
-  const adjustBalance = useCallback(async (id: string, newBalance: number, note: string): Promise<Wallet | null> => {
+  const adjustBalance = useCallback(async (
+    id: string,
+    input: AdjustBalanceInput,
+  ): Promise<AdjustBalanceResult | null> => {
     setLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/finance/wallets/${id}/adjust`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ new_balance: newBalance, note: note || undefined }),
+        body: JSON.stringify({
+          new_balance: input.newBalance,
+          note: input.note || undefined,
+          movement: input.movement,
+          counterpart_wallet_id: input.counterpartWalletId ?? undefined,
+        }),
       })
       if (!res.ok) throw new Error('Error al ajustar el balance')
-      const { wallet } = await res.json() as { wallet: Wallet }
-      setWallets(prev => prev.map(w => w.id === id ? wallet : w))
-      return wallet
+      // Un aporte toca dos billeteras: la inversión y la de donde salió la
+      // plata. Las dos vuelven actualizadas para que la pantalla no muestre un
+      // saldo viejo del otro lado.
+      const { wallet, wallets: touched, events } = await res.json() as {
+        wallet: Wallet
+        wallets?: Wallet[]
+        events: InvestmentEvent[]
+      }
+      const updated = touched?.length ? touched : [wallet]
+      setWallets(prev => prev.map(w => updated.find(u => u.id === w.id) ?? w))
+      return { wallet, events: events ?? [] }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
       return null

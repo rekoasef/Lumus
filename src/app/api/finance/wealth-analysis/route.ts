@@ -31,7 +31,7 @@ async function buildWealthContext(
   const today = todayInArgentina()
 
   const [walletsRes, holdingsRes, rateHistory, rates, goalsRes] = await Promise.all([
-    supabase.from('wallets').select('id, balance, currency').eq('user_id', userId).is('deleted_at', null),
+    supabase.from('wallets').select('id, type, balance, currency').eq('user_id', userId).is('deleted_at', null),
     supabase
       .from('holdings')
       .select('id, name, kind, price_source, quantity, purchase_price, purchase_currency, purchase_date, manual_price')
@@ -80,7 +80,15 @@ async function buildWealthContext(
     .gte('date', threeMonthsAgo.toISOString().slice(0, 10))
 
   const monthlyExpenses = (expenses ?? []).reduce((sum, t) => sum + Number(t.amount), 0) / 3
-  const runway = monthsOfRunway(arsArs + foreignArs, monthlyExpenses)
+
+  // Las billeteras de inversión suman al patrimonio pero no al colchón: son
+  // plata que hay que sacar de algún lado antes de poder usarla. Contarlas acá
+  // daría meses de respaldo que no existen el día que hace falta la plata.
+  const investmentArs = wallets
+    .filter(w => w.type === 'inversion')
+    .reduce((sum, w) => sum + convertToARS(Number(w.balance ?? 0), w.currency ?? 'ARS', rates), 0)
+
+  const runway = monthsOfRunway(arsArs + foreignArs - investmentArs, monthlyExpenses)
 
   // ── Qué le pasó al peso ──
   const rateNow = rateOn(rateHistory, today) ?? rates.USD
