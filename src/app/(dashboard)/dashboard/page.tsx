@@ -11,6 +11,7 @@ import {
   TrendingDown,
   TrendingUp,
   Wallet as WalletIcon,
+  type LucideIcon,
 } from 'lucide-react'
 import { DashboardHero } from '@/components/modules/dashboard/dashboard-hero'
 import { DailyGreeting } from '@/components/modules/dashboard/daily-greeting'
@@ -300,6 +301,16 @@ export default async function DashboardPage() {
   const totalBalanceARS = Object.entries(balanceByCurrency)
     .reduce((sum, [currency, amount]) => sum + toARS(amount, currency), 0)
 
+  // Los saldos que no están en pesos se muestran en su moneda, al lado del de
+  // pesos y sin convertir: el equivalente en ARS ya lo dice la tarjeta de
+  // patrimonio, y acá lo que importa es cuántos dólares hay, no cuánto valen
+  // hoy. Se ordenan por cuánto pesan una vez convertidos para que la moneda
+  // con más plata quede primero.
+  const foreignBalances = Object.entries(balanceByCurrency)
+    .filter(([currency, amount]) => currency !== 'ARS' && amount !== 0)
+    .sort(([currencyA, amountA], [currencyB, amountB]) => toARS(amountB, currencyB) - toARS(amountA, currencyA))
+    .map(([currency, amount]) => formatMoney(amount, currency))
+
   const totalBudget = budgets.reduce((sum, b) => sum + Number(b.amount), 0)
   const totalBudgetSpent = budgets.reduce((sum, b) => sum + Number(b.spent), 0)
   const budgetRemaining = totalBudget - totalBudgetSpent
@@ -353,10 +364,23 @@ export default async function DashboardPage() {
     .sort((a, b) => b.progress - a.progress)
     .slice(0, 3)
 
-  const statCards = [
+  interface StatCard {
+    label: string
+    value: string
+    /** Segunda línea, para lo que no entra en el número grande. */
+    sub?: string
+    detail: string
+    icon: LucideIcon
+    color: string
+  }
+
+  const statCards: StatCard[] = [
     {
-      label: 'Saldo ARS',
+      // Con plata en otra moneda la tarjeta deja de ser solo de pesos, y
+      // seguir diciendo "Saldo ARS" arriba de un saldo en dólares sería mentir.
+      label: foreignBalances.length > 0 ? 'Saldo en cuentas' : 'Saldo ARS',
       value: formatMoney(arsBalance),
+      sub: foreignBalances.length > 0 ? foreignBalances.join(' · ') : undefined,
       detail: `${wallets.length} billetera${wallets.length === 1 ? '' : 's'}`,
       icon: WalletIcon,
       color: '#bdb4ff',
@@ -390,7 +414,7 @@ export default async function DashboardPage() {
       <DashboardHero firstName={firstName} date={date} />
 
       <section className="mx-auto grid max-w-[1120px] grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        {statCards.map(({ label, value, detail, icon: Icon, color }) => (
+        {statCards.map(({ label, value, sub, detail, icon: Icon, color }) => (
           <div key={label} className="lumus-glass rounded-2xl p-4">
             <div className="flex items-center gap-2">
               <Icon size={15} style={{ color }} />
@@ -399,6 +423,11 @@ export default async function DashboardPage() {
             <p className="mt-3 break-words text-xl font-bold leading-tight text-[var(--text-primary)] sm:text-2xl">
               {value}
             </p>
+            {sub && (
+              <p className="mt-1 break-words text-[0.78rem] font-semibold leading-tight text-[var(--text-secondary)]">
+                {sub}
+              </p>
+            )}
             <p className="mt-1 text-[0.65rem] text-[var(--text-muted)]">{detail}</p>
           </div>
         ))}
