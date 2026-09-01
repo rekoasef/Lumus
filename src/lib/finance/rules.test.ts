@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { budgetUsage, monthlyRecurringAmount, savingGoalProgress, BUDGET_ALERT_THRESHOLD } from './rules'
+import { budgetUsage, monthlyRecurringAmount, savingGoalProgress, savingsRate, BUDGET_ALERT_THRESHOLD } from './rules'
 import type { ToARS } from './summary'
 
 /** Cotización fija para los tests: 1 USD = 1000 ARS. */
@@ -121,5 +121,20 @@ describe('monthlyRecurringAmount', () => {
   it('un gasto semanal usa 52 semanas al año, no 4 al mes', () => {
     // 4 semanas por mes se come 4 pagos al año: 52/12 ≈ 4,33.
     expect(monthlyRecurringAmount(1000, 'weekly')).toBeCloseTo(4333.33, 2)
+  })
+})
+
+describe('savingsRate', () => {
+  it('es la parte de los ingresos que no se gastó', () => {
+    expect(savingsRate(1000, 750)).toBeCloseTo(25)
+  })
+
+  it('es negativa cuando se gastó más de lo que entró', () => {
+    expect(savingsRate(1000, 1200)).toBeCloseTo(-20)
+  })
+
+  it('un mes sin ingresos no tiene tasa, no tiene tasa cero', () => {
+    expect(savingsRate(0, 5000)).toBeNull()
+    expect(savingsRate(-100, 5000)).toBeNull()
   })
 })

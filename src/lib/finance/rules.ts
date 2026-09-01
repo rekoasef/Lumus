@@ -121,3 +121,19 @@ export function monthlyRecurringAmount(amount: number, repeatType: RecurringRepe
     case 'monthly': return amount
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// Tasa de ahorro
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Qué porcentaje de lo que entró en el mes no se gastó.
+ *
+ * Devuelve `null` si no hubo ingresos: un mes sin plata entrando no tiene una
+ * tasa de ahorro del 0% ni del -100%, no tiene tasa. Los dos montos ya tienen
+ * que venir en la misma moneda.
+ */
+export function savingsRate(income: number, expenses: number): number | null {
+  if (income <= 0) return null
+  return ((income - expenses) / income) * 100
+}
