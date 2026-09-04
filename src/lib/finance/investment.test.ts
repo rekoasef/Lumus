@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   movementsOf,
   yieldTimeline,
+  investmentTimeline,
   investedCapital,
   investmentReturn,
   investmentReturnUsd,
@@ -197,5 +198,76 @@ describe('yieldTimeline', () => {
       { date: '2026-08-01', amount: 250_000, kind: 'movimiento' },
     ])
     expect(timeline).toEqual([])
+  })
+})
+
+describe('investmentTimeline', () => {
+  it('sin eventos, la serie es solo el arranque', () => {
+    const points = investmentTimeline(2_500_000, '2026-07-01', [])
+    expect(points).toEqual([{ date: '2026-07-01', invested: 2_500_000, balance: 2_500_000 }])
+  })
+
+  it('un aporte sube las dos líneas y un rendimiento solo el saldo', () => {
+    const points = investmentTimeline(2_500_000, '2026-07-01', [
+      { date: '2026-07-06', amount: 184_456.80, kind: 'movimiento' },
+      { date: '2026-07-13', amount: 6_161,      kind: 'rendimiento' },
+    ])
+    expect(points).toEqual([
+      { date: '2026-07-01', invested: 2_500_000,      balance: 2_500_000 },
+      { date: '2026-07-06', invested: 2_684_456.80,   balance: 2_684_456.80 },
+      { date: '2026-07-13', invested: 2_684_456.80,   balance: 2_690_617.80 },
+    ])
+  })
+
+  it('junta en un punto el aporte y el rendimiento del mismo día', () => {
+    const points = investmentTimeline(100_000, '2026-07-01', [
+      { date: '2026-08-01', amount: 50_000, kind: 'movimiento' },
+      { date: '2026-08-01', amount: 3_000,  kind: 'rendimiento' },
+    ])
+    expect(points).toHaveLength(2)
+    expect(points[1]).toEqual({ date: '2026-08-01', invested: 150_000, balance: 153_000 })
+  })
+
+  it('un evento el día del arranque corrige el primer punto en vez de duplicarlo', () => {
+    const points = investmentTimeline(100_000, '2026-07-01', [
+      { date: '2026-07-01', amount: 20_000, kind: 'movimiento' },
+    ])
+    expect(points).toEqual([{ date: '2026-07-01', invested: 120_000, balance: 120_000 }])
+  })
+
+  it('un retiro baja lo invertido', () => {
+    const points = investmentTimeline(100_000, '2026-07-01', [
+      { date: '2026-08-01', amount: -30_000, kind: 'movimiento' },
+    ])
+    expect(points[1]).toEqual({ date: '2026-08-01', invested: 70_000, balance: 70_000 })
+  })
+
+  it('ignora lo anterior al arranque: ya está dentro de la base', () => {
+    const points = investmentTimeline(100_000, '2026-07-01', [
+      { date: '2026-06-20', amount: 999_999, kind: 'movimiento' },
+      { date: '2026-08-01', amount: 5_000,   kind: 'rendimiento' },
+    ])
+    expect(points).toHaveLength(2)
+    expect(points[1].invested).toBe(100_000)
+  })
+
+  it('reconstruye Inversiones MP: la distancia final es lo que rindió', () => {
+    const points = investmentTimeline(2_500_000, '2026-07-01', [
+      { date: '2026-07-06', amount: 184_456.80, kind: 'movimiento' },
+      { date: '2026-07-07', amount: 7_501.20,   kind: 'rendimiento' },
+      { date: '2026-07-13', amount: 6_161,      kind: 'rendimiento' },
+      { date: '2026-07-22', amount: 16_333,     kind: 'rendimiento' },
+      { date: '2026-08-07', amount: 20_796,     kind: 'rendimiento' },
+      { date: '2026-08-10', amount: 164_389.80, kind: 'movimiento' },
+      { date: '2026-08-19', amount: 18_852.20,  kind: 'rendimiento' },
+      { date: '2026-08-24', amount: 10_189,     kind: 'rendimiento' },
+      { date: '2026-08-28', amount: 8_682,      kind: 'rendimiento' },
+      { date: '2026-09-04', amount: 113_199.57, kind: 'movimiento' },
+      { date: '2026-09-04', amount: 16_466.67,  kind: 'rendimiento' },
+    ])
+    const last = points[points.length - 1]
+    expect(last.invested).toBeCloseTo(2_962_046.17, 2)
+    expect(last.balance).toBeCloseTo(3_067_027.24, 2)
+    expect(last.balance - last.invested).toBeCloseTo(104_981.07, 2)
   })
 })

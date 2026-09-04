@@ -77,6 +77,65 @@ export function yieldTimeline(events: readonly InvestmentEvent[]): YieldPoint[] 
     })
 }
 
+export interface InvestmentPoint {
+  date: string
+  /** La plata puesta hasta ese día, inclusive: base + aportes − retiros. */
+  invested: number
+  /** El saldo de ese día: lo invertido más lo que rindió hasta ahí. */
+  balance: number
+}
+
+/**
+ * El saldo y el capital invertido, en los días que hubo medición.
+ *
+ * Son las dos series que hacen legible una inversión: la distancia entre ellas
+ * es el rendimiento, y un salto que sube las dos a la vez es plata que pusiste,
+ * no plata que ganaste. Una sola línea de saldo no distingue esas dos cosas, y
+ * es justo la confusión que este módulo existe para evitar.
+ *
+ * Arranca siempre en la línea de base, que es el único día del que se sabe el
+ * saldo sin haber registrado nada. Igual que `yieldTimeline`, no interpola: solo
+ * hay punto donde alguien miró.
+ */
+export function investmentTimeline(
+  baselineArs: number,
+  baselineDate: string,
+  events: readonly InvestmentEvent[],
+): InvestmentPoint[] {
+  const byDate = new Map<string, { movement: number; yield: number }>()
+
+  for (const event of events) {
+    // Lo anterior a la base ya está dentro de ese número; sumarlo lo contaría
+    // dos veces y además dejaría puntos antes del arranque de la serie.
+    if (event.date < baselineDate) continue
+    const slot = byDate.get(event.date) ?? { movement: 0, yield: 0 }
+    if (event.kind === 'movimiento') slot.movement += event.amount
+    else slot.yield += event.amount
+    byDate.set(event.date, slot)
+  }
+
+  let invested = baselineArs
+  let accumulated = 0
+
+  const points: InvestmentPoint[] = [
+    { date: baselineDate, invested, balance: invested },
+  ]
+
+  const dates = [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b))
+
+  for (const [date, { movement, yield: yieldAmount }] of dates) {
+    invested += movement
+    accumulated += yieldAmount
+    const point = { date, invested, balance: invested + accumulated }
+    // Un movimiento el mismo día del arranque no agrega un punto: corrige el
+    // que ya está, o la serie tendría dos valores para la misma fecha.
+    if (date === baselineDate) points[0] = point
+    else points.push(point)
+  }
+
+  return points
+}
+
 export interface InvestmentReturn {
   /** Base + aportes − retiros: toda la plata tuya que hay adentro. */
   investedArs: number

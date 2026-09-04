@@ -22,12 +22,12 @@ export async function POST(
     return NextResponse.json({ error: result.error.flatten() }, { status: 400 })
   }
 
-  const { new_balance, note, counterpart_wallet_id } = result.data
+  const { new_balance, note, counterpart_wallet_id, movement_date } = result.data
 
   // Traer billetera actual
   const { data: wallet, error: walletError } = await supabase
     .from('wallets')
-    .select('id, type, balance, currency, created_at')
+    .select('id, type, balance, currency, created_at, investment_baseline_date')
     .eq('id', id)
     .eq('user_id', user.id)
     .is('deleted_at', null)
@@ -56,6 +56,29 @@ export async function POST(
   }
 
   const today = new Date().toISOString().slice(0, 10)
+
+  // La fecha del aporte puede ser pasada, pero no cualquiera: más adelante que
+  // hoy no existe, y antes del arranque de la inversión el aporte quedaría
+  // fuera del capital invertido —el cálculo ignora lo anterior a la base— y el
+  // rendimiento saldría inflado sin que nada lo avise.
+  const movementDate = movement_date ?? today
+
+  if (!isNegligible(movement)) {
+    if (movementDate > today) {
+      return NextResponse.json(
+        { error: 'La fecha del movimiento no puede ser futura' },
+        { status: 400 },
+      )
+    }
+
+    const baselineDate = wallet.investment_baseline_date
+    if (baselineDate && movementDate < baselineDate) {
+      return NextResponse.json(
+        { error: `La inversión arranca el ${baselineDate}: un movimiento anterior no cuenta como capital` },
+        { status: 400 },
+      )
+    }
+  }
 
   // Calcular el balance que el trigger conoce (suma de transacciones).
   // Este `case` tiene que coincidir con el de `recompute_wallet_balance`
@@ -169,7 +192,7 @@ export async function POST(
     // La pata de la inversión, firmada: + entra, − sale.
     rows.push({
       user_id: user.id, wallet_id: id, category_id: null,
-      type: 'transferencia', amount: movement, description, date: today, deleted_at: null,
+      type: 'transferencia', amount: movement, description, date: movementDate, deleted_at: null,
     })
 
     // La pata de la otra billetera, al revés. Sin contraparte el aporte vino de
@@ -178,11 +201,11 @@ export async function POST(
     if (counterpartId) {
       rows.push({
         user_id: user.id, wallet_id: counterpartId, category_id: null,
-        type: 'transferencia', amount: -movement, description, date: today, deleted_at: null,
+        type: 'transferencia', amount: -movement, description, date: movementDate, deleted_at: null,
       })
     }
 
-    createdEvents.push({ date: today, amount: movement, kind: 'movimiento' })
+    createdEvents.push({ date: movementDate, amount: movement, kind: 'movimiento' })
   }
 
   if (!isNegligible(yieldAmount)) {

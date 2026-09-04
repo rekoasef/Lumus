@@ -38,6 +38,10 @@ const COPY = {
   newBalanceHint:   'Lo que muestra la inversión ahora, con el aporte o el retiro ya adentro.',
   movementQuestion: '¿PUSISTE O SACASTE PLATA?',
   movementAmount:   'CUÁNTO',
+  movementDate:     'CUÁNDO',
+  // Se carga días después de que pasó más veces de las que uno querría: MP
+  // aprueba una inversión el 10 y uno se acuerda el 19.
+  movementDateHint: 'Si el movimiento fue otro día, poné el día real.',
   fromWallet:       'DE QUÉ BILLETERA SALIÓ',
   toWallet:         'A QUÉ BILLETERA FUE',
   outsideApp:       'De afuera de la app',
@@ -79,7 +83,16 @@ export interface WalletAdjustSubmit {
   newBalance: number
   note: string
   movement: number
+  /** El día en que se movió la plata. `null` cuando no hubo movimiento. */
+  movementDate: string | null
   counterpartWalletId: string | null
+}
+
+/** Hoy en local, no en UTC: a la noche `toISOString` ya devuelve mañana. */
+function todayISO(): string {
+  const now = new Date()
+  const offset = now.getTimezoneOffset() * 60_000
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10)
 }
 
 interface WalletAdjustFormProps {
@@ -98,6 +111,7 @@ export function WalletAdjustForm({ wallet, wallets, onAdjust, onClose }: WalletA
   const [movementKind, setMovementKind] = useState<MovementKind>('nada')
   const [movementAmount, setMovementAmount] = useState<string>('')
   const [counterpart, setCounterpart] = useState<string>('')
+  const [movementDate, setMovementDate] = useState<string>(todayISO())
   const [loading, setLoading] = useState(false)
   // Mientras el dueño no escriba el saldo a mano, el aporte lo va corrigiendo
   // solo. Apenas lo escribe, manda él: ese número lo leyó de la inversión.
@@ -136,6 +150,7 @@ export function WalletAdjustForm({ wallet, wallets, onAdjust, onClose }: WalletA
     if (kind === 'nada') {
       setMovementAmount('')
       setCounterpart('')
+      setMovementDate(todayISO())
       syncBalance('nada', '')
       return
     }
@@ -155,6 +170,7 @@ export function WalletAdjustForm({ wallet, wallets, onAdjust, onClose }: WalletA
       newBalance: parsed,
       note,
       movement,
+      movementDate: isNegligible(movement) ? null : movementDate,
       counterpartWalletId: counterpart || null,
     })
     setLoading(false)
@@ -223,6 +239,23 @@ export function WalletAdjustForm({ wallet, wallets, onAdjust, onClose }: WalletA
               autoFocus
               className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
             />
+          </div>
+
+          <div>
+            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
+              {COPY.movementDate}
+            </label>
+            <input
+              type="date"
+              value={movementDate}
+              onChange={e => setMovementDate(e.target.value)}
+              min={wallet.investment_baseline_date ?? undefined}
+              max={todayISO()}
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none"
+            />
+            <p className="mt-1.5 text-[0.65rem] leading-relaxed text-[var(--text-muted)]">
+              {COPY.movementDateHint}
+            </p>
           </div>
 
           {otherWallets.length > 0 && (

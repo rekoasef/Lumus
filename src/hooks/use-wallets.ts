@@ -10,6 +10,8 @@ export interface AdjustBalanceInput {
   note?: string
   /** Solo en billeteras de inversión: + aporte, − retiro. */
   movement?: number
+  /** Cuándo se movió la plata, si no fue hoy. */
+  movementDate?: string | null
   /** De dónde salió el aporte o a dónde fue el retiro. */
   counterpartWalletId?: string | null
 }
@@ -90,10 +92,16 @@ export function useWallets(initialWallets: Wallet[]) {
           new_balance: input.newBalance,
           note: input.note || undefined,
           movement: input.movement,
+          movement_date: input.movementDate ?? undefined,
           counterpart_wallet_id: input.counterpartWalletId ?? undefined,
         }),
       })
-      if (!res.ok) throw new Error('Error al ajustar el balance')
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null) as { error?: unknown } | null
+        throw new Error(
+          typeof detail?.error === 'string' ? detail.error : 'Error al ajustar el balance',
+        )
+      }
       // Un aporte toca dos billeteras: la inversión y la de donde salió la
       // plata. Las dos vuelven actualizadas para que la pantalla no muestre un
       // saldo viejo del otro lado.
@@ -106,8 +114,11 @@ export function useWallets(initialWallets: Wallet[]) {
       setWallets(prev => prev.map(w => updated.find(u => u.id === w.id) ?? w))
       return { wallet, events: events ?? [] }
     } catch (e) {
+      // Se propaga: la pantalla tiene que poder decir *por qué* falló —una fecha
+      // futura, un aporte anterior al arranque— en vez de cerrar el diálogo
+      // como si hubiera andado.
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return null
+      throw e
     } finally {
       setLoading(false)
     }

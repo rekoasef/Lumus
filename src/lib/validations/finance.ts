@@ -30,6 +30,12 @@ export const updateWalletSchema = z.object({
 export const adjustWalletSchema = z.object({
   new_balance: z.number().finite(),
   movement: z.number().finite().optional(),
+  /**
+   * Cuándo entró o salió la plata, si no fue hoy. Mercado Pago aprueba una
+   * inversión el 10 y uno la carga el 19: sin esto, el aporte queda fechado el
+   * día que alguien se acordó y el historial deja de ser el real.
+   */
+  movement_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida').optional(),
   /** De dónde salió el aporte, o a dónde fue el retiro. Puede venir de afuera. */
   counterpart_wallet_id: z.string().uuid().nullable().optional(),
   note: z.string().max(200).optional(),

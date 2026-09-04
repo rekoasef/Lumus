@@ -25,7 +25,7 @@ import { BudgetForm } from './budget-form'
 import { SavingGoalCard } from './saving-goal-card'
 import { SavingGoalForm } from './saving-goal-form'
 import { RecurringTransactionList } from './recurring-transaction-list'
-import { useWallets } from '@/hooks/use-wallets'
+import { useWallets, type AdjustBalanceResult } from '@/hooks/use-wallets'
 import { useBudgets } from '@/hooks/use-budgets'
 import { useSavingGoals } from '@/hooks/use-saving-goals'
 import { useExchangeRates } from '@/hooks/use-exchange-rates'
@@ -236,12 +236,20 @@ export function FinanzasDashboard({
     if (!adjustingWallet) return
     const walletId = adjustingWallet.id
 
-    const result = await adjustBalance(walletId, {
-      newBalance: input.newBalance,
-      note: input.note,
-      movement: input.movement,
-      counterpartWalletId: input.counterpartWalletId,
-    })
+    let result: AdjustBalanceResult | null = null
+    try {
+      result = await adjustBalance(walletId, {
+        newBalance: input.newBalance,
+        note: input.note,
+        movement: input.movement,
+        movementDate: input.movementDate,
+        counterpartWalletId: input.counterpartWalletId,
+      })
+    } catch (e) {
+      // El diálogo queda abierto a propósito: lo cargado sigue ahí para corregir.
+      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar el balance')
+      return
+    }
 
     // Un aporte cambia el capital invertido y un rendimiento suma al historial:
     // los dos tienen que verse ya, no en la próxima recarga.

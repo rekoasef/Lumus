@@ -6,7 +6,7 @@ import { TrendingUp, TrendingDown, SlidersHorizontal, ArrowDownLeft, ArrowUpRigh
 import type { Wallet } from '@/types/finance.types'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import {
-  yieldTimeline,
+  investmentTimeline,
   type InvestmentEvent,
   type InvestmentReturn,
   type InvestmentReturnUsd,
@@ -20,11 +20,10 @@ const LABELS = {
   yield: 'Rendimiento',
   inUsd: 'En dólares',
   history: 'Cómo fue rindiendo',
-  accumulated: 'Acumulado',
+  investedMoney: 'Dinero invertido',
   update: 'Actualizar',
-  noYields: 'Todavía no hay rendimientos registrados.',
-  noYieldsHint: 'Cada vez que actualices el saldo y digas que rindió, va a aparecer un punto acá.',
-  onePoint: 'Con una sola actualización todavía no hay línea que dibujar. A la próxima aparece.',
+  noYields: 'Todavía no hay movimientos registrados.',
+  noYieldsHint: 'Cada vez que actualices el saldo va a aparecer un punto acá.',
   contribution: 'Aporte',
   withdrawal: 'Retiro',
   gain: 'Ganancia',
@@ -48,6 +47,14 @@ interface InvestmentWalletsSectionProps {
 function formatPercent(value: number): string {
   const sign = value > 0 ? '+' : value < 0 ? '−' : ''
   return `${sign}${Math.abs(value).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`
+}
+
+/** Los saldos de una inversión no entran en el eje: 3.067.027 se lee "3,07 M". */
+function formatAxis(value: number): string {
+  const abs = Math.abs(value)
+  if (abs >= 1_000_000) return `${(value / 1_000_000).toLocaleString('es-AR', { maximumFractionDigits: 2 })} M`
+  if (abs >= 1_000)     return `${Math.round(value / 1_000).toLocaleString('es-AR')} k`
+  return Math.round(value).toLocaleString('es-AR')
 }
 
 function formatDay(date: string): string {
@@ -102,7 +109,24 @@ interface InvestmentWalletCardProps {
 function InvestmentWalletCard({ wallet, events, performance, onAdjust }: InvestmentWalletCardProps) {
   const [expanded, setExpanded] = useState(false)
 
-  const timeline = useMemo(() => yieldTimeline(events), [events])
+  const timeline = useMemo(
+    () => investmentTimeline(
+      wallet.investment_baseline ?? 0,
+      wallet.investment_baseline_date ?? '',
+      events,
+    ),
+    [wallet.investment_baseline, wallet.investment_baseline_date, events],
+  )
+
+  // El eje arranca en los datos, no en cero: contra un capital de millones, un
+  // rendimiento de cien mil sería una línea plana pegada al techo.
+  const domain = useMemo<[number, number]>(() => {
+    const values = timeline.flatMap(p => [p.invested, p.balance])
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const padding = (max - min) * 0.18 || Math.abs(max) * 0.02 || 1
+    return [min - padding, max + padding]
+  }, [timeline])
 
   // Del más nuevo al más viejo: lo último que pasó es lo que se quiere ver.
   const history = useMemo(
@@ -193,70 +217,88 @@ function InvestmentWalletCard({ wallet, events, performance, onAdjust }: Investm
       <div className="mt-5 border-t border-white/[0.07] pt-4">
         <p className="lumus-label text-[0.58rem] text-[var(--text-muted)]">{LABELS.history}</p>
 
-        {timeline.length === 0 ? (
+        {timeline.length < 2 ? (
           <div className="mt-3 rounded-xl border border-dashed border-white/10 px-4 py-6 text-center">
             <p className="text-xs text-[var(--text-secondary)]">{LABELS.noYields}</p>
             <p className="mt-1 text-[0.68rem] text-[var(--text-muted)]">{LABELS.noYieldsHint}</p>
           </div>
-        ) : timeline.length === 1 ? (
-          <div className="mt-3 flex items-baseline justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
-            <span className="text-[0.7rem] text-[var(--text-muted)]">{LABELS.onePoint}</span>
-            <span
-              className="lumus-heading shrink-0 text-sm font-bold"
-              style={{ color: timeline[0].accumulated >= 0 ? '#22c55e' : '#ef4444' }}
-            >
-              {timeline[0].accumulated > 0 ? '+' : timeline[0].accumulated < 0 ? '−' : ''}
-              {money(Math.abs(timeline[0].accumulated))}
-            </span>
-          </div>
         ) : (
-          <div className="mt-3 h-44 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={timeline}>
-                <defs>
-                  <linearGradient id={`yieldFill-${wallet.id}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={positive ? '#22c55e' : '#ef4444'} stopOpacity={0.3} />
-                    <stop offset="100%" stopColor={positive ? '#22c55e' : '#ef4444'} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fill: '#7b7a88', fontSize: 10 }}
-                  tickLine={false}
-                  axisLine={false}
-                  minTickGap={30}
-                  tickFormatter={formatDay}
+          <>
+            <div className="mt-3 h-44 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={timeline} margin={{ top: 6, right: 4, bottom: 0, left: 0 }}>
+                  <defs>
+                    <linearGradient id={`balanceFill-${wallet.id}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={positive ? '#22c55e' : '#ef4444'} stopOpacity={0.22} />
+                      <stop offset="100%" stopColor={positive ? '#22c55e' : '#ef4444'} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: '#7b7a88', fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    minTickGap={30}
+                    tickFormatter={formatDay}
+                  />
+                  <YAxis
+                    tick={{ fill: '#7b7a88', fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={52}
+                    domain={domain}
+                    tickFormatter={v => formatAxis(Number(v))}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: '#1d1b28',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 12,
+                      fontSize: 12,
+                    }}
+                    labelStyle={{ color: '#928ea0' }}
+                    labelFormatter={label => formatDay(String(label))}
+                    formatter={(value, name) => [money(Number(value)), String(name)]}
+                  />
+                  {/* Lo invertido va abajo y sin protagonismo: es la referencia
+                      contra la que se lee el saldo, no el número que importa. */}
+                  <Area
+                    type="stepAfter"
+                    dataKey="invested"
+                    name={LABELS.investedMoney}
+                    stroke="rgba(255,255,255,0.28)"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 3"
+                    fill="rgba(255,255,255,0.05)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="balance"
+                    name={LABELS.balance}
+                    stroke={positive ? '#22c55e' : '#ef4444'}
+                    strokeWidth={2}
+                    fill={`url(#balanceFill-${wallet.id})`}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* La referencia: sin esto, dos líneas juntas no dicen cuál es cuál. */}
+            <div className="mt-2 flex items-center justify-center gap-4">
+              <span className="flex items-center gap-1.5 text-[0.65rem] text-[var(--text-muted)]">
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: positive ? '#22c55e' : '#ef4444' }}
                 />
-                <YAxis
-                  tick={{ fill: '#7b7a88', fontSize: 10 }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={52}
-                  domain={['auto', 'auto']}
-                  tickFormatter={v => Math.round(Number(v)).toLocaleString('es-AR')}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: '#1d1b28',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 12,
-                    fontSize: 12,
-                  }}
-                  labelStyle={{ color: '#928ea0' }}
-                  labelFormatter={label => formatDay(String(label))}
-                  formatter={(value) => [money(Number(value)), LABELS.accumulated]}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="accumulated"
-                  stroke={positive ? '#22c55e' : '#ef4444'}
-                  strokeWidth={2}
-                  fill={`url(#yieldFill-${wallet.id})`}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+                {LABELS.balance}
+              </span>
+              <span className="flex items-center gap-1.5 text-[0.65rem] text-[var(--text-muted)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-white/30" />
+                {LABELS.investedMoney}
+              </span>
+            </div>
+          </>
         )}
       </div>
 
