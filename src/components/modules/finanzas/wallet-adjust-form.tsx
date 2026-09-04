@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { X, SlidersHorizontal, TrendingUp, ArrowDownLeft, ArrowUpRight, Minus } from 'lucide-react'
+import { X, SlidersHorizontal, TrendingUp, ArrowDownLeft, ArrowUpRight, Minus, AlertTriangle } from 'lucide-react'
 import type { Wallet } from '@/types/finance.types'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import { splitBalanceChange, isNegligible } from '@/lib/finance/investment'
@@ -15,12 +15,27 @@ const MOVEMENT_OPTIONS: { value: MovementKind; label: string; icon: React.ReactN
   { value: 'retiro', label: 'Saqué', icon: <ArrowUpRight size={13} /> },
 ]
 
+/** El monto del movimiento, firmado: + entra a la inversión, − sale. */
+function signedMovement(kind: MovementKind, amount: string): number {
+  const raw = parseFloat(amount)
+  const value = isNaN(raw) ? 0 : Math.abs(raw)
+  return kind === 'aporte' ? value : kind === 'retiro' ? -value : 0
+}
+
+/** Sumar un aporte al saldo sin esto deja colas de coma flotante en el input. */
+function roundCents(amount: number): number {
+  return Math.round(amount * 100) / 100
+}
+
 const COPY = {
   title:            'Ajustar balance',
   investmentTitle:  'Actualizar inversión',
   currentBalance:   'Balance actual',
   newBalanceLabel:  'BALANCE REAL',
   newBalanceInvest: 'SALDO NUEVO',
+  // El error que hacía esta ayuda necesaria: cargar el aporte y dejar el saldo
+  // como estaba, con lo que la plata que entró se guardaba como pérdida.
+  newBalanceHint:   'Lo que muestra la inversión ahora, con el aporte o el retiro ya adentro.',
   movementQuestion: '¿PUSISTE O SACASTE PLATA?',
   movementAmount:   'CUÁNTO',
   fromWallet:       'DE QUÉ BILLETERA SALIÓ',
@@ -38,11 +53,27 @@ const COPY = {
   // confunde más que no decir nada.
   movementNote:     'El aporte no cuenta como ganancia: es la misma plata cambiando de lugar.',
   yieldOnlyNote:    'Se guarda como rendimiento de la inversión, no como ingreso.',
+  staleTitle:       'Revisá el saldo nuevo',
+  staleContribution:'Pusiste',
+  staleWithdrawal:  'Sacaste',
+  staleLoss:        'una pérdida',
+  staleGain:        'una ganancia',
+  staleFix:         'Usar ese saldo',
   cancel:           'Cancelar',
   confirm:          'Confirmar ajuste',
   confirmInvest:    'Guardar',
   saving:           'Guardando...',
 } as const
+
+/**
+ * El aviso de que el saldo nuevo se quedó en el de antes.
+ *
+ * Es el único caso en que el reparto da un número absurdo por sí solo: si entró
+ * plata y el saldo no se movió, lo que sobra es una pérdida exactamente del
+ * tamaño del aporte. Nunca es lo que quiso decir nadie.
+ */
+const staleMessage = (action: string, amount: string, effect: string, suggested: string) =>
+  `${action} ${amount} y dejaste el mismo saldo de antes, así que se guarda como ${effect} de ${amount}. Si ese movimiento ya está reflejado en la inversión, el saldo nuevo es ${suggested}.`
 
 export interface WalletAdjustSubmit {
   newBalance: number
@@ -68,15 +99,14 @@ export function WalletAdjustForm({ wallet, wallets, onAdjust, onClose }: WalletA
   const [movementAmount, setMovementAmount] = useState<string>('')
   const [counterpart, setCounterpart] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  // Mientras el dueño no escriba el saldo a mano, el aporte lo va corrigiendo
+  // solo. Apenas lo escribe, manda él: ese número lo leyó de la inversión.
+  const [balanceTouched, setBalanceTouched] = useState(false)
 
   const parsed = parseFloat(newBalance)
   const isValid = !isNaN(parsed)
 
-  const rawMovement = parseFloat(movementAmount)
-  const movementValue = isNaN(rawMovement) ? 0 : Math.abs(rawMovement)
-  const movement = movementKind === 'aporte' ? movementValue
-    : movementKind === 'retiro' ? -movementValue
-    : 0
+  const movement = signedMovement(movementKind, movementAmount)
 
   // El reparto lo hace la misma función que usa la API, así que la pantalla no
   // puede prometer un número distinto del que se guarda.
@@ -87,8 +117,35 @@ export function WalletAdjustForm({ wallet, wallets, onAdjust, onClose }: WalletA
 
   const fmt = (n: number) => formatCurrency(n, wallet.currency, 'rounded')
 
+  // Movió plata pero el saldo quedó clavado: el resto se guardaría como un
+  // rendimiento del mismo tamaño y del signo contrario.
+  const suggestedBalance = roundCents(wallet.balance + movement)
+  const balanceIsStale = isInvestment && isValid && !isNegligible(movement) && isNegligible(diff)
+
   // La contraparte solo tiene sentido para las otras billeteras del usuario.
   const otherWallets = wallets.filter(w => w.id !== wallet.id && w.currency === wallet.currency)
+
+  /** Mantiene el saldo nuevo al día con el movimiento, hasta que lo escriban. */
+  function syncBalance(kind: MovementKind, amount: string) {
+    if (balanceTouched) return
+    setNewBalance(String(roundCents(wallet.balance + signedMovement(kind, amount))))
+  }
+
+  function handleMovementKind(kind: MovementKind) {
+    setMovementKind(kind)
+    if (kind === 'nada') {
+      setMovementAmount('')
+      setCounterpart('')
+      syncBalance('nada', '')
+      return
+    }
+    syncBalance(kind, movementAmount)
+  }
+
+  function handleMovementAmount(amount: string) {
+    setMovementAmount(amount)
+    syncBalance(movementKind, amount)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -102,6 +159,93 @@ export function WalletAdjustForm({ wallet, wallets, onAdjust, onClose }: WalletA
     })
     setLoading(false)
   }
+
+  const balanceField = (
+    <div>
+      <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
+        {isInvestment ? COPY.newBalanceInvest : COPY.newBalanceLabel}
+      </label>
+      <input
+        type="number"
+        step="0.01"
+        value={newBalance}
+        onChange={e => { setBalanceTouched(true); setNewBalance(e.target.value) }}
+        autoFocus={!isInvestment}
+        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
+      />
+      {isInvestment && (
+        <p className="mt-1.5 text-[0.65rem] leading-relaxed text-[var(--text-muted)]">
+          {COPY.newBalanceHint}
+        </p>
+      )}
+    </div>
+  )
+
+  /* ── Solo en inversiones: por qué cambió ── */
+  const movementFields = (
+    <>
+      <div>
+        <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
+          {COPY.movementQuestion}
+        </label>
+        <div className="flex gap-2">
+          {MOVEMENT_OPTIONS.map(option => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => handleMovementKind(option.value)}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
+                movementKind === option.value
+                  ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
+                  : 'border-white/10 bg-white/5 text-[var(--text-secondary)] hover:border-white/20'
+              }`}
+            >
+              {option.icon}
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {movementKind !== 'nada' && (
+        <div className="space-y-3 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+          <div>
+            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
+              {COPY.movementAmount}
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={movementAmount}
+              onChange={e => handleMovementAmount(e.target.value)}
+              placeholder="0"
+              autoFocus
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
+            />
+          </div>
+
+          {otherWallets.length > 0 && (
+            <div>
+              <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
+                {movementKind === 'aporte' ? COPY.fromWallet : COPY.toWallet}
+              </label>
+              <select
+                value={counterpart}
+                onChange={e => setCounterpart(e.target.value)}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none"
+              >
+                <option value="">{COPY.outsideApp}</option>
+                {otherWallets.map(w => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center p-0 bg-black/60 backdrop-blur-sm sm:items-center sm:p-4">
@@ -134,87 +278,35 @@ export function WalletAdjustForm({ wallet, wallets, onAdjust, onClose }: WalletA
             </span>
           </div>
 
-          {/* Nuevo balance */}
-          <div>
-            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-              {isInvestment ? COPY.newBalanceInvest : COPY.newBalanceLabel}
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={newBalance}
-              onChange={e => setNewBalance(e.target.value)}
-              autoFocus
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
-            />
-          </div>
+          {/* En una inversión primero se dice qué pasó y después en cuánto quedó:
+              así el saldo nuevo llega con el aporte ya sumado y nadie lo deja
+              en el de antes sin darse cuenta. */}
+          {isInvestment ? <>{movementFields}{balanceField}</> : balanceField}
 
-          {/* ── Solo en inversiones: por qué cambió ── */}
-          {isInvestment && (
-            <>
-              <div>
-                <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-                  {COPY.movementQuestion}
-                </label>
-                <div className="flex gap-2">
-                  {MOVEMENT_OPTIONS.map(option => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => {
-                        setMovementKind(option.value)
-                        if (option.value === 'nada') { setMovementAmount(''); setCounterpart('') }
-                      }}
-                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
-                        movementKind === option.value
-                          ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
-                          : 'border-white/10 bg-white/5 text-[var(--text-secondary)] hover:border-white/20'
-                      }`}
-                    >
-                      {option.icon}
-                      {option.label}
-                    </button>
-                  ))}
+          {balanceIsStale && (
+            <div className="rounded-xl border border-[var(--danger)]/30 bg-[var(--danger)]/10 p-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[var(--danger)]" />
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-[var(--danger)]">{COPY.staleTitle}</p>
+                  <p className="text-[0.65rem] leading-relaxed text-[var(--text-secondary)]">
+                    {staleMessage(
+                      movement > 0 ? COPY.staleContribution : COPY.staleWithdrawal,
+                      fmt(Math.abs(movement)),
+                      movement > 0 ? COPY.staleLoss : COPY.staleGain,
+                      fmt(suggestedBalance),
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setBalanceTouched(false); setNewBalance(String(suggestedBalance)) }}
+                    className="rounded-lg border border-[var(--danger)]/40 px-2.5 py-1.5 text-[0.65rem] font-medium text-[var(--danger)] hover:bg-[var(--danger)]/10"
+                  >
+                    {COPY.staleFix}
+                  </button>
                 </div>
               </div>
-
-              {movementKind !== 'nada' && (
-                <div className="space-y-3 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
-                  <div>
-                    <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-                      {COPY.movementAmount}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={movementAmount}
-                      onChange={e => setMovementAmount(e.target.value)}
-                      placeholder="0"
-                      className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
-                    />
-                  </div>
-
-                  {otherWallets.length > 0 && (
-                    <div>
-                      <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-                        {movementKind === 'aporte' ? COPY.fromWallet : COPY.toWallet}
-                      </label>
-                      <select
-                        value={counterpart}
-                        onChange={e => setCounterpart(e.target.value)}
-                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-lumus)] focus:outline-none"
-                      >
-                        <option value="">{COPY.outsideApp}</option>
-                        {otherWallets.map(w => (
-                          <option key={w.id} value={w.id}>{w.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
+            </div>
           )}
 
           {/* El reparto, en vivo. Es el punto entero de la pantalla: ver qué
