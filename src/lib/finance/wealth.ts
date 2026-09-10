@@ -14,23 +14,44 @@ export interface WealthComposition {
   foreignArs: number
   /** Inversiones valuadas, en pesos. */
   holdingsArs: number
+  /** Lo prestado que falta cobrar. Es un activo: plata tuya, en otro lado. */
+  receivableArs: number
+  /** Lo que se debe. Lo único que resta. */
+  debtArs: number
+  /** Lo que se tiene, sin descontar deuda. */
   totalArs: number
-  /** Qué porcentaje del patrimonio está expuesto al peso. */
+  /** Lo que se tiene menos lo que se debe. Es el patrimonio de verdad. */
+  netArs: number
+  /** Qué porcentaje de los activos está expuesto al peso. */
   pesoExposurePercent: number
 }
 
+/**
+ * La composición del patrimonio.
+ *
+ * `totalArs` y `netArs` son dos números distintos y los dos importan: alguien
+ * con 3 millones y una deuda de 2,5 no tiene lo mismo que alguien con 3 y nada.
+ * La exposición al peso se mide contra **los activos** y no contra el neto: es
+ * qué proporción de lo que tenés se devalúa, y una deuda en pesos no cambia eso
+ * (la achica, pero esa es otra conversación).
+ */
 export function wealthComposition(
   arsArs: number,
   foreignArs: number,
   holdingsArs: number,
+  receivableArs = 0,
+  debtArs = 0,
 ): WealthComposition {
-  const totalArs = arsArs + foreignArs + holdingsArs
+  const totalArs = arsArs + foreignArs + holdingsArs + receivableArs
 
   return {
     arsArs,
     foreignArs,
     holdingsArs,
+    receivableArs,
+    debtArs,
     totalArs,
+    netArs: totalArs - debtArs,
     // Sin patrimonio no hay exposición: 0 y no NaN.
     pesoExposurePercent: totalArs > 0 ? (arsArs / totalArs) * 100 : 0,
   }

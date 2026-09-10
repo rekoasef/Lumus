@@ -9,6 +9,8 @@ import { portfolioTotals, resolvePriceUsd, valuateHolding, type Holding } from '
 import { rateOn } from '@/lib/finance/purchasing-power'
 import { fetchRateHistory, yearsAgo } from '@/lib/finance/rate-history'
 import { monthsOfRunway, pesoLossOverWindows, wealthComposition } from '@/lib/finance/wealth'
+import { loanProgress, loanTotals, type Loan } from '@/lib/finance/loans'
+import { LOAN_SELECT, loadRepayments } from '@/app/api/finance/loans/shared'
 import { savingGoalProgress } from '@/lib/finance/rules'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import { todayInArgentina } from '@/lib/notifications/due-notification'
@@ -65,7 +67,26 @@ async function buildWealthContext(
     return price === null ? null : valuateHolding(holding, price, rates.USD, rateHistory)
   }))
 
-  const composition = wealthComposition(arsArs, foreignArs, portfolio.valueArs)
+  // ── Préstamos ──
+  // Es lo único del patrimonio que resta. Sin esto, alguien con 3 millones y
+  // una deuda de 2,5 recibiría el mismo análisis que alguien con 3 y nada.
+  const { data: loanRows } = await supabase
+    .from('loans')
+    .select(LOAN_SELECT)
+    .eq('user_id', userId)
+    .is('deleted_at', null)
+
+  const loans = (loanRows ?? []) as unknown as Loan[]
+  const repayments = await loadRepayments(supabase, userId, loans)
+  const loanBalance = loanTotals(loans, repayments)
+
+  const composition = wealthComposition(
+    arsArs,
+    foreignArs,
+    portfolio.valueArs,
+    loanBalance.receivable,
+    loanBalance.debt,
+  )
 
   // ── Gasto mensual promedio de los últimos 3 meses ──
   const threeMonthsAgo = new Date()
@@ -136,6 +157,18 @@ Total: ${money(composition.totalArs)} (US$ ${rateNow > 0 ? Math.round(compositio
   - En pesos: ${money(composition.arsArs)} — ${composition.pesoExposurePercent.toFixed(0)}% del total
   - En moneda extranjera: ${money(composition.foreignArs)}
   - Invertido: ${money(composition.holdingsArs)}${portfolio.unpriced > 0 ? ` (${portfolio.unpriced} tenencia(s) sin precio, no incluidas)` : ''}
+${composition.receivableArs > 0 ? `  - Prestado y sin cobrar: ${money(composition.receivableArs)}\n` : ''}${composition.debtArs > 0
+  ? `  DEUDA: ${money(composition.debtArs)}\n  PATRIMONIO NETO (lo que tiene menos lo que debe): ${money(composition.netArs)}${composition.netArs < 0 ? ' — debe más de lo que tiene' : ''}`
+  : '  No tiene deudas cargadas.'}
+
+${loans.filter(l => l.direction === 'tomado' && !loanProgress(l, repayments[l.id] ?? []).settled).length > 0
+  ? `PRÉSTAMOS QUE ESTÁ PAGANDO\n${loans
+      .filter(l => l.direction === 'tomado')
+      .map(l => ({ loan: l, p: loanProgress(l, repayments[l.id] ?? []) }))
+      .filter(({ p }) => !p.settled)
+      .map(({ loan: l, p }) => `  - ${l.counterparty}: le faltan ${p.remainingInstallments} de ${l.installments} cuotas, ${money(p.outstanding)} en total${p.surchargePercent !== null && p.surchargePercent > 0 ? ` (devuelve un ${p.surchargePercent.toFixed(0)}% más de lo que recibió)` : ''}`)
+      .join('\n')}\n  Las cuotas ya están dentro del gasto mensual de abajo: se registran como gasto.`
+  : ''}
 
 ${holdings.length > 0
   ? `INVERSIONES\n${holdings.map(h => `  - ${h.name}: ${h.quantity} unidades`).join('\n')}${portfolio.costUsd > 0 ? `\n  Rendimiento de la cartera: ${portfolio.returnPercent >= 0 ? '+' : ''}${portfolio.returnPercent.toFixed(1)}% en dólares, medido contra lo que se pagó` : ''}`

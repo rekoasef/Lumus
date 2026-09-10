@@ -24,6 +24,8 @@ import { PurchasingPowerCard } from '@/components/modules/dashboard/purchasing-p
 import { NetWorthCard } from '@/components/modules/dashboard/net-worth-card'
 import { getCryptoPrices } from '@/lib/finance/crypto-prices'
 import { portfolioTotals, resolvePriceUsd, valuateHolding, type Holding } from '@/lib/finance/holdings'
+import { loanTotals, type Loan } from '@/lib/finance/loans'
+import { LOAN_SELECT, loadRepayments } from '@/app/api/finance/loans/shared'
 import { formatCurrency } from '@/lib/utils/format-currency'
 
 /** Movimientos que muestra la tarjeta de "Últimos movimientos". */
@@ -245,7 +247,19 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
     }),
   ).valueArs
 
-  return { wallets, recentTransactions, monthSummary, categories, budgets, recurring, goals, monthStart, monthEnd, month, year, rates, rateHistory, holdingsArs }
+  // Préstamos. Es lo único del patrimonio que puede **restar**: hasta que
+  // existieron, la cuenta era una suma de cosas positivas y sacar un préstamo
+  // hacía subir el número.
+  const { data: loanRows } = await supabase
+    .from('loans')
+    .select(LOAN_SELECT)
+    .eq('user_id', userId)
+    .is('deleted_at', null)
+
+  const loanList = (loanRows ?? []) as unknown as Loan[]
+  const loans = loanTotals(loanList, await loadRepayments(supabase, userId, loanList))
+
+  return { wallets, recentTransactions, monthSummary, categories, budgets, recurring, goals, monthStart, monthEnd, month, year, rates, rateHistory, holdingsArs, loans }
 }
 
 function getFormattedDate(): string {
@@ -271,7 +285,7 @@ export default async function DashboardPage() {
     getDashboardData(supabase, user.id),
   ])
 
-  const { wallets, recentTransactions, monthSummary, categories, budgets, recurring, goals, rates, rateHistory, holdingsArs } = dashboardData
+  const { wallets, recentTransactions, monthSummary, categories, budgets, recurring, goals, rates, rateHistory, holdingsArs, loans } = dashboardData
   const toARS = (amount: number, currency: string) => convertToARS(amount, currency, rates)
   const hasForeignCurrency = wallets.some(w => (w.currency ?? 'ARS') !== 'ARS')
 
@@ -437,6 +451,8 @@ export default async function DashboardPage() {
         <NetWorthCard
           walletsArs={totalBalanceARS}
           holdingsArs={holdingsArs}
+          receivableArs={loans.receivable}
+          debtArs={loans.debt}
           arsPerUsd={rates.USD}
         />
         <PurchasingPowerCard

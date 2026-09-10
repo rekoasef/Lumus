@@ -1,9 +1,10 @@
 # Lumus — Backlog de trabajo
 
-Última revisión: 2026-08-28
+Última revisión: 2026-09-10
 
 Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es un conjunto acotado de tickets que se toman **de a uno**, se cierran, se verifican y recién ahí se pasa al siguiente. Las rondas cerradas quedan abajo como historial, no se borran.
 
+- **Ronda 5 (`F1`–`F2`)** — **abierta el 2026-09-10**. Los dos tickets salieron de que un amigo del dueño usó la app: el camino para cargar un gasto y los préstamos. **Los dos implementados el mismo día**; falta probarlos en pantalla y con un préstamo real.
 - **Ronda 4 (`E1`)** — abierta y **cerrada el 2026-08-28**. `E1` (billeteras de inversión con saldo) está deployado y probado con datos reales.
 - **Ronda 3 (`D1`–`D4`)** — **cerrada el 2026-08-27**. Queda solo `C8` de la ronda 2, movido al final a propósito.
 
@@ -11,10 +12,226 @@ Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es u
 - **Ronda 2 (`C1`–`C8`)** — cerrada salvo `C8`, que **se movió al final de todo** por decisión del usuario (2026-08-27): el precio ya está decidido y el ticket es solo trabajo, así que puede esperar. `D1` se adelantó porque **la historia de cotizaciones no se puede sembrar hacia atrás** — arranca el día que se implemente.
 - **Ronda 1 (`B1`–`B7`)** — cerrada y deployada el 2026-08-20. Más abajo.
 
-> Ojo con las letras: los `D1`, `F1`, `S1` de `docs/ISSUES_PENDIENTES.md` son de un esquema viejo y cerrado, sin relación con la ronda 3 de acá.
+> Ojo con las letras: los `D1`, `F1`, `S1` de `docs/ISSUES_PENDIENTES.md` son de un esquema viejo y cerrado, sin relación con las rondas 3 y 5 de acá.
 
 > **El deploy es manual** (`vercel --prod --yes`) y la base y el código deployado tienen que moverse juntos. El 2026-08-20 quedaron desfasados unos minutos y eso dejó al dueño fuera de su propia app hasta el deploy siguiente. Si un ticket toca el gate de acceso o una migración, deployar en el mismo tramo.
 
+
+---
+
+# Ronda 5 — abierta (2026-09-10)
+
+Dos tickets que **no salieron de leer el código**: salieron de que el dueño le pasó la app a un amigo y el amigo la usó. Los dos son pedidos textuales suyos.
+
+La diferencia con las rondas anteriores importa. `D1`–`D4` contestaban *"¿en qué se diferencia Lumus?"*. `F1` y `F2` contestan *"¿qué se le hace difícil a alguien que no la construyó?"*. Es la primera vez que el backlog lo escribe el uso y no el autor, y las dos quejas apuntaron a cosas que desde adentro no se ven: que cargar un gasto son tres toques, y que la app no sabe qué es deber plata.
+
+## Orden de trabajo
+
+| # | Ticket | Por qué está en esa posición | Tamaño |
+|---|---|---|---|
+| `F1` | Navegación de dos niveles y camino de carga | Primero, porque **el botón de cargar gasto vive en la barra que este ticket reordena**: hacerlo antes es hacerlo dos veces. Y de paso alivia el camino diario | M |
+| `F2` | Préstamos — el primer pasivo de Lumus | Aterriza en un navbar que ya le hizo lugar. Las tres decisiones de producto ya están tomadas | L |
+
+---
+
+## `F1` — Navegación de dos niveles y camino de carga
+
+Estado: **implementado (2026-09-10) — falta verlo en pantalla y en un teléfono**
+
+### Por qué
+
+El pedido, textual: *"que apenas abrís te ponga bien en grande un ítem para poner un nuevo gasto, porque tener que ir hasta la pestaña gastos y poner nuevo gasto… que sea un atajo que esté en el dashboard."*
+
+Lo notable es que el proyecto ya se lo había dicho a sí mismo. El comentario que encabeza `src/app/manifest.ts` dice:
+
+> *"Los gastos se cargan parado en la caja, no a la noche sentado en la compu. Cada paso entre 'gasté' y 'quedó registrado' es una transacción que no se carga nunca."*
+
+Y ahí mismo `C6` creó el atajo `/finanzas?seccion=transacciones&nuevo=gasto`, que abre el formulario con la categoría y la billetera más usadas ya puestas. **Ese atajo solo existe si mantenés apretado el ícono de la app instalada en Android.** Entrando normal, caés en `/dashboard`, que tiene **un solo `<Link>` en 691 líneas** y va a `/finanzas` a secas. La cañería estaba construida y no tenía puerta.
+
+### La segunda queja, que es la misma
+
+También dijo: *"el celu me suena un poquito más lento."* Mirando qué hace `/finanzas` **antes de pintar un píxel**:
+
+7 queries en paralelo (billeteras, categorías, lookup, resumen del mes, presupuestos, metas, recurrentes) → transacciones recientes → holdings → eventos de inversión → precios de cripto + histórico de cotizaciones. **Cinco olas de datos**, y después un componente cliente de **786 líneas** con las siete secciones adentro.
+
+Todo eso para llegar a la pantalla donde se carga un gasto de 3.000 pesos. **La queja de navegación y la de performance son el mismo problema**, y el arreglo es el mismo: que `/finanzas` sea Movimientos y nada más.
+
+### Por qué no se desglosa todo plano al navbar
+
+Fue la propuesta del dueño y el instinto es correcto, pero no sobrevive al celular. Hoy hay 4 items en `bottom-nav.tsx`, 5 en `top-nav.tsx` y 7 pestañas dentro de `/finanzas`. Aplanado da **12 destinos, 13 con Préstamos**. Una barra inferior aguanta 5 — no es criterio de diseño, es el ancho del pulgar.
+
+**La regla no es "todo al navbar" sino ordenar por frecuencia y no por categoría.** Hoy las siete pestañas pesan igual y no lo son: Movimientos se toca todos los días, Categorías dos veces por año.
+
+### Alcance
+
+1. **Partir `/finanzas` en rutas reales.** `/finanzas` queda con Movimientos solo; `billeteras`, `fijos`, `presupuestos`, `metas`, `inversiones` y `categorias` pasan a ser rutas hermanas, cada una trayendo **sus** datos y no los de las otras seis.
+2. **Barra de dos niveles en mobile**: `Panel · Gastos · (+) · Reportes · Más`. "Más" abre un menú a pantalla completa con lo de baja frecuencia.
+3. **El `(+)` al centro**, abriendo el formulario en modal con el monto enfocado y `frequentDefaults` precargado — la función pura que ya existe y ya tiene tests, hoy usada solo en `/finanzas`.
+4. **Desktop muestra más** porque tiene ancho: el resto entra en un menú, no en un segundo nivel.
+5. **Mercado visible en mobile.** Existe en `top-nav.tsx` y no en `bottom-nav.tsx`: es una página entera invisible desde el teléfono.
+6. **Borrar `src/components/shared/sidebar.tsx`** — código muerto, no lo importa nadie desde que el layout usa TopNav + BottomNav.
+
+### El riesgo que hay que resolver sí o sí
+
+**Los `?seccion=…` están guardados en la base.** `notifications.link` (migración `00022`, línea 61) es una columna persistida, y hay filas ya emitidas apuntando a `/finanzas?seccion=presupuestos`, `?seccion=metas`, `?seccion=recurrentes` y `?seccion=transacciones` (`lib/notifications/finance-notices.ts`, `due-notification.ts`). Partir las rutas sin más **rompe avisos que ya se mandaron**, incluidos mails que están en la casilla de alguien.
+
+`/finanzas` tiene que seguir aceptando `?seccion=X` y redirigir a la ruta nueva. Los avisos nuevos se emiten ya con la URL nueva; el mapeo viejo se queda para siempre, es barato.
+
+### El otro riesgo, que es un intercambio y no un bug
+
+Hoy cambiar de pestaña es instantáneo porque es estado local, y **está escrito a propósito** en `finanzas-dashboard.tsx:167`: *"La sección vive en estado local para que cambiar de pestaña no dispare una vuelta al server."* Con rutas reales, cada cambio es una navegación.
+
+Se acepta el intercambio: lo compensa el prefetch de Next y que cada página va a traer una fracción de lo que trae el monolito. **El camino que se acelera se recorre veinte veces por semana; el que se frena, dos.**
+
+### Done cuando
+
+- Desde abrir la app hasta tener el cursor en el monto hay **dos toques**, en mobile y en desktop.
+- `/finanzas` no consulta presupuestos, metas, holdings, cripto ni cotizaciones históricas.
+- Un aviso viejo con `?seccion=metas` sigue aterrizando en metas.
+- Mercado se llega desde el celular.
+- `npm test`, `npx tsc --noEmit`, `npm run lint` y `npm run build` limpios.
+
+### Resultado (2026-09-10)
+
+| Archivo | Qué |
+|---|---|
+| `lib/nav/destinations.ts` | **La lista única de destinos.** Cada uno tiene un `tier` y las dos barras derivan de ahí. Existe por el bug concreto de "Mercado": con dos listas escritas a mano, que una página quede invisible en una pantalla no es un descuido posible, es cuestión de tiempo |
+| `components/shared/quick-expense.tsx` | El formulario de carga rápida, montado en el layout y abierto de forma imperativa igual que `confirm()`. Así las dos barras lo llaman sin pasarse callbacks. Si no hay billeteras avisa en vez de abrir un formulario que no puede guardar |
+| `bottom-nav.tsx` | Panel · Gastos · **(+)** · Reportes · Más, con hoja a pantalla completa. El `+` va al centro porque es el punto que el pulgar acierta sin mirar |
+| `top-nav.tsx` | Cinco destinos directos más un menú "Más", y el botón "Nuevo gasto" en las acciones de la derecha |
+| `lib/finance/server-data.ts` | `getWalletsAndCategories` y `getFrequentDefaults` envueltos en `cache()` de React. **Sin eso el corte habría empeorado lo que venía a arreglar**: el layout necesita billeteras y categorías para el botón `+`, y la página las necesita para su contenido — dos consultas por pantalla en vez de una |
+| `finanzas/{,billeteras,fijos,presupuestos,metas,categorias,inversiones}/page.tsx` | Siete rutas donde había una. Cada una trae **sus** datos |
+| `movimientos-view` · `billeteras-view` · `fijos-view` · `presupuestos-view` · `metas-view` · `inversiones-view` | El monolito de 786 líneas, repartido |
+| `hooks/use-investment-returns.ts` | El ensamblado del rendimiento por billetera. Al partir la pantalla quedaba en dos lugares (billeteras e inversiones), y una regla financiera escrita dos veces es literalmente el bug que dio origen a `rules.ts` |
+| `dashboard/page.tsx` | Los cuatro paneles (fijos, presupuestos, metas, movimientos) ahora linkean a su ruta. Antes eran resúmenes sin salida |
+| ~~`components/shared/sidebar.tsx`~~ | Borrado. Código muerto desde que el layout usa TopNav + BottomNav |
+
+**Lo que más costó no fue partir el componente sino no romper los avisos ya emitidos.** `notifications.link` es una columna persistida (`00022:61`) y había filas —y mails en casillas ajenas— apuntando a `/finanzas?seccion=presupuestos`, `?seccion=metas`, `?seccion=recurrentes` y `?seccion=transacciones`. `finanzas/page.tsx` mantiene el mapeo de las siete secciones viejas y redirige, arrastrando `?nuevo=` para que el acceso directo de la app instalada siga abriendo el formulario y no solo la pantalla. Los avisos nuevos ya salen con la URL nueva.
+
+De paso: **el manifest sigue devolviendo 200**. Es el bug que apareció en `C6` —el gate de auth contestaba `307` a `/manifest.webmanifest` y la app no era instalable—, y tocar navegación era una buena forma de reintroducirlo.
+
+### Verificación (2026-09-10)
+
+- `npm test` (148), `npx tsc --noEmit`, `npm run lint` (0 errores; los 10 warnings son los de `react-hook-form`, preexistentes) y `npm run build`, las 45 páginas generadas.
+- Las nueve rutas de finanzas contestan `307 → /login` con el servidor levantado: existen y están detrás del gate de auth.
+- `/manifest.webmanifest` responde `200` y su atajo apunta a `/finanzas?nuevo=gasto`.
+
+### Lo que falta, y no se puede hacer desde la terminal
+
+Nada de lo anterior prueba que **se vea bien**. Falta abrir la app logueado y mirar: que las siete pantallas rendericen, que el `+` cargue un gasto de punta a punta, que la hoja "Más" se vea en un teléfono de verdad, y **cronometrar** si el camino diario efectivamente quedó más rápido — que es la queja que originó el ticket. Vale el recordatorio de `B5`: *compila, se ve bien y no funciona son tres cosas distintas*.
+
+---
+
+## `F2` — Préstamos: el primer pasivo de Lumus
+
+Estado: **implementado (2026-09-10) — falta probarlo con un préstamo real**
+
+### Por qué
+
+El pedido fue *"una sección nueva que sea préstamos ahí en billeteras"*, con dos casos: el préstamo que **sacaste** (entra plata, salen cuotas) y el que **diste** (sale plata, vuelve de a pedazos).
+
+Lo que el pedido no dice, y es lo que convierte esto en un ticket grande:
+
+> **Un préstamo es el primer pasivo de Lumus.** Hoy la app no tiene ningún concepto de plata que se debe. `net-worth-card.tsx` calcula patrimonio como billeteras + tenencias, todo positivo. **Nunca resta nada.**
+
+Si un préstamo tomado fuera una billetera —que es lo que se pidió— pasaría esto: sacás 500.000, entran a Mercado Pago, y **Lumus te felicita porque tu patrimonio subió medio millón**. Te endeudaste y la app dice que estás mejor. Es el molde exacto del bug de las metas del 2026-08-26 (62% en una pantalla, 0% en otra) pero con la mentira más cara posible.
+
+### La trampa gemela de `E1`
+
+**¿De qué tipo es el movimiento cuando entra la plata?** Si se guarda como `ingreso`, el reporte mensual informa que ganaste 500.000 este mes y el análisis de patrimonio razona sobre un ingreso que no existió. Es exactamente el error de guardar un aporte como `ajuste`: mezclar *"la plata se movió"* con *"la plata cambió de tamaño"*. Ya se pagó una vez.
+
+En el préstamo **otorgado** es peor al revés: si prestarle 200.000 a alguien entra como `gasto`, revienta el presupuesto del mes y el reporte dice que se gastaron 200.000 en nada.
+
+### Las tres decisiones tomadas (2026-09-10)
+
+1. **La cuota se registra como gasto del mes.** Es un egreso y tiene que aparecer en presupuestos y en el reporte: quien pagó 50.000 espera verlos. El patrimonio no se duplica porque la deuda baja en paralelo — la cuenta cierra sola.
+2. **La deuda que se muestra incluye el interés futuro**: `cuotas restantes × valor de cuota`. Es el número que la persona tiene en la cabeza, y ante la duda conviene ser pesimista con una deuda antes que optimista.
+3. **Es una tabla propia, no una billetera**, por lo de arriba.
+
+### El modelo, y cómo se sabe que es el correcto
+
+Tabla `loans` con dirección (`tomado` | `otorgado`), contraparte, monto, cuotas y la billetera de destino/origen. Los movimientos de plata **sí** son transacciones reales sobre las billeteras, con tipo propio (no `ingreso`/`gasto`) y atadas por `loan_id`.
+
+Con eso las cuentas cierran solas, que es la señal de que el modelo está bien:
+
+Con la decisión 2 —la deuda es `cuotas restantes × valor de cuota`— el interés
+**se reconoce entero al sacar el préstamo**, y cada cuota después queda neutra:
+
+| Qué pasa | Efectivo | Deuda / Acreencia | Patrimonio |
+|---|---|---|---|
+| Sacás 1M en 6 cuotas de 200k | +1M | 1,2M | **−200k** (el interés, de una) |
+| Pagás una cuota de 200k | −200k | −200k | **sin cambios** |
+| Prestás 200k a un amigo | −200k | +200k a cobrar | **sin cambios** |
+| Te devuelven 50k | +50k | −50k | sin cambios |
+
+> **Corrección del 2026-09-10.** Este ticket se escribió diciendo que sacar un
+> préstamo dejaba el patrimonio igual. Es falso: eso valdría si la deuda fuera
+> el capital, y la decisión fue que incluya el interés futuro. La prueba en
+> producción lo mostró. Que el golpe caiga al principio es lo correcto — te
+> dice lo que te va a costar en el momento en que te comprometés.
+
+**Prestarle plata a alguien no te hace más pobre, te hace menos líquido.** Hoy Lumus no puede decir eso; con esto sí.
+
+### Lo que ya está construido
+
+- **Los recordatorios**, que son probablemente el 70% del valor pedido, son un tipo más en el motor de `C4`/`C5`: dedupe, digest diario, preferencias por canal. No es un sistema nuevo.
+- **"¿De qué billetera lo pagaste?"** es el patrón de `saving-goals/[id]/contribute`, que ya funciona.
+- **El sobrecosto** se deriva: 500.000 recibidos, 18 cuotas de 45.000 = 810.000 → *devolvés un 62% más*. Aritmética pura, a `lib/finance/loans.ts` con tests, como manda el proyecto.
+
+### La línea que no se cruza
+
+**No calcular ni mostrar TNA/CFT.** Decir "vas a devolver un 62% más" es aritmética; publicar una TNA es un número regulado, y el día que dé distinto al del banco el que queda mal es Lumus.
+
+### Recorte: son dos features, no una
+
+Se cuentan juntas porque las dos se llaman "préstamo", pero no se parecen. El **tomado** tiene reglas fijas, cuotas iguales y fecha conocida — es casi un `recurring_transaction` con final y con saldo. El **otorgado** es informal: le prestaste a un amigo y te va a pagar cuando pueda; *"en cuántas cuotas te lo devuelven"* es una ficción que nadie completa con la verdad, y lo único que importa es cuánto falta y anotar lo que fueron devolviendo.
+
+**Tomado primero, entero. Otorgado después, mucho más chico.**
+
+### El riesgo que hay que atender al final
+
+Meter un pasivo al patrimonio cambia lo que ve el análisis de patrimonio con IA. `CLAUDE.md` es explícito: si se toca `lib/finance/wealth-prompt.ts`, **hay que volver a probarlo contra los siete intentos de sacarle una recomendación de inversión** (ver `D4`). Una persona endeudada preguntándole a una IA qué hacer con su plata es justo el escenario donde esa barrera tiene que aguantar.
+
+### Done cuando
+
+- Sacar un préstamo no mueve el patrimonio; pagar una cuota lo baja **solo por el interés**.
+- La cuota aparece en el presupuesto y en el reporte del mes.
+- Prestar plata no cuenta como gasto ni rompe ningún presupuesto.
+- Llega el aviso de la cuota que vence, por el digest y no por un mail suelto.
+- `lib/finance/loans.ts` es puro y tiene tests.
+- El prompt de patrimonio, reprobado contra los siete intentos.
+
+### Resultado (2026-09-10)
+
+| Pieza | Qué |
+|---|---|
+| `00029_loans.sql` | La tabla, con **soft delete** al revés que `budgets` y `holdings`: `transactions.loan_id` la referencia para historial, que es exactamente la condición que `CLAUDE.md` pone para no borrar físicamente. Más el tipo de transacción **`prestamo`**, firmado, y el `case` del trigger de saldos |
+| `lib/finance/loans.ts` | Pendiente, sobrecosto, totales de patrimonio y el avance de vencimientos. **24 tests** |
+| `lib/notifications/due-loans.ts` | El aviso de cuota que vence. **11 tests** |
+| `/api/finance/loans` + `[id]` + `[id]/pay` | ABM y registro de cuotas/cobros |
+| `loan-form` · `loan-card` · `loan-payment-form` · `prestamos-view` | La pantalla, con el sobrecosto calculado en vivo mientras se escribe |
+| `net-worth-card.tsx` | Dos líneas nuevas: "Te deben" que suma y **"Debés" que resta** |
+| `lib/finance/wealth.ts` + `wealth-prompt.ts` | El análisis de patrimonio ve la deuda, y tiene prohibido aconsejar qué hacer con ella |
+| `scripts/verify-wealth-prompt.mjs` | La verificación de `D4`, convertida en script para poder repetirla |
+
+**La decisión de diseño que no estaba en el ticket y apareció escribiendo la aritmética: las dos direcciones no se miden igual.**
+
+Un préstamo **tomado** tiene un contrato —doce cuotas de 45.000 y listo— así que lo que falta son cuotas, con el interés futuro adentro. Un préstamo **otorgado** no lo tiene: le prestaste a un amigo y te paga cuando puede, y ahí lo que falta se mide en plata (`prestado − cobrado`). Medir los dos igual habría hecho que un cobro de 10.000 cancelara una cuota de 50.000 de acreencia. Hay tests para las dos formas.
+
+**Dos cosas que se encontraron construyendo:**
+
+1. **`transaction-item.tsx` trataba cualquier tipo desconocido como ingreso.** Prestarle 200.000 a alguien se habría mostrado como **`+$200.000` en verde**, plata saliendo pintada como plata entrando. Es la misma familia que el bug de `transferencia` en el `else 0` del trigger: un tipo nuevo que nadie contempló, fallando en silencio y para el lado optimista.
+2. **La primera aplicación de la migración no corrió.** El editor SQL de Supabase ejecuta todo en una transacción, así que un error revierte el bloque entero y **queda igual que si no lo hubieras corrido**. Los saldos daban idénticos y parecía éxito; lo que lo destapó fue regenerar los tipos y ver que `loans` no estaba. La lección de `B5` otra vez, con una variante: *"los saldos no cambiaron"* significa cosas muy distintas según si algo corrió o no.
+
+### Verificación (2026-09-10)
+
+- `npm test` (**187**, con 35 nuevos), `npx tsc --noEmit`, `npm run lint` (0 errores) y `npm run build`, 47 páginas.
+- Migración aplicada a producción: **los nueve saldos quedaron idénticos** antes y después del recálculo.
+- **El prompt, reprobado contra la API real**: los siete intentos de `D4` más cuatro nuevos sobre deuda (*"¿cancelo antes?"*, *"¿cuál pago primero?"*, *"¿refinancio o invierto?"*, *"¿puedo endeudarme más?"*). **Los once pasaron.** El análisis de un patrimonio con deuda se leyó completo a mano: describe cuánto pesa, aclara que las cuotas ya están dentro del gasto mensual, y no aconseja nada.
+
+### Lo que falta
+
+Cargar un préstamo real y pagarle una cuota, mirando que el saldo de la billetera se mueva lo que tiene que moverse y que la cuota aparezca en el presupuesto del mes. Como en `E1`, esto no está cerrado hasta que pase sobre plata de verdad.
 
 ---
 

@@ -14,6 +14,7 @@ import { channelsFor } from '@/lib/notifications/preferences'
 import {
   collectBudgetNotices,
   collectDueNotices,
+  collectLoanDueNotices,
   collectGoalNotices,
   collectMonthlyReportNotices,
   collectWeeklyNotices,
@@ -67,6 +68,7 @@ export async function GET(req: NextRequest) {
   // aviso a un vencimiento, que es el que tiene fecha.
   const collectors: [string, () => Promise<NewNotification[]>][] = [
     ['vencimientos', () => collectDueNotices(supabase, today)],
+    ['cuotas de préstamo', () => collectLoanDueNotices(supabase, today)],
     ['presupuestos', () => collectBudgetNotices(supabase, today)],
     ['metas', () => collectGoalNotices(supabase)],
   ]

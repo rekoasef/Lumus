@@ -4,7 +4,7 @@ export type WalletType = 'efectivo' | 'banco' | 'virtual' | 'inversion'
  * ganó o perdió solo". Están separados a propósito: mezclarlos es lo que hacía
  * imposible calcular el rendimiento de una inversión.
  */
-export type TransactionType = 'gasto' | 'ingreso' | 'transferencia' | 'ajuste' | 'rendimiento'
+export type TransactionType = 'gasto' | 'ingreso' | 'transferencia' | 'ajuste' | 'rendimiento' | 'prestamo'
 export type CategoryType = 'gasto' | 'ingreso'
 
 export interface Wallet {

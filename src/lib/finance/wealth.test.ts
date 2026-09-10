@@ -16,6 +16,32 @@ describe('wealthComposition', () => {
   it('todo en dólares es 0% de exposición al peso', () => {
     expect(wealthComposition(0, 500_000, 0).pesoExposurePercent).toBe(0)
   })
+
+  it('la deuda no cambia lo que se tiene, cambia lo que se es', () => {
+    const c = wealthComposition(800_000, 150_000, 50_000, 0, 600_000)
+
+    expect(c.totalArs).toBe(1_000_000)
+    expect(c.netArs).toBe(400_000)
+  })
+
+  it('lo que te deben suma al patrimonio: es plata tuya, en otro lado', () => {
+    const c = wealthComposition(800_000, 0, 0, 200_000, 0)
+
+    expect(c.totalArs).toBe(1_000_000)
+    expect(c.netArs).toBe(1_000_000)
+  })
+
+  it('deber más de lo que tenés da patrimonio negativo, no cero', () => {
+    // Es una situación real y esconderla sería la mentira que este cambio
+    // vino a evitar.
+    expect(wealthComposition(100_000, 0, 0, 0, 500_000).netArs).toBe(-400_000)
+  })
+
+  it('la exposición al peso se mide contra los activos, no contra el neto', () => {
+    // Con deuda, medir contra el neto daría porcentajes por encima de 100.
+    const c = wealthComposition(800_000, 200_000, 0, 0, 900_000)
+    expect(c.pesoExposurePercent).toBe(80)
+  })
 })
 
 describe('monthsOfRunway', () => {

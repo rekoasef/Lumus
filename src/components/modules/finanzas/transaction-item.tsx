@@ -1,6 +1,6 @@
 'use client'
 
-import { Pencil, Trash2, SlidersHorizontal, TrendingUp, TrendingDown, ArrowLeftRight } from 'lucide-react'
+import { Pencil, Trash2, SlidersHorizontal, TrendingUp, TrendingDown, ArrowLeftRight, HandCoins } from 'lucide-react'
 import type { Transaction } from '@/types/finance.types'
 import { CategoryIcon } from '@/lib/utils/category-icons'
 import { formatCurrency } from '@/lib/utils/format-currency'
@@ -17,6 +17,7 @@ const LABELS = {
   transferencia: 'Transferencia',
   gain:          'Rendimiento',
   loss:          'Pérdida',
+  prestamo:      'Préstamo',
 } as const
 
 export function TransactionItem({ transaction, onEdit, onDelete }: TransactionItemProps) {
@@ -24,9 +25,11 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
   const isAdjustment = transaction.type === 'ajuste'
   const isTransfer   = transaction.type === 'transferencia'
   const isYield      = transaction.type === 'rendimiento'
-  // Los tres van con `amount` firmado, así que el signo sale del número y no
-  // del tipo: un rendimiento negativo es una pérdida, no un gasto.
-  const isSigned     = isAdjustment || isTransfer || isYield
+  const isLoan       = transaction.type === 'prestamo'
+  // Los cuatro van con `amount` firmado, así que el signo sale del número y no
+  // del tipo: un rendimiento negativo es una pérdida, no un gasto, y un
+  // préstamo que diste sale de la billetera aunque no sea un gasto.
+  const isSigned     = isAdjustment || isTransfer || isYield || isLoan
   const negative     = transaction.amount < 0
 
   const color = isYield
@@ -45,6 +48,7 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
   const badge = isAdjustment ? LABELS.ajuste
     : isTransfer ? LABELS.transferencia
     : isYield ? (negative ? LABELS.loss : LABELS.gain)
+    : isLoan ? LABELS.prestamo
     : null
 
   const formattedAmount = formatCurrency(Math.abs(transaction.amount), 'ARS', 'auto')
@@ -65,6 +69,8 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
           <SlidersHorizontal size={15} style={{ color }} />
         ) : isTransfer ? (
           <ArrowLeftRight size={15} style={{ color }} />
+        ) : isLoan ? (
+          <HandCoins size={15} style={{ color }} />
         ) : isYield ? (
           negative
             ? <TrendingDown size={15} style={{ color }} />

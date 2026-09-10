@@ -197,3 +197,54 @@ export const updateHoldingSchema = holdingBase.partial()
 
 export type CreateHoldingInput = z.infer<typeof createHoldingSchema>
 export type UpdateHoldingInput = z.infer<typeof updateHoldingSchema>
+
+// ——— Préstamos ———
+
+const loanBase = z.object({
+  direction:    z.enum(['tomado', 'otorgado']),
+  counterparty: z.string().min(1, 'Poné de quién es el préstamo').max(60),
+  wallet_id:    z.string().uuid('Billetera requerida'),
+  category_id:  z.string().uuid().nullable().optional(),
+  principal:    z.number().positive('El monto debe ser mayor a 0'),
+
+  // Un préstamo entre personas no tiene cuotas reales — ver `lib/finance/loans.ts`.
+  installments:       z.number().int().min(1).max(240).nullable().optional(),
+  installment_amount: z.number().positive().nullable().optional(),
+
+  next_due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD').nullable().optional(),
+  started_on:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD'),
+  notes:         z.string().max(500).nullable().optional(),
+})
+
+/** Las dos mitades del plan de cuotas van juntas o no van: con una sola no se puede calcular nada. */
+const hasCompletePlan = (d: { installments?: number | null; installment_amount?: number | null }) =>
+  (d.installments == null) === (d.installment_amount == null)
+
+export const createLoanSchema = loanBase
+  .refine(hasCompletePlan, {
+    message: 'Cargá la cantidad de cuotas y el valor de cada una',
+    path: ['installment_amount'],
+  })
+  // Sin cuotas, un préstamo tomado no tiene ni vencimiento que avisar ni
+  // pendiente que mostrar. Mismo check que tiene la tabla.
+  .refine(d => d.direction !== 'tomado' || d.installments != null, {
+    message: 'Un préstamo que sacaste necesita cuotas',
+    path: ['installments'],
+  })
+  .refine(d => d.direction !== 'tomado' || Boolean(d.next_due_date), {
+    message: 'Poné cuándo vence la primera cuota',
+    path: ['next_due_date'],
+  })
+
+export const updateLoanSchema = loanBase.partial().omit({ direction: true })
+
+/** Registrar una cuota pagada o un cobro recibido. */
+export const loanRepaymentSchema = z.object({
+  amount:    z.number().positive('El monto debe ser mayor a 0'),
+  wallet_id: z.string().uuid('Elegí de qué billetera salió'),
+  date:      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD'),
+})
+
+export type CreateLoanInput = z.infer<typeof createLoanSchema>
+export type UpdateLoanInput = z.infer<typeof updateLoanSchema>
+export type LoanRepaymentInput = z.infer<typeof loanRepaymentSchema>

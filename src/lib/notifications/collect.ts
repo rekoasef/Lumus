@@ -3,6 +3,7 @@ import type { Database } from '@/types/database.types'
 import type { NewNotification } from '@/types/notifications.types'
 import { getExchangeRates, convertToARS } from '@/lib/finance/exchange-rates'
 import { selectDueNotices, DUE_SOON_DAYS, type RecurringDue } from './due-recurring'
+import { buildLoanDueNotification, selectLoanDueNotices, type LoanDue } from './due-loans'
 import { buildDueNotification } from './due-notification'
 import {
   selectBudgetNotices,
@@ -76,6 +77,33 @@ export async function collectDueNotices(
   if (error) throw new Error(`vencimientos: ${error.message}`)
 
   return selectDueNotices((data ?? []) as RecurringDue[], today).map(buildDueNotification)
+}
+
+/**
+ * Cuotas de préstamo que vencen.
+ *
+ * Sale del mismo motor y con el mismo tipo de aviso que los recurrentes: para
+ * quien lo recibe, una cuota que vence es un vencimiento. `next_due_date` la
+ * mueve la app al registrar cada pago, y se pone en null cuando el préstamo
+ * queda saldado — por eso el filtro alcanza para no avisar de lo que ya está
+ * pago.
+ */
+export async function collectLoanDueNotices(
+  supabase: ServiceClient,
+  today: string,
+): Promise<NewNotification[]> {
+  const horizon = addDays(today, DUE_SOON_DAYS)
+
+  const { data, error } = await supabase
+    .from('loans')
+    .select('id, user_id, counterparty, installment_amount, next_due_date')
+    .is('deleted_at', null)
+    .not('next_due_date', 'is', null)
+    .lte('next_due_date', horizon)
+
+  if (error) throw new Error(`cuotas de préstamo: ${error.message}`)
+
+  return selectLoanDueNotices((data ?? []) as LoanDue[], today).map(buildLoanDueNotification)
 }
 
 export async function collectBudgetNotices(
