@@ -36,7 +36,7 @@ export default function manifest(): MetadataRoute.Manifest {
         name: 'Cargar gasto',
         short_name: 'Gasto',
         description: 'Abre el formulario de gasto listo para escribir el monto.',
-        url: '/finanzas?seccion=transacciones&nuevo=gasto',
+        url: '/finanzas?nuevo=gasto',
         icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
       },
     ],

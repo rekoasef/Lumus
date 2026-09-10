@@ -5,6 +5,8 @@ import { BottomNav } from '@/components/shared/bottom-nav'
 import { TopNav } from '@/components/shared/top-nav'
 import { ConfirmDialogProvider } from '@/components/shared/confirm-dialog'
 import { FeedbackButton } from '@/components/shared/feedback-button'
+import { QuickExpenseProvider } from '@/components/shared/quick-expense'
+import { getFrequentDefaults, getWalletsAndCategories } from '@/lib/finance/server-data'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -23,13 +25,24 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Suscripción activa o acceso de cortesía vigente — ver lib/billing/access
   if (!(await hasAccess(supabase, user.id))) redirect('/suscripcion')
 
-  // El contador sale de acá y no del nav: es un `count` con `head: true`, o
-  // sea que no trae filas, y evita que la campanita consulte en cada render.
-  const { count: unreadNotifications } = await supabase
-    .from('notifications')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .is('read_at', null)
+  // Lo que necesita el formulario de carga rápida, más el contador de la
+  // campanita. Se pide en el layout porque el botón `+` vive en las dos barras
+  // de navegación: si los datos llegaran por página, cargar un gasto solo
+  // funcionaría desde algunas.
+  //
+  // Los dos primeros van cacheados por request: la página que se está
+  // renderizando pide lo mismo, y sin `cache()` cada pantalla consultaría
+  // billeteras y categorías dos veces. El `count` va con `head: true` — no trae
+  // filas, solo el número.
+  const [{ wallets, categories }, defaults, unreadRes] = await Promise.all([
+    getWalletsAndCategories(user.id),
+    getFrequentDefaults(user.id),
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .is('read_at', null),
+  ])
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--bg-base)] text-[var(--text-primary)]">
@@ -39,11 +52,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="absolute inset-0 lumus-panel-grid opacity-60" />
       </div>
 
-      <TopNav unreadNotifications={unreadNotifications ?? 0} />
+      <TopNav unreadNotifications={unreadRes.count ?? 0} />
       <main className="relative min-h-screen pt-16 pb-24 lg:pb-0">
         {children}
       </main>
       <BottomNav />
+      <QuickExpenseProvider wallets={wallets} categories={categories} defaults={defaults} />
       <FeedbackButton />
       <ConfirmDialogProvider />
     </div>

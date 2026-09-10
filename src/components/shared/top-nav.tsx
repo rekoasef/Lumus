@@ -2,36 +2,51 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import {
-  BarChart2,
-  LayoutDashboard,
-  Wallet,
-  LineChart,
-  UserCircle,
-  LogOut,
-} from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronDown, LogOut, Plus, UserCircle } from 'lucide-react'
 import { LumusOrbIcon } from '@/components/lumus/lumus-orb'
 import { NotificationBell } from '@/components/modules/notifications/notification-bell'
 import { createClient } from '@/lib/supabase/client'
-
-const NAV_ITEMS = [
-  { href: '/dashboard',          label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/finanzas',           label: 'Gastos',    icon: Wallet },
-  { href: '/finanzas/mercado',   label: 'Mercado',   icon: LineChart },
-  { href: '/finanzas/reportes',  label: 'Reportes',  icon: BarChart2 },
-]
-
-function isActive(pathname: string, href: string) {
-  return pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
-}
+import { DESKTOP_MORE, DESKTOP_PRIMARY, isActiveHref } from '@/lib/nav/destinations'
+import { openQuickExpense } from './quick-expense'
 
 /**
  * `unreadNotifications` llega del server component del layout y no de un fetch acá:
  * el badge no puede pegarle a la base en cada render del nav.
+ *
+ * Los destinos salen de `lib/nav/destinations`, la misma lista que usa la barra
+ * inferior. Desktop promociona más items porque tiene ancho, pero **nada queda
+ * fuera de alcance en ninguna de las dos**: lo que no entra acá vive en "Más".
  */
 export function TopNav({ unreadNotifications = 0 }: { unreadNotifications?: number }) {
   const pathname = usePathname()
   const router = useRouter()
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
+
+  // Ajuste durante el render y no en un efecto: un efecto dejaría el menú
+  // abierto un frame sobre la pantalla a la que se acaba de navegar.
+  const [lastPathname, setLastPathname] = useState(pathname)
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname)
+    if (moreOpen) setMoreOpen(false)
+  }
+
+  useEffect(() => {
+    if (!moreOpen) return
+    function onPointerDown(e: MouseEvent) {
+      if (!moreRef.current?.contains(e.target as Node)) setMoreOpen(false)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setMoreOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [moreOpen])
 
   async function handleLogout() {
     const supabase = createClient()
@@ -39,6 +54,8 @@ export function TopNav({ unreadNotifications = 0 }: { unreadNotifications?: numb
     router.push('/login')
     router.refresh()
   }
+
+  const moreActive = DESKTOP_MORE.some(d => isActiveHref(pathname, d.href))
 
   return (
     <header
@@ -70,10 +87,10 @@ export function TopNav({ unreadNotifications = 0 }: { unreadNotifications?: numb
         <div className="hidden h-5 w-px bg-white/10 md:block shrink-0" />
 
         {/* Nav items */}
-        <nav className="hidden md:flex items-center flex-1 min-w-0 overflow-x-auto scrollbar-none">
+        <nav className="hidden md:flex items-center flex-1 min-w-0">
           <div className="flex items-center gap-0.5">
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-              const active = isActive(pathname, href)
+            {DESKTOP_PRIMARY.map(({ href, label, icon: Icon }) => {
+              const active = isActiveHref(pathname, href)
               return (
                 <Link
                   key={href}
@@ -104,11 +121,71 @@ export function TopNav({ unreadNotifications = 0 }: { unreadNotifications?: numb
                 </Link>
               )
             })}
+
+            {/* Más */}
+            <div className="relative" ref={moreRef}>
+              <button
+                onClick={() => setMoreOpen(o => !o)}
+                aria-expanded={moreOpen}
+                aria-haspopup="menu"
+                className={`relative flex items-center gap-1 rounded-lg px-2.5 py-2 transition-all duration-150 whitespace-nowrap ${
+                  moreActive || moreOpen
+                    ? 'bg-white/[0.08] text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:bg-white/[0.05] hover:text-[var(--text-secondary)]'
+                }`}
+              >
+                <span className="text-[0.72rem] font-medium">Más</span>
+                <ChevronDown size={13} className={moreOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+                {moreActive && (
+                  <span
+                    className="absolute inset-x-2 bottom-0 h-px rounded-full"
+                    style={{ background: '#7c6dfa', boxShadow: '0 0 8px rgba(124,109,250,0.8)' }}
+                  />
+                )}
+              </button>
+
+              {moreOpen && (
+                <div
+                  role="menu"
+                  className="absolute left-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl border border-white/10 bg-[#1d1b28] py-1 shadow-2xl"
+                >
+                  {DESKTOP_MORE.map(({ href, label, icon: Icon }) => {
+                    const active = isActiveHref(pathname, href)
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        role="menuitem"
+                        className={`flex items-center gap-2.5 px-3.5 py-2.5 text-[0.78rem] transition-colors ${
+                          active
+                            ? 'bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
+                            : 'text-[var(--text-secondary)] hover:bg-white/[0.06] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        <Icon size={15} />
+                        {label}
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </nav>
 
         {/* Right actions */}
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          {/* El equivalente del `+` de la barra inferior: cargar un gasto no
+              puede depender de en qué pantalla estás. */}
+          <button
+            onClick={() => openQuickExpense()}
+            title="Cargar gasto"
+            className="flex items-center gap-1.5 rounded-lg bg-[var(--accent-lumus)] px-2.5 py-2 text-white transition-colors hover:bg-[var(--accent-hover)]"
+          >
+            <Plus size={15} strokeWidth={2.5} />
+            <span className="hidden text-[0.72rem] font-semibold lg:block">Nuevo gasto</span>
+          </button>
+
           <NotificationBell initialUnread={unreadNotifications} />
 
           <Link

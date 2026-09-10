@@ -36,7 +36,7 @@ export function buildDueNotification(notice: DueNotice): NewNotification {
     type: 'vencimiento',
     title: name,
     body: `${dueTiming(daysUntil)} · ${amount}`,
-    link: '/finanzas?seccion=recurrentes',
+    link: '/finanzas/fijos',
     dedupeKey,
   }
 }

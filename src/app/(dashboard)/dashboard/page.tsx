@@ -544,7 +544,9 @@ export default async function DashboardPage() {
           <div className="lumus-glass rounded-3xl p-5 sm:p-7">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">Fijos</p>
+                <Link href="/finanzas/fijos" className="lumus-label text-[0.6rem] text-[var(--text-muted)] transition-colors hover:text-[var(--accent-lumus)]">
+                  Fijos
+                </Link>
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">
                   Gastos fijos: {formatMoney(monthlyFixedExpenses)} por mes
                 </p>
@@ -590,10 +592,11 @@ export default async function DashboardPage() {
 
       <section className="mx-auto grid max-w-[1120px] gap-4 xl:grid-cols-3">
         <div className="lumus-glass rounded-3xl p-5 sm:p-7">
-          <div className="flex items-center gap-2">
+          <Link href="/finanzas/presupuestos" className="group flex items-center gap-2">
             <AlertTriangle size={17} className="text-[#ffb86e]" />
-            <h2 className="text-base font-semibold text-[var(--text-primary)]">Presupuestos en alerta</h2>
-          </div>
+            <h2 className="text-base font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-lumus)]">Presupuestos en alerta</h2>
+            <ArrowRight size={13} className="text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100" />
+          </Link>
           <div className="mt-5 space-y-4">
             {budgetRisks.length === 0 ? (
               <p className="text-sm text-[var(--text-muted)]">No hay presupuestos en zona de riesgo.</p>
@@ -627,10 +630,11 @@ export default async function DashboardPage() {
         </div>
 
         <div className="lumus-glass rounded-3xl p-5 sm:p-7">
-          <div className="flex items-center gap-2">
+          <Link href="/finanzas/metas" className="group flex items-center gap-2">
             <Goal size={17} className="text-[#22c55e]" />
-            <h2 className="text-base font-semibold text-[var(--text-primary)]">Metas de ahorro</h2>
-          </div>
+            <h2 className="text-base font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-lumus)]">Metas de ahorro</h2>
+            <ArrowRight size={13} className="text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100" />
+          </Link>
           <div className="mt-5 space-y-4">
             {goalsPreview.length === 0 ? (
               <p className="text-sm text-[var(--text-muted)]">No hay metas activas.</p>
@@ -654,10 +658,11 @@ export default async function DashboardPage() {
         </div>
 
         <div className="lumus-glass rounded-3xl p-5 sm:p-7">
-          <div className="flex items-center gap-2">
+          <Link href="/finanzas" className="group flex items-center gap-2">
             <PiggyBank size={17} className="text-[#bdb4ff]" />
-            <h2 className="text-base font-semibold text-[var(--text-primary)]">Últimos movimientos</h2>
-          </div>
+            <h2 className="text-base font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-lumus)]">Últimos movimientos</h2>
+            <ArrowRight size={13} className="text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100" />
+          </Link>
           <div className="mt-5 space-y-3">
             {recentTransactions.length === 0 ? (
               <p className="text-sm text-[var(--text-muted)]">No hay movimientos cargados.</p>
