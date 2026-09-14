@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { needsOnboarding } from '@/lib/auth/onboarding'
 
 export default async function Home() {
   const supabase = await createClient()
@@ -7,13 +8,7 @@ export default async function Home() {
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('onboarding_done')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!profile?.onboarding_done) redirect('/onboarding')
+  if (await needsOnboarding(supabase, user.id)) redirect('/onboarding')
 
   redirect('/dashboard')
 }

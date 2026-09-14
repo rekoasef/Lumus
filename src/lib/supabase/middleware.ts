@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/types/database.types'
 import { hasAccess } from '@/lib/billing/access'
+import { getOnboardingStatus } from '@/lib/auth/onboarding'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -56,19 +57,17 @@ export async function updateSession(request: NextRequest) {
   const isBillingApiRoute = pathname.startsWith('/api/billing/')
 
   if (user && !pathname.startsWith('/onboarding')) {
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('onboarding_done')
-      .eq('user_id', user.id)
-      .single()
+    // `unknown` (no se pudo leer el perfil) sigue de largo a propósito — ver
+    // lib/auth/onboarding.
+    const onboarding = await getOnboardingStatus(supabase, user.id)
 
-    if (!profile?.onboarding_done) {
+    if (onboarding === 'pending') {
       const url = request.nextUrl.clone()
       url.pathname = '/onboarding'
       return NextResponse.redirect(url)
     }
 
-    if (profile.onboarding_done && !pathname.startsWith('/suscripcion') && !isBillingApiRoute) {
+    if (!pathname.startsWith('/suscripcion') && !isBillingApiRoute) {
       // Suscripción activa o acceso de cortesía vigente — ver lib/billing/access
       if (!(await hasAccess(supabase, user.id))) {
         const url = request.nextUrl.clone()

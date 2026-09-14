@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { hasAccess } from '@/lib/billing/access'
+import { needsOnboarding } from '@/lib/auth/onboarding'
 import { BottomNav } from '@/components/shared/bottom-nav'
 import { TopNav } from '@/components/shared/top-nav'
 import { ConfirmDialogProvider } from '@/components/shared/confirm-dialog'
@@ -14,13 +15,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('onboarding_done')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!profile?.onboarding_done) redirect('/onboarding')
+  if (await needsOnboarding(supabase, user.id)) redirect('/onboarding')
 
   // Suscripción activa o acceso de cortesía vigente — ver lib/billing/access
   if (!(await hasAccess(supabase, user.id))) redirect('/suscripcion')
