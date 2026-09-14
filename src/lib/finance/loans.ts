@@ -8,6 +8,51 @@
 
 export type LoanDirection = 'tomado' | 'otorgado'
 
+/**
+ * Qué papel juega un movimiento dentro de su préstamo.
+ *
+ * - `desembolso`: la plata que se recibió (tomado) o se entregó (otorgado). Es
+ *   la mitad que **compensa** a la deuda o a la acreencia.
+ * - `devolucion`: una cuota pagada o un cobro recibido.
+ * - `otro`: cualquier otra cosa atada al préstamo. No debería existir; está
+ *   para que un tipo nuevo no se cuele como devolución sin que nadie lo mire.
+ */
+export type LoanMovementRole = 'desembolso' | 'devolucion' | 'otro'
+
+/**
+ * Cómo se distingue el desembolso de una devolución.
+ *
+ * No por el orden ni por la fecha —dos movimientos del mismo día no tienen un
+ * orden confiable— sino por el tipo y el signo, que están determinados por la
+ * dirección del préstamo:
+ *
+ *   tomado    desembolso = `prestamo` (+)   ·  cuota = `gasto`
+ *   otorgado  desembolso = `prestamo` (−)   ·  cobro = `prestamo` (+)
+ *
+ * La regla vive acá y no en la API porque la usan dos lados que **tienen que
+ * coincidir**: el cálculo de cuánto se debe y el candado que impide borrar el
+ * desembolso desde la lista de movimientos. Si se separaran, habría una
+ * pantalla dejando borrar justo lo que la otra necesita para no mentir.
+ *
+ * `type` entra como `string` y no como `TransactionType` porque en la base es
+ * una columna `text`: así se lee tal cual viene, sin castearla en cada llamada.
+ * Lo que no reconoce cae en `otro`, que no cuenta para nada.
+ */
+export function loanMovementRole(
+  direction: LoanDirection,
+  type: string,
+  amount: number,
+): LoanMovementRole {
+  if (direction === 'tomado') {
+    if (type === 'prestamo' && amount > 0) return 'desembolso'
+    if (type === 'gasto') return 'devolucion'
+    return 'otro'
+  }
+
+  if (type === 'prestamo') return amount < 0 ? 'desembolso' : 'devolucion'
+  return 'otro'
+}
+
 export interface Loan {
   id: string
   direction: LoanDirection
@@ -37,6 +82,11 @@ export interface LoanProgress {
   repaid: number
   /** Cuánto falta. Ver la nota de abajo: las dos direcciones no se miden igual. */
   outstanding: number
+  /**
+   * Cuántas cuotas se cubrieron. En un préstamo tomado sale de la plata pagada
+   * —dos cuotas juntas cuentan dos— y no de cuántos pagos se registraron. En
+   * uno otorgado, donde no hay contrato, es la cantidad de cobros.
+   */
   paidInstallments: number
   remainingInstallments: number | null
   /**
@@ -53,24 +103,33 @@ export interface LoanProgress {
 /**
  * Cuánto falta de un préstamo.
  *
- * ── Por qué las dos direcciones no se miden igual ──
+ * ── Lo que falta se mide en plata, siempre ──
  *
- * Un préstamo **tomado** tiene un contrato: doce cuotas de 45.000 y listo. Lo
- * que falta es cuántas cuotas quedan, y por decisión del dueño (2026-09-10) el
- * pendiente **incluye el interés futuro**: es el número que la persona tiene en
- * la cabeza, y ante la duda conviene ser pesimista con una deuda antes que
- * optimista.
+ * Hasta el 2026-09-14 la deuda de un préstamo tomado se calculaba contando
+ * **registros**: cuotas restantes × valor de cuota. La plata, en cambio, se
+ * mueve por el monto que la persona escribe. Cada vez que ese monto no era
+ * exactamente el valor de la cuota, las dos mitades se separaban:
+ *
+ *   pagás 400.000 de una (dos cuotas)  → la deuda bajaba 200.000. Mentía 200.000
+ *   pagás 300.000 en vez de 200.000    → la deuda bajaba 200.000. Mentía 100.000
+ *   cancelás todo con un pago de 1,2M  → la deuda bajaba 200.000. Mentía 1.000.000
+ *
+ * El último es el que muestra por qué no alcanzaba con pedirle a la gente que
+ * registre una cuota por vez: pagabas el préstamo entero y la app te seguía
+ * diciendo que debías un millón, sin forma de darlo por saldado.
+ *
+ * Así que la deuda es `total a devolver − lo pagado`, que no puede separarse de
+ * la plata porque **es** la plata. El camino normal —cuotas exactas— da
+ * idéntico a como daba antes; solo cambian los casos que mentían.
+ *
+ * Sigue valiendo la decisión del dueño (2026-09-10) de que el pendiente
+ * **incluye el interés futuro**: está adentro de `total a devolver`.
  *
  * Un préstamo **otorgado** no tiene contrato: le prestaste a un amigo y te paga
  * cuando puede. "En cuántas cuotas te lo devuelven" es una ficción que nadie
- * completa con la verdad, así que ahí lo que falta se mide en plata —
- * `prestado − cobrado`— y las cuotas, si se cargaron, son solo el plan
- * esperado.
- *
- * Una cuota registrada cuenta como **una** cuota, sin importar el monto: el
- * formulario propone el valor de la cuota, y quien paga dos juntas registra
- * dos. Es predecible y se explica en una línea, que es más de lo que se puede
- * decir de dividir plata por plata y redondear.
+ * completa con la verdad, así que lo que falta es `prestado − cobrado` y las
+ * cuotas, si se cargaron, son solo el plan esperado. Siempre se midió así: el
+ * arreglo de arriba es, justamente, que las dos direcciones ahora cuentan igual.
  */
 export function loanProgress(loan: Loan, repayments: readonly LoanRepayment[]): LoanProgress {
   const repaid = repayments.reduce((sum, r) => sum + r.amount, 0)
@@ -85,15 +144,22 @@ export function loanProgress(loan: Loan, repayments: readonly LoanRepayment[]): 
       : null
 
   if (loan.direction === 'tomado' && hasPlan) {
-    const remainingInstallments = Math.max(0, loan.installments! - paidInstallments)
+    const outstanding = Math.max(0, totalToRepay! - repaid)
+
+    // Las cuotas que se muestran salen de la plata que falta, no de cuántas
+    // veces se apretó "Registrar": así pagar dos juntas se lee como dos cuotas
+    // sin pedirle a nadie que las cargue por separado. Va con `ceil` porque una
+    // cuota a medio pagar es una cuota que falta.
+    const remainingInstallments = Math.ceil(outstanding / loan.installment_amount!)
+
     return {
       totalToRepay,
       repaid,
-      outstanding: remainingInstallments * loan.installment_amount!,
-      paidInstallments,
+      outstanding,
+      paidInstallments: loan.installments! - remainingInstallments,
       remainingInstallments,
       surchargePercent,
-      settled: remainingInstallments === 0,
+      settled: outstanding === 0,
     }
   }
 

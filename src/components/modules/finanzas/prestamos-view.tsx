@@ -15,6 +15,33 @@ import { useWallets } from '@/hooks/use-wallets'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import { confirm } from '@/components/shared/confirm-dialog'
 
+/**
+ * Qué se le dice a alguien antes de sacar un préstamo de la pantalla.
+ *
+ * Son dos intenciones distintas y el texto tiene que dejar claro cuál es cuál:
+ * eliminar es "me equivoqué al cargarlo" y se lleva los movimientos; archivar
+ * es "esto terminó" y los deja. El aviso de los presupuestos no es un detalle:
+ * borrar un préstamo con cuotas pagadas cambia meses ya cerrados.
+ */
+const DELETE_COPY = {
+  title: 'Eliminar préstamo',
+  description: (paid: number) =>
+    paid === 0
+      ? 'Se borra el préstamo y el movimiento del desembolso. El saldo de tu billetera vuelve a como estaba antes.'
+      : `Se borra el préstamo con sus ${paid + 1} movimientos: el desembolso y ${paid === 1 ? 'la cuota que registraste' : `las ${paid} cuotas que registraste`}. Esos gastos salen de los presupuestos de sus meses y los saldos vuelven a como estaban. Si el préstamo fue de verdad, registrá lo que falta y archivalo: así el historial queda.`,
+  confirmLabel: 'Eliminar',
+  success: 'Préstamo eliminado',
+  error: 'No se pudo eliminar el préstamo',
+} as const
+
+const ARCHIVE_COPY = {
+  title: 'Archivar préstamo',
+  description: 'Deja de mostrarse, pero los movimientos se quedan: las cuotas que pagaste siguen en tu historial, en los presupuestos de sus meses y en los reportes.',
+  confirmLabel: 'Archivar',
+  success: 'Préstamo archivado',
+  error: 'No se pudo archivar el préstamo',
+} as const
+
 interface PrestamosViewProps {
   initialLoans: Loan[]
   initialRepayments: Record<string, LoanRepayment[]>
@@ -29,7 +56,7 @@ export function PrestamosView({
   categories,
 }: PrestamosViewProps) {
   const { wallets, setWalletBalance } = useWallets(initialWallets)
-  const { loans, repayments, loading, createLoan, updateLoan, deleteLoan, registerRepayment } =
+  const { loans, repayments, loading, createLoan, updateLoan, removeLoan, registerRepayment } =
     useLoans(initialLoans, initialRepayments, {
       onWalletBalance: updated => {
         for (const w of updated) setWalletBalance(w.id, w.balance)
@@ -70,16 +97,39 @@ export function PrestamosView({
   }
 
   async function handleDelete(id: string) {
+    // Las cuotas o cobros ya registrados: se van con el préstamo, y se dice
+    // cuántos son porque borrar movimientos de plata no puede ser una sorpresa.
+    const paid = repayments[id]?.length ?? 0
+
     const ok = await confirm({
-      title: 'Eliminar préstamo',
-      // Es importante decirlo: la plata se movió de verdad, y el saldo de la
-      // billetera no vuelve atrás por archivar el préstamo.
-      description: 'Los movimientos de plata que ya registraste se quedan, y los saldos de tus billeteras no cambian. Solo deja de seguirse la deuda.',
-      confirmLabel: 'Eliminar',
+      title: DELETE_COPY.title,
+      description: DELETE_COPY.description(paid),
+      confirmLabel: DELETE_COPY.confirmLabel,
     })
     if (!ok) return
-    await deleteLoan(id)
-    toast.success('Préstamo eliminado')
+
+    const result = await removeLoan(id)
+    if (!result.ok) {
+      toast.error(result.error ?? DELETE_COPY.error)
+      return
+    }
+    toast.success(DELETE_COPY.success)
+  }
+
+  async function handleArchive(id: string) {
+    const ok = await confirm({
+      title: ARCHIVE_COPY.title,
+      description: ARCHIVE_COPY.description,
+      confirmLabel: ARCHIVE_COPY.confirmLabel,
+    })
+    if (!ok) return
+
+    const result = await removeLoan(id, 'archivar')
+    if (!result.ok) {
+      toast.error(result.error ?? ARCHIVE_COPY.error)
+      return
+    }
+    toast.success(ARCHIVE_COPY.success)
   }
 
   const taken = loans.filter(l => l.direction === 'tomado')
@@ -152,6 +202,7 @@ export function PrestamosView({
                     onPay={setPaying}
                     onEdit={l => { setEditing(l); setShowForm(true) }}
                     onDelete={handleDelete}
+                    onArchive={handleArchive}
                   />
                 ))}
               </div>
@@ -172,6 +223,7 @@ export function PrestamosView({
                     onPay={setPaying}
                     onEdit={l => { setEditing(l); setShowForm(true) }}
                     onDelete={handleDelete}
+                    onArchive={handleArchive}
                   />
                 ))}
               </div>

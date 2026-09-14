@@ -22,6 +22,18 @@ export interface AdjustBalanceResult {
   events: InvestmentEvent[]
 }
 
+/**
+ * El resultado de borrar una billetera.
+ *
+ * Lleva el motivo porque hay un rechazo que el usuario tiene que poder leer:
+ * una billetera con un préstamo activo no se puede borrar, y el mensaje dice
+ * cuál es el préstamo.
+ */
+export interface DeleteWalletResult {
+  ok: boolean
+  error?: string
+}
+
 export function useWallets(initialWallets: Wallet[]) {
   const [wallets, setWallets] = useState<Wallet[]>(initialWallets)
   const [loading, setLoading] = useState(false)
@@ -124,17 +136,25 @@ export function useWallets(initialWallets: Wallet[]) {
     }
   }, [])
 
-  const deleteWallet = useCallback(async (id: string): Promise<boolean> => {
+  const deleteWallet = useCallback(async (id: string): Promise<DeleteWalletResult> => {
     setLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/finance/wallets/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Error al eliminar la billetera')
+      if (!res.ok) {
+        // El mensaje del servidor en vez de uno genérico: cuando la billetera
+        // tiene un préstamo activo, ahí está el nombre del préstamo y qué hacer.
+        const body = await res.json().catch(() => null) as { error?: unknown } | null
+        throw new Error(
+          typeof body?.error === 'string' ? body.error : 'Error al eliminar la billetera',
+        )
+      }
       setWallets(prev => prev.filter(w => w.id !== id))
-      return true
+      return { ok: true }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error desconocido')
-      return false
+      const message = e instanceof Error ? e.message : 'Error desconocido'
+      setError(message)
+      return { ok: false, error: message }
     } finally {
       setLoading(false)
     }

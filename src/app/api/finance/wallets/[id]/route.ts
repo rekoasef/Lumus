@@ -71,6 +71,25 @@ export async function DELETE(
 
   const { id } = await params
 
+  // Una billetera con un préstamo vivo no se puede esconder: el desembolso está
+  // adentro y la deuda lo compensa desde afuera. Al sacar la billetera del
+  // patrimonio, la plata se va y la deuda queda — el patrimonio pasa a estar
+  // subestimado por todo el capital. Es la misma asimetría que el borrado de
+  // préstamos y el del desembolso, entrando por la tercera puerta.
+  const { data: linkedLoans } = await supabase
+    .from('loans')
+    .select('id, counterparty')
+    .eq('user_id', user.id)
+    .eq('wallet_id', id)
+    .is('deleted_at', null)
+    .limit(1)
+
+  if (linkedLoans && linkedLoans.length > 0) {
+    return NextResponse.json({
+      error: `Esta billetera tiene un préstamo activo (${linkedLoans[0].counterparty}). Cerrá o eliminá el préstamo antes de borrarla.`,
+    }, { status: 409 })
+  }
+
   const { error } = await supabase
     .from('wallets')
     .update({ deleted_at: new Date().toISOString() })

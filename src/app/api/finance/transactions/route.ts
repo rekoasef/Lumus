@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
     .from('transactions')
     .select(`
       id, wallet_id, category_id, type, amount, description, date, created_at, updated_at,
+      loan_id, loan:loans(direction),
       wallet:wallets(id, name, color, currency),
       category:finance_categories(id, name, color, icon)
     `)

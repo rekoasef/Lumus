@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   daysUntilDue,
+  loanMovementRole,
   loanProgress,
   loanTotals,
   nextDueDate,
@@ -29,6 +30,38 @@ function pagos(...amounts: number[]): LoanRepayment[] {
   return amounts.map((amount, i) => ({ id: `p${i}`, amount, date: '2026-10-10' }))
 }
 
+describe('loanMovementRole — qué es cada movimiento del préstamo', () => {
+  it('en un préstamo tomado, la plata que entra es el desembolso', () => {
+    expect(loanMovementRole('tomado', 'prestamo', 1_000_000)).toBe('desembolso')
+  })
+
+  it('en un préstamo tomado, la cuota es un gasto', () => {
+    expect(loanMovementRole('tomado', 'gasto', 200_000)).toBe('devolucion')
+  })
+
+  it('en un préstamo otorgado, la plata que sale es el desembolso', () => {
+    expect(loanMovementRole('otorgado', 'prestamo', -200_000)).toBe('desembolso')
+  })
+
+  it('en un préstamo otorgado, el cobro es plata que vuelve', () => {
+    expect(loanMovementRole('otorgado', 'prestamo', 50_000)).toBe('devolucion')
+  })
+
+  // El mismo par (tipo, signo) significa cosas opuestas según la dirección: sin
+  // mirarla, el cobro de un otorgado se confundiría con el desembolso de un
+  // tomado y el candado dejaría borrar justo lo que tiene que proteger.
+  it('el mismo movimiento cambia de papel según la dirección', () => {
+    expect(loanMovementRole('tomado', 'prestamo', 1_000_000)).toBe('desembolso')
+    expect(loanMovementRole('otorgado', 'prestamo', 1_000_000)).toBe('devolucion')
+  })
+
+  it('un tipo que no pinta en un préstamo no cuenta como devolución', () => {
+    expect(loanMovementRole('tomado', 'ingreso', 200_000)).toBe('otro')
+    expect(loanMovementRole('tomado', 'ajuste', -5_000)).toBe('otro')
+    expect(loanMovementRole('otorgado', 'gasto', 200_000)).toBe('otro')
+  })
+})
+
 describe('loanProgress — préstamo tomado', () => {
   it('sin pagos, se debe el total de las cuotas y no el capital', () => {
     const p = loanProgress(loan(), [])
@@ -51,12 +84,41 @@ describe('loanProgress — préstamo tomado', () => {
     expect(p.repaid).toBe(135_000)
   })
 
-  it('el pendiente sale de las cuotas que faltan, no de la plata pagada', () => {
-    // Alguien paga de menos: debe seguir debiendo 17 cuotas enteras, no
-    // "810.000 − 20.000". Lo que se pactó son cuotas.
+  // ── Los casos en que el monto no es el valor de la cuota ────────────────
+  // Todos comparten la misma prueba: la deuda tiene que bajar exactamente lo
+  // que bajó la plata, o el patrimonio miente por la diferencia.
+
+  it('pagar de menos deja debiendo lo que falta, no la cuota entera', () => {
+    // 20.000 de una cuota de 45.000. Antes descontaba la cuota completa y la
+    // deuda bajaba 45.000 mientras del bolsillo salían 20.000.
     const p = loanProgress(loan(), pagos(20_000))
     expect(p.repaid).toBe(20_000)
-    expect(p.outstanding).toBe(765_000)
+    expect(p.outstanding).toBe(790_000)
+    expect(p.remainingInstallments).toBe(18)   // ninguna cuota completa todavía
+    expect(p.paidInstallments).toBe(0)
+  })
+
+  it('dos cuotas juntas en un solo pago cuentan dos', () => {
+    const p = loanProgress(loan(), pagos(90_000))
+    expect(p.outstanding).toBe(720_000)
+    expect(p.paidInstallments).toBe(2)
+    expect(p.remainingInstallments).toBe(16)
+  })
+
+  it('pagar de más descuenta de más, sin adivinar cuotas de regalo', () => {
+    const p = loanProgress(loan(), pagos(60_000))
+    expect(p.outstanding).toBe(750_000)
+    expect(p.paidInstallments).toBe(1)
+    expect(p.remainingInstallments).toBe(17)
+  })
+
+  it('cancelar todo de una vez lo deja saldado', () => {
+    // El caso que rompía: un pago por el total dejaba la deuda en 765.000 y el
+    // préstamo sin forma de cerrarse salvo registrando 18 cuotas.
+    const p = loanProgress(loan(), pagos(810_000))
+    expect(p.outstanding).toBe(0)
+    expect(p.settled).toBe(true)
+    expect(p.paidInstallments).toBe(18)
   })
 
   it('pagadas todas las cuotas queda saldado y no en negativo', () => {
@@ -191,5 +253,75 @@ describe('daysUntilDue', () => {
 
   it('no se corre por el cambio de horario de verano', () => {
     expect(daysUntilDue('2026-11-10', '2026-10-10')).toBe(31)
+  })
+})
+
+/**
+ * La invariante que sostiene todo el módulo.
+ *
+ * El patrimonio que muestra un préstamo es `efectivo − deuda`. Las dos mitades
+ * se mueven por caminos distintos —la plata por el monto que se registra, la
+ * deuda por `loanProgress`— y la única forma de que no mientan es que se muevan
+ * juntas. Mientras no haya interés nuevo ni plata regalada, pagar **no cambia
+ * el patrimonio**: cambia de qué lado está.
+ *
+ * Cada caso de acá abajo es un escenario que en producción daba distinto.
+ */
+describe('invariante: pagar no cambia el patrimonio', () => {
+  const PRINCIPAL = 1_000_000
+  const CUOTA = 200_000
+  const TOTAL = 1_200_000          // 6 cuotas: el interés son 200.000
+
+  const prestamo = loan({
+    principal: PRINCIPAL,
+    installments: 6,
+    installment_amount: CUOTA,
+  })
+
+  /** Lo que muestra la app: el efectivo que quedó menos lo que dice que se debe. */
+  function patrimonio(...montos: number[]): number {
+    const repayments = pagos(...montos)
+    const efectivo = PRINCIPAL - montos.reduce((s, m) => s + m, 0)
+    return efectivo - loanProgress(prestamo, repayments).outstanding
+  }
+
+  // El interés se reconoce entero al sacar el préstamo (migración 00029), así
+  // que el patrimonio arranca en −200.000 y no se mueve más.
+  const ESPERADO = PRINCIPAL - TOTAL
+
+  it('sin pagar nada', () => {
+    expect(patrimonio()).toBe(ESPERADO)
+  })
+
+  it('con cuotas exactas', () => {
+    expect(patrimonio(CUOTA)).toBe(ESPERADO)
+    expect(patrimonio(CUOTA, CUOTA, CUOTA)).toBe(ESPERADO)
+    expect(patrimonio(...Array(6).fill(CUOTA))).toBe(ESPERADO)
+  })
+
+  it('con dos cuotas juntas en un solo registro', () => {
+    expect(patrimonio(400_000)).toBe(ESPERADO)
+  })
+
+  it('pagando de más', () => {
+    expect(patrimonio(300_000)).toBe(ESPERADO)
+  })
+
+  it('pagando de menos', () => {
+    expect(patrimonio(100_000)).toBe(ESPERADO)
+  })
+
+  it('cancelando todo de una vez', () => {
+    expect(patrimonio(TOTAL)).toBe(ESPERADO)
+  })
+
+  it('mezclando montos irregulares', () => {
+    expect(patrimonio(150_000, 350_000, 200_000, 12_345)).toBe(ESPERADO)
+  })
+
+  // Pagar más que el total sí baja el patrimonio: esa plata se fue y ya no se
+  // debía. No es un bug, es plata regalada.
+  it('pagando más que el total, la diferencia se pierde de verdad', () => {
+    expect(patrimonio(1_500_000)).toBe(PRINCIPAL - 1_500_000)
   })
 })

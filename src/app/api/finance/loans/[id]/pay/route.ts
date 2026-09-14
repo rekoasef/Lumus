@@ -91,10 +91,15 @@ export async function POST(
   // versiones se separen.
   const after = loanProgress(loan, (await loadRepayments(supabase, user.id, [loan]))[loan.id] ?? [])
 
+  // Cuántas cuotas cubrió este pago. Pagar dos juntas corre el vencimiento dos
+  // meses, y pagar menos de una cuota no lo corre: seguís debiendo la de este
+  // mes. `nextDueDate` con 0 devuelve la misma fecha.
+  const installmentsCovered = after.paidInstallments - before.paidInstallments
+
   const updatedDueDate = after.settled
     ? null
     : loan.next_due_date
-      ? nextDueDate(loan.next_due_date)
+      ? nextDueDate(loan.next_due_date, installmentsCovered)
       : null
 
   const { data: updatedLoan, error: updateError } = await supabase

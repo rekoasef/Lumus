@@ -1,3 +1,5 @@
+import type { LoanDirection } from '@/lib/finance/loans'
+
 export type WalletType = 'efectivo' | 'banco' | 'virtual' | 'inversion'
 /**
  * `ajuste` significa "me equivoqué al contar". `rendimiento` significa "esto
@@ -51,6 +53,14 @@ export interface Transaction {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  /** Puesto solo si el movimiento nació de un préstamo: el desembolso o una cuota. */
+  loan_id?: string | null
+  /**
+   * La dirección del préstamo al que pertenece. Viaja con el movimiento porque
+   * sin ella no se puede saber si es el desembolso o una devolución: el mismo
+   * par (tipo, signo) significa cosas opuestas según la dirección.
+   */
+  loan?: { direction: LoanDirection } | null
   wallet?: Pick<Wallet, 'id' | 'name' | 'color' | 'currency'>
   category?: Pick<FinanceCategory, 'id' | 'name' | 'color' | 'icon'>
 }

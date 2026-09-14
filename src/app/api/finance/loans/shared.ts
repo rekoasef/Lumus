@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
-import type { LoanDirection, LoanRepayment } from '@/lib/finance/loans'
+import { loanMovementRole, type LoanDirection, type LoanRepayment } from '@/lib/finance/loans'
 
 type Client = SupabaseClient<Database>
 
@@ -17,17 +17,10 @@ export const WALLET_SELECT =
  * desincroniza el día que alguien borra un movimiento, y la plata que se movió
  * está en `transactions`.
  *
- * ── Cómo se distingue una devolución del desembolso ──
- *
- * No por el orden ni por la fecha —dos movimientos del mismo día no tienen un
- * orden confiable— sino por el tipo y el signo, que están determinados por la
- * dirección del préstamo:
- *
- *   tomado    desembolso = `prestamo` (+)   ·  cuota = `gasto`
- *   otorgado  desembolso = `prestamo` (−)   ·  cobro = `prestamo` (+)
- *
- * O sea: en un préstamo tomado las devoluciones son **todos** los `gasto`, y en
- * uno otorgado son **todos** los `prestamo` positivos. Sin heurísticas.
+ * Cuál de los movimientos es una devolución y cuál el desembolso lo decide
+ * `loanMovementRole`, en `lib/finance/loans.ts`. Está allá y no acá porque el
+ * candado que impide borrar el desembolso desde la lista de movimientos usa la
+ * misma regla, y las dos tienen que coincidir.
  */
 export async function loadRepayments(
   supabase: Client,
@@ -56,11 +49,8 @@ export async function loadRepayments(
     if (!direction) continue
 
     const amount = Number(row.amount)
-    const isRepayment = direction === 'tomado'
-      ? row.type === 'gasto'
-      : row.type === 'prestamo' && amount > 0
 
-    if (isRepayment) {
+    if (loanMovementRole(direction, row.type, amount) === 'devolucion') {
       byLoan[row.loan_id].push({ id: row.id, amount: Math.abs(amount), date: row.date })
     }
   }

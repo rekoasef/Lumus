@@ -10,6 +10,7 @@ import { CategoryIcon } from '@/lib/utils/category-icons'
 import { confirm } from '@/components/shared/confirm-dialog'
 import { toast } from 'sonner'
 import { useFinanceSummary } from '@/hooks/use-finance-summary'
+import type { DeleteTransactionResult } from '@/hooks/use-transactions'
 import { useTransactionRows } from '@/hooks/use-transaction-rows'
 import { NO_CATEGORY, sumSummary, totalsByCategory, type ToARS } from '@/lib/finance/summary'
 import { formatCurrency } from '@/lib/utils/format-currency'
@@ -145,7 +146,7 @@ interface TransactionListProps {
   openOnMount?: TransactionDefaults | null
   onCreate: (data: CreateTransactionInput) => Promise<Transaction | null>
   onUpdate: (id: string, data: UpdateTransactionInput) => Promise<Transaction | null>
-  onDelete: (id: string) => Promise<boolean>
+  onDelete: (id: string) => Promise<DeleteTransactionResult>
 }
 
 const FILTER_TABS: { id: FilterMode; label: string }[] = [
@@ -319,7 +320,14 @@ export function TransactionList({
   async function handleDelete(id: string) {
     const ok = await confirm({ description: '¿Eliminar este movimiento?' })
     if (!ok) return
-    await onDelete(id)
+
+    // Se mira el resultado antes de festejar: la API rechaza el desembolso de
+    // un préstamo, y hasta acá el cartel decía "eliminado" igual.
+    const result = await onDelete(id)
+    if (!result.ok) {
+      toast.error(result.error ?? 'No se pudo eliminar el movimiento')
+      return
+    }
     toast.success('Movimiento eliminado')
     refreshAfterMutation()
   }

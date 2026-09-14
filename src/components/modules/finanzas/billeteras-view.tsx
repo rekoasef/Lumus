@@ -95,7 +95,14 @@ export function BilleterasView({
       confirmLabel: 'Eliminar',
     })
     if (!ok) return
-    await deleteWallet(id)
+
+    // Se mira el resultado antes de festejar: la API rechaza borrar una
+    // billetera con un préstamo activo.
+    const result = await deleteWallet(id)
+    if (!result.ok) {
+      toast.error(result.error ?? 'No se pudo eliminar la billetera')
+      return
+    }
     toast.success('Billetera eliminada')
   }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowDownLeft, ArrowUpRight, CalendarClock, Check, Pencil, Trash2 } from 'lucide-react'
+import { Archive, ArrowDownLeft, ArrowUpRight, CalendarClock, Check, Pencil, Trash2 } from 'lucide-react'
 import { daysUntilDue, loanProgress, type Loan, type LoanRepayment } from '@/lib/finance/loans'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import { localDateStr } from '@/lib/utils/format-date'
@@ -11,6 +11,8 @@ interface LoanCardProps {
   onPay: (loan: Loan) => void
   onEdit: (loan: Loan) => void
   onDelete: (id: string) => void
+  /** Solo llega en los préstamos saldados: ver el botón de archivar. */
+  onArchive: (id: string) => void
 }
 
 /** A cuántos días de vencer una cuota se marca en naranja. Igual que el motor de avisos. */
@@ -20,7 +22,7 @@ function formatDueDate(date: string): string {
   return new Date(`${date}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
 }
 
-export function LoanCard({ loan, repayments, onPay, onEdit, onDelete }: LoanCardProps) {
+export function LoanCard({ loan, repayments, onPay, onEdit, onDelete, onArchive }: LoanCardProps) {
   const isTaken = loan.direction === 'tomado'
   const progress = loanProgress(loan, repayments)
 
@@ -66,6 +68,21 @@ export function LoanCard({ loan, repayments, onPay, onEdit, onDelete }: LoanCard
           >
             <Pencil size={14} />
           </button>
+          {/*
+            Archivar solo aparece cuando no queda nada pendiente. Con deuda
+            viva, hacer desaparecer el préstamo y dejar los movimientos sacaría
+            la deuda del patrimonio sin que nadie la haya pagado — por eso ahí
+            la única salida es eliminar, que se lleva todo.
+          */}
+          {progress.settled && (
+            <button
+              onClick={() => onArchive(loan.id)}
+              aria-label="Archivar préstamo"
+              className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-white/10 hover:text-[var(--text-primary)]"
+            >
+              <Archive size={14} />
+            </button>
+          )}
           <button
             onClick={() => onDelete(loan.id)}
             aria-label="Eliminar préstamo"

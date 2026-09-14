@@ -1,7 +1,8 @@
 'use client'
 
-import { Pencil, Trash2, SlidersHorizontal, TrendingUp, TrendingDown, ArrowLeftRight, HandCoins } from 'lucide-react'
+import { Pencil, Trash2, SlidersHorizontal, TrendingUp, TrendingDown, ArrowLeftRight, HandCoins, Lock } from 'lucide-react'
 import type { Transaction } from '@/types/finance.types'
+import { loanMovementRole } from '@/lib/finance/loans'
 import { CategoryIcon } from '@/lib/utils/category-icons'
 import { formatCurrency } from '@/lib/utils/format-currency'
 
@@ -18,6 +19,7 @@ const LABELS = {
   gain:          'Rendimiento',
   loss:          'Pérdida',
   prestamo:      'Préstamo',
+  lockedHint:    'El desembolso del préstamo se borra desde Préstamos',
 } as const
 
 export function TransactionItem({ transaction, onEdit, onDelete }: TransactionItemProps) {
@@ -26,6 +28,21 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
   const isTransfer   = transaction.type === 'transferencia'
   const isYield      = transaction.type === 'rendimiento'
   const isLoan       = transaction.type === 'prestamo'
+
+  /**
+   * El desembolso de un préstamo no se toca desde acá.
+   *
+   * Es la mitad que compensa a la deuda: borrarlo solo dejaría la deuda sin la
+   * plata que la justifica y el patrimonio quedaría subestimado por todo el
+   * capital. Una cuota, en cambio, sí se puede borrar — devuelve la plata y
+   * sube la deuda en paralelo, que es deshacer el pago.
+   *
+   * El candado de verdad está en la API; esto es para no ofrecer un botón que
+   * va a fallar.
+   */
+  const isDisbursement = transaction.loan?.direction
+    ? loanMovementRole(transaction.loan.direction, transaction.type, transaction.amount) === 'desembolso'
+    : false
   // Los cuatro van con `amount` firmado, así que el signo sale del número y no
   // del tipo: un rendimiento negativo es una pérdida, no un gasto, y un
   // préstamo que diste sale de la billetera aunque no sea un gasto.
@@ -131,13 +148,23 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
             <Pencil size={13} />
           </button>
         )}
-        <button
-          onClick={() => onDelete(transaction.id)}
-          className="rounded-md p-2 text-[var(--text-muted)] hover:bg-[var(--danger)]/10 hover:text-[var(--danger)] active:bg-[var(--danger)]/10 active:text-[var(--danger)] sm:p-1.5"
-          aria-label="Eliminar"
-        >
-          <Trash2 size={13} />
-        </button>
+        {isDisbursement ? (
+          <span
+            className="p-2 text-[var(--text-muted)] opacity-40 sm:p-1.5"
+            title={LABELS.lockedHint}
+            aria-label={LABELS.lockedHint}
+          >
+            <Lock size={13} />
+          </span>
+        ) : (
+          <button
+            onClick={() => onDelete(transaction.id)}
+            className="rounded-md p-2 text-[var(--text-muted)] hover:bg-[var(--danger)]/10 hover:text-[var(--danger)] active:bg-[var(--danger)]/10 active:text-[var(--danger)] sm:p-1.5"
+            aria-label="Eliminar"
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
       </div>
     </div>
   )

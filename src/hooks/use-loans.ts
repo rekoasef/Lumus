@@ -7,6 +7,17 @@ import type { Wallet } from '@/types/finance.types'
 
 type WalletBalance = Pick<Wallet, 'id' | 'balance'>
 
+/**
+ * El resultado de archivar o eliminar.
+ *
+ * Lleva el motivo y no solo un booleano porque la API rechaza archivar un
+ * préstamo con pendiente, y ese mensaje explica qué hacer en su lugar.
+ */
+export interface LoanRemovalResult {
+  ok: boolean
+  error?: string
+}
+
 interface UseLoansCallbacks {
   /** Un préstamo mueve plata: el saldo de la billetera cambió. */
   onWalletBalance?: (wallets: WalletBalance[]) => void
@@ -86,8 +97,11 @@ export function useLoans(
         body: JSON.stringify(input),
       })
       if (!res.ok) throw new Error(await readError(res, 'No se pudo actualizar el préstamo'))
-      const { loan } = await res.json() as { loan: Loan }
+      // Editar el capital o la billetera mueve el desembolso, así que el saldo
+      // puede haber cambiado: viene en la respuesta para no recargar.
+      const { loan, wallets } = await res.json() as { loan: Loan; wallets?: WalletBalance[] }
       setLoans(prev => prev.map(l => (l.id === id ? loan : l)))
+      if (wallets?.length) onWalletBalance?.(wallets)
       return loan
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
@@ -95,23 +109,54 @@ export function useLoans(
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [onWalletBalance])
 
-  const deleteLoan = useCallback(async (id: string): Promise<boolean> => {
+  /**
+   * Sacar un préstamo de la pantalla, de las dos formas que existen.
+   *
+   * `archivar` es "esto terminó" y deja los movimientos donde están — la API lo
+   * permite solo si está saldado. Sin `archivar` es "esto nunca pasó" y se
+   * lleva el desembolso y cada cuota.
+   *
+   * Devuelve las billeteras porque en el segundo caso los saldos vuelven a
+   * donde estaban, y si la pantalla no se entera queda mostrando plata que ya
+   * no existe. Al archivar vuelve vacío: no se movió un peso.
+   */
+  const removeLoan = useCallback(async (
+    id: string,
+    mode: 'eliminar' | 'archivar' = 'eliminar',
+  ): Promise<LoanRemovalResult> => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/finance/loans/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error(await readError(res, 'No se pudo eliminar el préstamo'))
+      const url = mode === 'archivar'
+        ? `/api/finance/loans/${id}?modo=archivar`
+        : `/api/finance/loans/${id}`
+      const res = await fetch(url, { method: 'DELETE' })
+      if (!res.ok) {
+        throw new Error(await readError(
+          res,
+          mode === 'archivar' ? 'No se pudo archivar el préstamo' : 'No se pudo eliminar el préstamo',
+        ))
+      }
+      const { wallets } = await res.json() as { wallets?: WalletBalance[] }
+
       setLoans(prev => prev.filter(l => l.id !== id))
-      return true
+      setRepayments(prev => {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
+      if (wallets?.length) onWalletBalance?.(wallets)
+      return { ok: true }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error desconocido')
-      return false
+      const message = e instanceof Error ? e.message : 'Error desconocido'
+      setError(message)
+      return { ok: false, error: message }
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [onWalletBalance])
 
   /** Registrar una cuota pagada (tomado) o un cobro recibido (otorgado). */
   const registerRepayment = useCallback(async (id: string, input: LoanRepaymentInput): Promise<boolean> => {
@@ -141,5 +186,5 @@ export function useLoans(
     }
   }, [onWalletBalance])
 
-  return { loans, repayments, loading, error, refresh, createLoan, updateLoan, deleteLoan, registerRepayment }
+  return { loans, repayments, loading, error, refresh, createLoan, updateLoan, removeLoan, registerRepayment }
 }

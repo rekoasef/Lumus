@@ -6,6 +6,18 @@ import type { CreateTransactionInput, UpdateTransactionInput } from '@/lib/valid
 
 type WalletBalanceUpdate = Pick<Wallet, 'id' | 'name' | 'type' | 'balance' | 'currency' | 'color' | 'icon' | 'created_at' | 'updated_at'>
 
+/**
+ * El resultado de una baja.
+ *
+ * Devuelve el motivo y no solo un booleano porque hay una baja que la API
+ * rechaza a propósito —el desembolso de un préstamo, que se borra desde
+ * Préstamos— y "no se pudo eliminar" no le dice a nadie qué hacer.
+ */
+export interface DeleteTransactionResult {
+  ok: boolean
+  error?: string
+}
+
 interface UseTransactionsCallbacks {
   onWalletBalance?: (wallets: WalletBalanceUpdate[]) => void
   /** Se llama después de cada alta, edición o baja: los totales agregados quedaron viejos. */
@@ -77,19 +89,27 @@ export function useTransactions(callbacks?: UseTransactionsCallbacks) {
     }
   }, [onWalletBalance, onMutated])
 
-  const deleteTransaction = useCallback(async (id: string): Promise<boolean> => {
+  const deleteTransaction = useCallback(async (id: string): Promise<DeleteTransactionResult> => {
     setLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/finance/transactions/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Error al eliminar la transacción')
+      if (!res.ok) {
+        // El mensaje de la API en vez de uno genérico: cuando el movimiento es
+        // el desembolso de un préstamo, ahí está la única pista de qué hacer.
+        const body = await res.json().catch(() => null) as { error?: unknown } | null
+        throw new Error(
+          typeof body?.error === 'string' ? body.error : 'Error al eliminar la transacción',
+        )
+      }
       const { wallet } = await res.json() as { wallet?: WalletBalanceUpdate }
       if (wallet) onWalletBalance?.([wallet])
       onMutated?.()
-      return true
+      return { ok: true }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error desconocido')
-      return false
+      const message = e instanceof Error ? e.message : 'Error desconocido'
+      setError(message)
+      return { ok: false, error: message }
     } finally {
       setLoading(false)
     }
