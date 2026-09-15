@@ -142,6 +142,7 @@ src/lib/supabase/        → clientes de Supabase (client/server/service) + help
 src/lib/billing/         → constantes del plan de Mercado Pago
 src/lib/finance/         → reglas de negocio (rules.ts), cotizaciones, agregados, parseo/PDF de reportes
 src/lib/notifications/   → motor de avisos (dedupe, preferencias, digest por mail, token de baja)
+src/lib/admin/           → panel de admin: quién es admin (ADMIN_USER_IDS), métricas puras, lectura con service_role
 src/lib/utils/           → funciones utilitarias puras
 src/hooks/               → custom hooks (todos de finanzas, más use-user)
 src/stores/              → Zustand — solo ui-store.ts (sidebar, tema)
@@ -209,6 +210,7 @@ Los cuatro chequeos antes de dar algo por terminado: `npm test`, `npx tsc --noEm
 - ❌ No mandar un mail por evento — todo aviso sale por el digest diario (`/api/cron/avisos`), un mail por usuario por día
 - ❌ No borrar registros físicamente en tablas con soft delete (`transactions`, `wallets`, `finance_categories`)
 - ❌ No usar `service_role` en código del cliente
+- ❌ No mostrar en el panel de admin montos ni texto financiero de un usuario — solo conteos y fechas, y la frontera vive en las funciones de `00030_admin_stats.sql` (decisión del 2026-09-15, ver `G1`). Tampoco marcar admins con una columna en `user_profiles`: es `ADMIN_USER_IDS`
 - ❌ No agregar `'use client'` si el componente no lo necesita
 - ❌ No crear componentes en `components/ui/` — esos son de shadcn
 

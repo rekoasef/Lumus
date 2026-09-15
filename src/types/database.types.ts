@@ -886,6 +886,44 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_platform_stats: {
+        Args: never
+        Returns: {
+          ai_calls_month: number
+          db_bytes: number
+          emails_today: number
+          feedback_open: number
+          monthly_revenue: number
+        }[]
+      }
+      admin_user_stats: {
+        Args: never
+        Returns: {
+          active_days_30d: number
+          budgets: number
+          created_at: string
+          email: string
+          email_confirmed_at: string
+          feedback: number
+          goals: number
+          grant_expires_at: string
+          grant_reason: string
+          holdings: number
+          last_sign_in_at: string
+          last_transaction_at: string
+          loans: number
+          name: string
+          onboarding_done: boolean
+          recurring: number
+          reports: number
+          subscription_status: string
+          transactions: number
+          transactions_30d: number
+          user_id: string
+          wallets: number
+          wealth_analyses: number
+        }[]
+      }
       get_finance_summary: {
         Args: { p_from?: string; p_to?: string }
         Returns: {

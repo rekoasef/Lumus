@@ -1,4 +1,7 @@
+import Link from 'next/link'
+import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { isAdmin } from '@/lib/admin/access'
 import { getAccessStatus } from '@/lib/billing/access'
 import { ProfileHeader } from '@/components/modules/profile/profile-header'
 import { ProfileForm } from '@/components/modules/profile/profile-form'
@@ -53,6 +56,26 @@ export default async function PerfilPage() {
           occupation={resolvedProfile.occupation}
           createdAt={user.created_at}
         />
+
+        {/* El panel de admin se llega desde acá y no desde las barras: se abre una
+            vez por semana, y la navegación está ordenada por frecuencia (F1). */}
+        {isAdmin(user.id) && (
+          <Link
+            href="/admin"
+            className="lumus-glass group mt-8 flex items-center justify-between gap-4 rounded-2xl px-5 py-4 transition-colors hover:border-[var(--accent-lumus)]/30"
+          >
+            <span className="flex items-center gap-3">
+              <span className="flex size-9 items-center justify-center rounded-xl bg-[var(--accent-muted)]">
+                <ShieldCheck size={16} className="text-[var(--accent-lumus)]" />
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-[var(--text-primary)]">Panel de admin</span>
+                <span className="block text-xs text-[var(--text-muted)]">Usuarios, uso y costos de la plataforma</span>
+              </span>
+            </span>
+            <ArrowRight size={16} className="text-[var(--text-muted)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--accent-lumus)]" />
+          </Link>
+        )}
 
         <div className="mt-2 divide-y divide-white/[0.06]">
           <div className="py-10">

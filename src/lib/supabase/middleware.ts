@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/types/database.types'
 import { hasAccess } from '@/lib/billing/access'
 import { getOnboardingStatus } from '@/lib/auth/onboarding'
+import { isAdmin } from '@/lib/admin/access'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -75,6 +76,14 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url)
       }
     }
+  }
+
+  // Primera de las tres barreras del panel de admin (ver G1). La página vuelve a
+  // chequear, y las funciones de base solo las ejecuta service_role.
+  if (user && pathname.startsWith('/admin') && !isAdmin(user.id)) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
   }
 
   return supabaseResponse

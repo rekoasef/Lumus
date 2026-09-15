@@ -13,8 +13,27 @@ export interface AccessStatus {
 }
 
 /** Un grant vence a la fecha indicada; sin fecha, no vence nunca. */
-function isGrantActive(expiresAt: string | null): boolean {
-  return expiresAt === null || new Date(expiresAt).getTime() > Date.now()
+function isGrantActive(expiresAt: string | null, now: Date): boolean {
+  return expiresAt === null || new Date(expiresAt).getTime() > now.getTime()
+}
+
+/**
+ * La regla de acceso, pura. La usan el gate (a través de `getAccessStatus`) y
+ * el panel de admin, que la aplica a todos los usuarios de una vez: si el panel
+ * tuviera su propia copia, podría decir "entra" de alguien que el gate frena.
+ *
+ * `hasGrant` va aparte de `grantExpiresAt` porque `null` significa dos cosas
+ * opuestas: sin fila de grant, o grant sin vencimiento.
+ */
+export function resolveAccessKind(
+  subscriptionStatus: string | null,
+  hasGrant: boolean,
+  grantExpiresAt: string | null,
+  now: Date = new Date(),
+): AccessKind {
+  if (subscriptionStatus === 'authorized') return 'subscription'
+  if (hasGrant && isGrantActive(grantExpiresAt, now)) return 'free_grant'
+  return 'none'
 }
 
 /**
@@ -41,15 +60,8 @@ export async function getAccessStatus(supabase: Client, userId: string): Promise
       .maybeSingle(),
   ])
 
-  if (subscription?.status === 'authorized') {
-    return { kind: 'subscription', grantExpiresAt: null }
-  }
-
-  if (grant && isGrantActive(grant.expires_at)) {
-    return { kind: 'free_grant', grantExpiresAt: grant.expires_at }
-  }
-
-  return { kind: 'none', grantExpiresAt: null }
+  const kind = resolveAccessKind(subscription?.status ?? null, grant !== null, grant?.expires_at ?? null)
+  return { kind, grantExpiresAt: kind === 'free_grant' ? (grant?.expires_at ?? null) : null }
 }
 
 export async function hasAccess(supabase: Client, userId: string): Promise<boolean> {

@@ -1,8 +1,10 @@
 # Lumus — Backlog de trabajo
 
-Última revisión: 2026-09-10
+Última revisión: 2026-09-15
 
 Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es un conjunto acotado de tickets que se toman **de a uno**, se cierran, se verifican y recién ahí se pasa al siguiente. Las rondas cerradas quedan abajo como historial, no se borran.
+
+- **Ronda 6 (`G1`)** — **abierta el 2026-09-15**. El panel de admin que `B4` descartó con dos usuarios: ya hay tres cuentas, y el dueño no tiene forma de saber si la usan sin abrir el SQL editor.
 
 - **Ronda 5 (`F1`–`F2`)** — **abierta el 2026-09-10**. Los dos tickets salieron de que un amigo del dueño usó la app: el camino para cargar un gasto y los préstamos. **Los dos implementados el mismo día**; falta probarlos en pantalla y con un préstamo real.
 - **Ronda 4 (`E1`)** — abierta y **cerrada el 2026-08-28**. `E1` (billeteras de inversión con saldo) está deployado y probado con datos reales.
@@ -16,6 +18,98 @@ Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es u
 
 > **El deploy es manual** (`vercel --prod --yes`) y la base y el código deployado tienen que moverse juntos. El 2026-08-20 quedaron desfasados unos minutos y eso dejó al dueño fuera de su propia app hasta el deploy siguiente. Si un ticket toca el gate de acceso o una migración, deployar en el mismo tramo.
 
+
+---
+
+# Ronda 6 — abierta (2026-09-15)
+
+## `G1` — Panel de admin: saber si Lumus se usa
+
+Estado: **etapa 1 implementada (2026-09-15) — falta verla logueado y deployar**
+
+### Por qué, y por qué ahora sí
+
+`B4` decidió **no** hacer un panel: con dos usuarios, el SQL editor de Supabase alcanzaba y un panel propio era superficie de riesgo sin beneficio. Las dos premisas cambiaron:
+
+1. **Hay tres cuentas y el plan es llegar a ~10 testers.** Una consulta de 30 segundos por pregunta no escala a *"¿quién dejó de usarla?"* hecho todas las semanas.
+2. **El dueño no se entera de nada que no vaya a buscar.** El primer tester lleva casi un mes y **nunca mandó feedback**, y la única forma de saber si es porque no la usa es escribir SQL. Las decisiones de la beta (a quién le sirve, qué feature nadie toca, cuándo abrir otra tanda) dependen de esa respuesta.
+
+El riesgo que señalaba `B4` sigue siendo real —una pantalla que lee datos de *todos* es una filtración cruzada si tiene un bug— y el diseño de abajo existe para achicarlo.
+
+### La decisión que define el panel: conteos, no montos
+
+**El panel muestra cuánto se usa Lumus, no qué hace cada uno con su plata.**
+
+- ✅ *"Cargó 42 movimientos este mes, tiene 3 billeteras y 1 presupuesto"*
+- ❌ *"Gastó 80.000 en salidas y tiene USD 2.000 en Binance"*
+
+Tres razones (decisión del dueño, 2026-09-15): la **confianza** —el día que se cobre, "el dueño ve mis gastos" es motivo para no pagar—; la **Ley 25.326** —ver datos financieros obliga a declararlo en la política de privacidad—; y que **no hace falta**: para decidir qué mejorar alcanzan los conteos. Si un tester pide ayuda con un dato puntual, se mira con su permiso, no desde un panel.
+
+No hay impersonación ("entrar como otro usuario"), por lo mismo.
+
+### Cómo se es admin sin abrir un agujero
+
+- **No** con una columna en `user_profiles`: es la trampa de `B3`, el usuario se haría admin a sí mismo.
+- **Variable de entorno `ADMIN_USER_IDS`** (server-only), como ya dejaba anotado `B4`. Imposible de auto-otorgarse, cero schema.
+- **Tres barreras**: el proxy, la página (`notFound()`, para no confirmar que la ruta existe) y la función de base, que **solo puede ejecutar `service_role`**.
+
+### La frontera de privacidad vive en SQL, no en la pantalla
+
+Las métricas salen de funciones `security definer` que devuelven **solo conteos y fechas**. La página no puede mostrar un monto porque nunca le llega uno. Si mañana alguien suma una columna con plata o texto que cargó el usuario, lo tiene que hacer en la migración, a la vista.
+
+Hace falta SQL y no alcanza con `service_role` + PostgREST por el gotcha de 2026-08-27: **PostgREST corta en 1000 filas en silencio**, y contar transacciones trayéndolas daría números falsos apenas un usuario pase las mil.
+
+### Etapas
+
+| Etapa | Qué | Schema |
+|---|---|---|
+| **1** | Acceso de admin · activación (registro → mail → onboarding → billetera → primer movimiento) · uso por feature · plata (pagando, cortesía, bloqueados, ingreso mensual) · costos (reportes y análisis de IA del mes, mails de hoy contra el tope de Resend) · bandeja de feedback | Dos funciones, **ninguna tabla** |
+| **2** | `user_activity_days` (un upsert por día desde el proxy): días activos reales, retención, "quién dejó de entrar". Vercel Web Analytics para tráfico. Aviso al dueño en el digest (registros nuevos, feedback, testers inactivos) | Una tabla |
+| **3** | Acciones: otorgar/extender acceso de cortesía, marcar feedback como resuelto | — |
+
+**Lo que la etapa 1 no puede saber:** si alguien *abrió* la app sin cargar nada. `last_sign_in_at` solo se mueve al loguearse, no al volver con la sesión guardada. Hasta la etapa 2, "activo" significa **"creó algo"**, y el panel lo tiene que decir así.
+
+**Lo que no se construye a mano:** tráfico (Vercel Analytics), errores (Sentry, ya instalado) y grabación de sesiones (en una app de finanzas graba montos en pantalla).
+
+### Done cuando (etapa 1)
+
+- El dueño ve el panel desde `/perfil`; cualquier otra cuenta no puede entrar a `/admin` (el proxy la manda al dashboard, y la página contesta 404).
+- Un usuario logueado llamando a las funciones por REST recibe `permission denied`.
+- Ninguna cifra del panel es un monto de un usuario.
+- Los números coinciden con las consultas de `docs/ADMIN.md`.
+- Las reglas de agregación (embudo, adopción, inactividad) son puras y tienen tests.
+- `npm test`, `npx tsc --noEmit`, `npm run lint` y `npm run build` limpios.
+
+### Resultado (2026-09-15)
+
+| Pieza | Qué |
+|---|---|
+| `00030_admin_stats.sql` | `admin_user_stats()` y `admin_platform_stats()`: `security definer`, `search_path` vacío, EXECUTE solo para `service_role` y rechazo explícito si hay un `auth.uid()` detrás. **La frontera de privacidad**: devuelven conteos y fechas; la única cifra en pesos es lo que cobra Lumus |
+| `lib/admin/access.ts` | `isAdmin` contra `ADMIN_USER_IDS`. Sin la variable, nadie es admin: un deploy mal configurado cierra el panel, no lo abre |
+| `lib/admin/metrics.ts` | Actividad (activo ≤7 días, tibio ≤30, inactivo), ranking, embudo acumulativo, adopción por feature y KPIs. **9 tests**, más 4 de `access.ts` |
+| `lib/admin/server-data.ts` | La única lectura con `service_role`, llamada solo desde la página después de `isAdmin`. Tira si algo falla en vez de devolver ceros |
+| `lib/billing/access.ts` | `resolveAccessKind` sale como función pura: el panel aplica **la misma** regla que el gate a todos los usuarios. Con una copia propia podría decir "entra" de alguien que el gate frena. **5 tests** |
+| `lib/supabase/middleware.ts` | Primera barrera: `/admin` sin ser admin → `/dashboard` |
+| `app/(dashboard)/admin/` | `page` (segunda barrera, `notFound()`), `loading` y `error` |
+| `components/modules/admin/*` | KPIs, tabla de usuarios por uso, embudo, adopción, costos y límites, bandeja de feedback. Server components, sin JS de cliente |
+| `perfil/page.tsx` | El acceso al panel, visible solo para admins. No va en las barras: se abre una vez por semana, y la navegación está ordenada por frecuencia (`F1`) |
+
+**Dos cosas que salieron construyéndolo:**
+
+1. **El primer tester no está inactivo, aunque su último login sea del 31/08.** Volvió con la sesión guardada y cargó movimientos ayer. Mirando solo `last_sign_in_at` —que es lo que hace la consulta de `docs/ADMIN.md`— figuraba como alguien que dejó la app. Por eso "visto por última vez" es lo más reciente entre login y movimiento, con un test para ese caso exacto.
+2. **Hay 4 feedbacks sin resolver.** El pendiente de agosto decía que el tester "nunca mandó feedback"; ya no es cierto. La bandeja existía en SQL y nadie la miraba, que es el argumento entero de este ticket.
+
+### Verificación (2026-09-15)
+
+- `npm test` (**222**), `npx tsc --noEmit`, `npm run lint` (0 errores; los 12 warnings son los de `react-hook-form`, preexistentes) y `npm run build`, 48 páginas.
+- Migración aplicada a producción. Las funciones devuelven lo mismo que la consulta manual (792 / 31 / 2 movimientos; 20 / 5 / 1 días activos).
+- Permisos: `has_function_privilege` da `false` para `anon` y `authenticated`, `true` para `service_role`. Por REST con la anon key: `permission denied`. Con `set role authenticated` y un JWT de tester: `permission denied`.
+- Con el servidor levantado y sin sesión, `/admin` responde `307 → /login`; `/manifest.webmanifest` sigue en `200`.
+
+### Lo que falta
+
+- **Verlo logueado**, en desktop y en el teléfono. Nada de lo de arriba prueba que se vea bien.
+- **`ADMIN_USER_IDS` en Vercel** antes del deploy. Sin ella el panel queda cerrado para todos, incluido el dueño — que es el modo de falla correcto, pero no el que se quiere.
 
 ---
 
@@ -1603,7 +1697,7 @@ Las columnas `icon` de `wallets` y `saving_goals` existían pero no había forma
 
 | Qué | Por qué |
 |---|---|
-| Panel `/admin` | El dashboard de Supabase alcanza para 2 usuarios y no suma superficie de riesgo. Ver `B4` |
+| ~~Panel `/admin`~~ | El dashboard de Supabase alcanzaba para 2 usuarios. **Revertido el 2026-09-15**: ver `G1` |
 | Cambiar de librería de íconos | `shadcn/ui` ya trae lucide; habría dos librerías en el bundle. Ver `B7` |
 | `rclone` o carpeta espejo de Drive | El usuario prefiere bajar el backup y subirlo a Drive a mano. Ver `B1` |
 | Log reversible de unificaciones | Trabajo extra para un caso que se cubre con un diálogo de confirmación claro. Ver `B6` |

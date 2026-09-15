@@ -2,7 +2,13 @@
 
 Fecha: 2026-08-20
 
-Lumus **no tiene panel de admin y es a propósito** (ver `docs/BACKLOG.md`, `B4`). Con dos usuarios, el SQL editor del dashboard de Supabase alcanza y no agrega superficie de riesgo: un panel propio implicaría pantallas que leen datos de *todos* los usuarios, y cualquier bug ahí es una filtración cruzada.
+> **Desde el 2026-09-15 hay panel de admin en `/admin`** (ver `G1` en `docs/BACKLOG.md`), para **mirar**: usuarios, uso, activación, costos y feedback. Se entra desde `/perfil` y lo ve solo quien esté en `ADMIN_USER_IDS`. Muestra conteos, nunca montos de un usuario.
+>
+> Todavía **no hace nada**: otorgar accesos, marcar feedback como resuelto y borrar cuentas se siguen haciendo con los snippets de acá (las acciones son la etapa 3 de `G1`).
+>
+> Ojo con la consulta de "Soporte: ¿se registró bien?": `last_sign_in_at` solo se mueve al loguearse, no al volver con la sesión guardada. Para saber si alguien usa la app, el panel es más confiable que esa columna.
+
+Hasta `G1`, Lumus no tenía panel a propósito (ver `B4`): con dos usuarios el SQL editor alcanzaba.
 
 Estos snippets se pegan tal cual en:
 
