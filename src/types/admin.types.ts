@@ -1,4 +1,5 @@
 import type { AccessKind } from '@/lib/billing/access'
+import type { Json } from './database.types'
 
 /**
  * Una fila de `admin_user_stats()` (migración 00030), con los nulos que el
@@ -64,6 +65,23 @@ export interface FeatureAdoption {
   key: string
   label: string
   users: number
+}
+
+export interface AdminInvite {
+  id: string
+  email: string
+  reason: string
+  /** null = sin vencimiento */
+  accessDays: number | null
+  invitedAt: string
+}
+
+export interface AdminActionItem {
+  id: string
+  action: string
+  targetEmail: string | null
+  details: Json
+  createdAt: string
 }
 
 export interface AdminFeedbackItem {

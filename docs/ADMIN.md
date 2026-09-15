@@ -4,7 +4,9 @@ Fecha: 2026-08-20
 
 > **Desde el 2026-09-15 hay panel de admin en `/admin`** (ver `G1` en `docs/BACKLOG.md`), para **mirar**: usuarios, uso, activación, costos y feedback. Se entra desde `/perfil` y lo ve solo quien esté en `ADMIN_USER_IDS`. Muestra conteos, nunca montos de un usuario.
 >
-> Todavía **no hace nada**: otorgar accesos, marcar feedback como resuelto y borrar cuentas se siguen haciendo con los snippets de acá (las acciones son la etapa 3 de `G1`).
+> Desde la etapa 3 también **actúa**: invitar testers (se registran solos y entran sin pasar por el paywall), extender o revocar cortesías y marcar feedback. Todo queda en `admin_actions`. **Usá el panel antes que los snippets de acá**: el panel deja registro y el SQL editor no.
+>
+> Lo que sigue siendo SQL: **borrar una cuenta**, a propósito — es irreversible y tiene tres pasos previos que un botón invita a saltear.
 >
 > Ojo con la consulta de "Soporte: ¿se registró bien?": `last_sign_in_at` solo se mueve al loguearse, no al volver con la sesión guardada. Para saber si alguien usa la app, el panel es más confiable que esa columna.
 

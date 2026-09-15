@@ -1,13 +1,24 @@
 import { createServiceClient } from '@/lib/supabase/service'
-import type { AdminFeedbackItem, AdminPlatformStats, AdminUserStats } from '@/types/admin.types'
+import type {
+  AdminActionItem,
+  AdminFeedbackItem,
+  AdminInvite,
+  AdminPlatformStats,
+  AdminUserStats,
+} from '@/types/admin.types'
 
 /** Cuántos reportes de feedback muestra la bandeja. */
 const FEEDBACK_INBOX_LIMIT = 20
+/** Cuántas acciones muestra el historial. */
+const ACTION_LOG_LIMIT = 15
 
 export interface AdminDashboardData {
   users: AdminUserStats[]
   platform: AdminPlatformStats
   feedback: AdminFeedbackItem[]
+  /** Invitaciones que todavía nadie usó. */
+  invites: AdminInvite[]
+  actions: AdminActionItem[]
 }
 
 /**
@@ -23,7 +34,7 @@ export interface AdminDashboardData {
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const supabase = createServiceClient()
 
-  const [usersRes, platformRes, feedbackRes] = await Promise.all([
+  const [usersRes, platformRes, feedbackRes, invitesRes, actionsRes] = await Promise.all([
     supabase.rpc('admin_user_stats'),
     supabase.rpc('admin_platform_stats'),
     supabase
@@ -31,11 +42,23 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       .select('id, user_id, kind, status, message, path, created_at')
       .order('created_at', { ascending: false })
       .limit(FEEDBACK_INBOX_LIMIT),
+    supabase
+      .from('beta_invites')
+      .select('id, email, reason, access_days, invited_at')
+      .is('accepted_user_id', null)
+      .order('invited_at', { ascending: false }),
+    supabase
+      .from('admin_actions')
+      .select('id, action, target_email, details, created_at')
+      .order('created_at', { ascending: false })
+      .limit(ACTION_LOG_LIMIT),
   ])
 
   if (usersRes.error) throw new Error(`admin_user_stats: ${usersRes.error.message}`)
   if (platformRes.error) throw new Error(`admin_platform_stats: ${platformRes.error.message}`)
   if (feedbackRes.error) throw new Error(`feedback: ${feedbackRes.error.message}`)
+  if (invitesRes.error) throw new Error(`beta_invites: ${invitesRes.error.message}`)
+  if (actionsRes.error) throw new Error(`admin_actions: ${actionsRes.error.message}`)
 
   // El generador tipa las columnas de un `returns table` como no nulas; los
   // `?? null` son para los usuarios sin perfil, sin suscripción o sin grant.
@@ -91,5 +114,21 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     email: f.user_id ? (emailById.get(f.user_id) ?? null) : null,
   }))
 
-  return { users, platform, feedback }
+  const invites: AdminInvite[] = (invitesRes.data ?? []).map(i => ({
+    id: i.id,
+    email: i.email,
+    reason: i.reason,
+    accessDays: i.access_days,
+    invitedAt: i.invited_at,
+  }))
+
+  const actions: AdminActionItem[] = (actionsRes.data ?? []).map(a => ({
+    id: a.id,
+    action: a.action,
+    targetEmail: a.target_email,
+    details: a.details,
+    createdAt: a.created_at,
+  }))
+
+  return { users, platform, feedback, invites, actions }
 }

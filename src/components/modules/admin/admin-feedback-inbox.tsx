@@ -1,6 +1,7 @@
 import { timeAgo } from '@/lib/utils/format-date'
 import type { AdminFeedbackItem } from '@/types/admin.types'
 import { FEEDBACK_KIND_LABELS } from './admin-labels'
+import { AdminFeedbackActions } from './admin-feedback-actions'
 
 const KIND_COLORS: Record<string, string> = {
   bug: 'var(--danger)',
@@ -14,7 +15,7 @@ export function AdminFeedbackInbox({ items, now }: { items: AdminFeedbackItem[];
       <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">Feedback</p>
       <h2 className="mt-2 text-xl font-semibold text-[var(--text-primary)]">Lo que te escribieron</h2>
       <p className="mt-1 text-xs text-[var(--text-muted)]">
-        Por ahora se marca como resuelto desde el SQL editor — ver <code className="text-[var(--text-secondary)]">docs/ADMIN.md</code>.
+        Los resueltos quedan atenuados. El que reportó no ve el cambio de estado.
       </p>
 
       {items.length === 0 ? (
@@ -29,7 +30,7 @@ export function AdminFeedbackInbox({ items, now }: { items: AdminFeedbackItem[];
             return (
               <li
                 key={item.id}
-                className={`rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 ${resolved ? 'opacity-50' : ''}`}
+                className={`rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 transition-opacity ${resolved ? 'opacity-55 hover:opacity-100' : ''}`}
               >
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.68rem]">
                   <span className="flex items-center gap-1.5 font-semibold" style={{ color }}>
@@ -45,9 +46,10 @@ export function AdminFeedbackInbox({ items, now }: { items: AdminFeedbackItem[];
                 <p className="mt-2.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--text-primary)]">
                   {item.message}
                 </p>
-                {item.path && (
-                  <p className="mt-2 font-mono text-[0.62rem] text-[var(--text-muted)]">{item.path}</p>
-                )}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-mono text-[0.62rem] text-[var(--text-muted)]">{item.path ?? ''}</p>
+                  <AdminFeedbackActions id={item.id} status={item.status} />
+                </div>
               </li>
             )
           })}

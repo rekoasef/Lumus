@@ -211,6 +211,7 @@ Los cuatro chequeos antes de dar algo por terminado: `npm test`, `npx tsc --noEm
 - ❌ No borrar registros físicamente en tablas con soft delete (`transactions`, `wallets`, `finance_categories`)
 - ❌ No usar `service_role` en código del cliente
 - ❌ No mostrar en el panel de admin montos ni texto financiero de un usuario — solo conteos y fechas, y la frontera vive en las funciones de `00030_admin_stats.sql` (decisión del 2026-09-15, ver `G1`). Tampoco marcar admins con una columna en `user_profiles`: es `ADMIN_USER_IDS`
+- ❌ No escribir desde el panel de admin sin pasar por las funciones de `00031_admin_actions.sql` — cada una hace el cambio y lo anota en `admin_actions` en la misma transacción. Y el trigger `grant_access_from_invite` sobre `auth.users` no puede tirar nunca: si falla, nadie se puede registrar
 - ❌ No agregar `'use client'` si el componente no lo necesita
 - ❌ No crear componentes en `components/ui/` — esos son de shadcn
 

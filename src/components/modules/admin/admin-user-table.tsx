@@ -1,6 +1,7 @@
 import { timeAgo } from '@/lib/utils/format-date'
 import type { AdminUserRow } from '@/types/admin.types'
 import { ACCESS_LABELS, ENGAGEMENT_LABELS } from './admin-labels'
+import { AdminAccessActions } from './admin-access-actions'
 
 /** La ventana de `active_days_30d`: el medidor se dibuja sobre esto. */
 const WINDOW_DAYS = 30
@@ -31,7 +32,7 @@ function ActiveDaysMeter({ days }: { days: number }) {
   )
 }
 
-export function AdminUserTable({ rows, now }: { rows: AdminUserRow[]; now: Date }) {
+export function AdminUserTable({ rows, now, adminId }: { rows: AdminUserRow[]; now: Date; adminId: string }) {
   return (
     <section className="lumus-glass rounded-3xl p-5 sm:p-7">
       <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">Usuarios</p>
@@ -99,6 +100,19 @@ export function AdminUserTable({ rows, now }: { rows: AdminUserRow[]; now: Date 
                     </span>
                   ))
                 )}
+              </div>
+
+              {/* Acceso */}
+              <div className="pl-8 md:col-span-3">
+                <AdminAccessActions
+                  userId={row.userId}
+                  email={row.email}
+                  access={row.access}
+                  grantReason={row.grantReason}
+                  grantExpiresAt={row.grantExpiresAt}
+                  isSelf={row.userId === adminId}
+                  nowIso={now.toISOString()}
+                />
               </div>
             </li>
           )

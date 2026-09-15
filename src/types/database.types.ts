@@ -39,6 +39,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_actions: {
+        Row: {
+          action: string
+          admin_id: string | null
+          created_at: string
+          details: Json
+          id: string
+          target_email: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          target_email?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          target_email?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
+      beta_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_user_id: string | null
+          access_days: number | null
+          email: string
+          id: string
+          invited_at: string
+          invited_by: string | null
+          reason: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_user_id?: string | null
+          access_days?: number | null
+          email: string
+          id?: string
+          invited_at?: string
+          invited_by?: string | null
+          reason?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_user_id?: string | null
+          access_days?: number | null
+          email?: string
+          id?: string
+          invited_at?: string
+          invited_by?: string | null
+          reason?: string
+        }
+        Relationships: []
+      }
       billing_subscriptions: {
         Row: {
           amount: number
@@ -886,6 +949,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_cancel_invite: {
+        Args: { p_admin: string; p_invite_id: string }
+        Returns: boolean
+      }
+      admin_invite: {
+        Args: {
+          p_access_days?: number
+          p_admin: string
+          p_email: string
+          p_reason: string
+        }
+        Returns: string
+      }
       admin_platform_stats: {
         Args: never
         Returns: {
@@ -895,6 +971,23 @@ export type Database = {
           feedback_open: number
           monthly_revenue: number
         }[]
+      }
+      admin_revoke_grant: {
+        Args: { p_admin: string; p_user_id: string }
+        Returns: boolean
+      }
+      admin_set_feedback_status: {
+        Args: { p_admin: string; p_feedback_id: string; p_status: string }
+        Returns: boolean
+      }
+      admin_set_grant: {
+        Args: {
+          p_admin: string
+          p_expires_at?: string
+          p_reason: string
+          p_user_id: string
+        }
+        Returns: boolean
       }
       admin_user_stats: {
         Args: never

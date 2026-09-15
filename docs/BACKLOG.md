@@ -25,7 +25,7 @@ Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es u
 
 ## `G1` — Panel de admin: saber si Lumus se usa
 
-Estado: **etapa 1 implementada (2026-09-15) — falta verla logueado y deployar**
+Estado: **etapa 1 deployada (2026-09-15, `7a012a2`) · etapa 3 implementada, falta probar el registro con invitación de punta a punta · etapa 2 pendiente**
 
 ### Por qué, y por qué ahora sí
 
@@ -109,7 +109,41 @@ Hace falta SQL y no alcanza con `service_role` + PostgREST por el gotcha de 2026
 ### Lo que falta
 
 - **Verlo logueado**, en desktop y en el teléfono. Nada de lo de arriba prueba que se vea bien.
-- **`ADMIN_USER_IDS` en Vercel** antes del deploy. Sin ella el panel queda cerrado para todos, incluido el dueño — que es el modo de falla correcto, pero no el que se quiere.
+- ~~**`ADMIN_USER_IDS` en Vercel** antes del deploy.~~ Cargada y deployada el mismo día.
+
+### Etapa 3 — acciones (2026-09-15)
+
+Se adelantó a la 2 por pedido del dueño: lo que más le costaba no era no ver la actividad, era tener que abrir el SQL editor para dar un acceso. Y hay 4 feedbacks esperando.
+
+**Invitar en vez de crear cuentas.** Los dos caminos que había eran malos: registrarse y quedar frenado en el paywall hasta que el dueño corriera un `INSERT`, o una cuenta creada a mano con una contraseña que conocían dos personas. Ahora se pre-autoriza un mail (`beta_invites`) y **un trigger sobre `auth.users` le da la cortesía en el instante del registro**. La duración va en días y no como fecha: si alguien acepta tarde, sus tres meses empiezan cuando entra. Si el mail ya tiene cuenta, el acceso se da en el momento.
+
+| Pieza | Qué |
+|---|---|
+| `00031_admin_actions.sql` | `beta_invites`, `admin_actions` (las dos con RLS y **sin policies**), el trigger y cinco funciones: invitar, cancelar invitación, dar/cambiar cortesía, revocarla y cambiar el estado de un feedback |
+| `lib/admin/api.ts` | `requireAdmin`: sesión y admin al entrar a cada ruta. **Es el único chequeo que decide quién ejecuta las funciones**, porque reciben el id del admin por parámetro (`service_role` no tiene usuario) |
+| `api/admin/{invites,invites/[id],grants/[userId],feedback/[id]}` | Las cuatro rutas, con Zod |
+| `lib/admin/grants.ts` | Duraciones y extensión de un vencimiento. **3 tests** |
+| `lib/admin/action-log.ts` | Cómo se lee una entrada del historial, leyendo el jsonb campo por campo en vez de castearlo. **4 tests** |
+| `hooks/use-admin-actions.ts` | Las llamadas, con `router.refresh()` después de cada una |
+| `admin-invite-panel` · `admin-access-actions` · `admin-feedback-actions` · `admin-action-log` | Invitar y ver pendientes; extender (+1/+3 meses) o revocar por usuario; visto/resuelto/reabrir; historial |
+
+**Tres decisiones de diseño:**
+
+1. **El trigger no puede fallar.** Corre dentro del `INSERT` de Supabase Auth: si tirara, **nadie más se podría registrar en Lumus**. Todo error se degrada a un `warning`, y lo peor que pasa es que el invitado queda frenado en el paywall, que es como funcionaba antes.
+2. **Cada acción y su registro van en la misma transacción.** Un historial que puede perder una entrada en silencio —el cambio salió y el log no— no sirve para lo único que sirve un historial.
+3. **No se puede revocar la cortesía propia.** El dueño entra a Lumus por una cortesía (`B3`): revocársela lo deja afuera de su app y del panel para deshacerlo. Lo rechaza la API y, por las dudas, también la función.
+
+**Extender suma desde el vencimiento si todavía no llegó, y desde hoy si ya pasó.** Un mes más a alguien a quien le quedan diez días le da cuarenta, no treinta; y a un acceso vencido hace dos meses, sumarle uno desde su vencimiento lo dejaría vencido igual.
+
+### Verificación de la etapa 3 (2026-09-15)
+
+- `npm test` (**229**), `npx tsc --noEmit`, `npm run lint` (0 errores) y `npm run build`.
+- **El trigger, sobre una inserción real en `auth.users`** dentro de un bloque que se revierte: invitación con mayúsculas y espacios → registro → cortesía de 90 días y la invitación marcada como aceptada. Un registro sin invitación: sin cortesía y **sin error**. Invitar un mail que ya tiene cuenta: `granted_existing`. Dos acciones en el historial. Después del rollback, la base quedó igual (0 invitaciones, 0 acciones, 3 cortesías).
+- Revocarse la propia cortesía: `No podés revocar tu propio acceso`.
+- `has_function_privilege`: las seis funciones nuevas en `false` para `anon` y `authenticated`.
+- Las cuatro rutas de `/api/admin` sin sesión: `401`.
+
+**Falta:** un registro de verdad con una invitación, pasando por el mail de verificación y el onboarding. La prueba de arriba inserta en `auth.users` a mano; la de verdad pasa por Supabase Auth.
 
 ---
 
