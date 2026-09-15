@@ -3,8 +3,11 @@ import {
   daysUntilDue,
   loanMovementRole,
   loanProgress,
+  installmentsFromRepaid,
   loanTotals,
+  maxRepaidBeforeTracking,
   nextDueDate,
+  repaidFromInstallments,
   type Loan,
   type LoanRepayment,
 } from './loans'
@@ -22,6 +25,8 @@ function loan(overrides: Partial<Loan> = {}): Loan {
     next_due_date: '2026-10-10',
     started_on: '2026-09-10',
     notes: null,
+    preexisting: false,
+    repaid_before_tracking: 0,
     ...overrides,
   }
 }
@@ -323,5 +328,70 @@ describe('invariante: pagar no cambia el patrimonio', () => {
   // debía. No es un bug, es plata regalada.
   it('pagando más que el total, la diferencia se pierde de verdad', () => {
     expect(patrimonio(1_500_000)).toBe(PRINCIPAL - 1_500_000)
+  })
+})
+
+describe('préstamos que ya venías pagando (F3)', () => {
+  // 12 cuotas de 100.000, 5 pagadas antes de usar Lumus.
+  const viejo = loan({
+    principal: 1_000_000,
+    installments: 12,
+    installment_amount: 100_000,
+    preexisting: true,
+    repaid_before_tracking: repaidFromInstallments(5, 100_000),
+  })
+
+  it('lo devuelto antes descuenta lo pendiente, sin ningún movimiento', () => {
+    const p = loanProgress(viejo, [])
+    expect(p.repaid).toBe(500_000)
+    expect(p.outstanding).toBe(700_000)
+    expect(p.paidInstallments).toBe(5)
+    expect(p.remainingInstallments).toBe(7)
+  })
+
+  it('las cuotas que se registran después siguen la cuenta', () => {
+    // La cuota que se registra ahora es la 6: la API la numera con paidInstallments + 1.
+    const p = loanProgress(viejo, pagos(100_000))
+    expect(p.paidInstallments).toBe(6)
+    expect(p.outstanding).toBe(600_000)
+  })
+
+  it('llega a saldado con lo de antes más lo de ahora', () => {
+    expect(loanProgress(viejo, pagos(...Array(7).fill(100_000))).settled).toBe(true)
+  })
+
+  it('un otorgado descuenta en plata lo que ya te devolvieron', () => {
+    const hermano = loan({
+      direction: 'otorgado',
+      principal: 200_000,
+      installments: null,
+      installment_amount: null,
+      preexisting: true,
+      repaid_before_tracking: 80_000,
+    })
+    const p = loanProgress(hermano, pagos(20_000))
+    expect(p.outstanding).toBe(100_000)
+    // Lo de antes no es un cobro registrado: no suma a la cantidad de cobros.
+    expect(p.paidInstallments).toBe(1)
+  })
+
+  it('el patrimonio ve la deuda que falta, no la original', () => {
+    expect(loanTotals([viejo], { [viejo.id]: [] })).toEqual({ debt: 700_000, receivable: 0 })
+  })
+
+  it('tolera el monto como string, que es como puede llegar un numeric', () => {
+    const conString = { ...viejo, repaid_before_tracking: '500000.00' as unknown as number }
+    expect(loanProgress(conString, []).outstanding).toBe(700_000)
+  })
+
+  it('el tope de lo devuelto es el total de las cuotas en un tomado y lo prestado en un otorgado', () => {
+    expect(maxRepaidBeforeTracking(viejo)).toBe(1_200_000)
+    expect(maxRepaidBeforeTracking({ direction: 'otorgado', principal: 200_000, installments: 4, installment_amount: 60_000 })).toBe(200_000)
+  })
+
+  it('cuotas y plata van y vuelven sin perder la cuenta', () => {
+    expect(repaidFromInstallments(3, 45_000.5)).toBe(135_001.5)
+    expect(installmentsFromRepaid(135_001.5, 45_000.5)).toBe(3)
+    expect(installmentsFromRepaid(100, 0)).toBe(0)
   })
 })

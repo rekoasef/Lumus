@@ -66,6 +66,13 @@ export interface Loan {
   next_due_date: string | null
   started_on: string
   notes: string | null
+  /**
+   * Préstamo que ya venía corriendo antes de cargarlo (`F3`): no tiene
+   * desembolso en ninguna billetera, porque esa plata se movió antes de Lumus.
+   */
+  preexisting: boolean
+  /** Lo devuelto antes de cargarlo, en plata. Siempre 0 en uno que no es preexistente. */
+  repaid_before_tracking: number
 }
 
 /** Una cuota pagada o un cobro recibido. El monto siempre va positivo. */
@@ -132,7 +139,11 @@ export interface LoanProgress {
  * arreglo de arriba es, justamente, que las dos direcciones ahora cuentan igual.
  */
 export function loanProgress(loan: Loan, repayments: readonly LoanRepayment[]): LoanProgress {
-  const repaid = repayments.reduce((sum, r) => sum + r.amount, 0)
+  // Lo devuelto antes de cargarlo cuenta igual que lo registrado: para lo que
+  // falta da lo mismo si la cuota se pagó en marzo o ayer (ver `F3`). `Number`
+  // porque `numeric` puede llegar como string desde la base.
+  const repaid =
+    Number(loan.repaid_before_tracking ?? 0) + repayments.reduce((sum, r) => sum + r.amount, 0)
   const paidInstallments = repayments.length
 
   const hasPlan = loan.installments !== null && loan.installment_amount !== null
@@ -176,6 +187,35 @@ export function loanProgress(loan: Loan, repayments: readonly LoanRepayment[]): 
     surchargePercent,
     settled: outstanding === 0,
   }
+}
+
+/**
+ * Lo máximo que se puede haber devuelto antes de cargar un préstamo: lo que
+ * había que devolver. Es el mismo tope que usa `loanProgress` para medir lo
+ * pendiente, y el mismo que el CHECK de la migración 00032.
+ */
+export function maxRepaidBeforeTracking(
+  loan: Pick<Loan, 'direction' | 'principal' | 'installments' | 'installment_amount'>,
+): number {
+  if (loan.direction === 'tomado' && loan.installments != null && loan.installment_amount != null) {
+    return loan.installments * loan.installment_amount
+  }
+  return loan.principal
+}
+
+/**
+ * Cuotas ya pagadas → plata. En un préstamo tomado la pantalla pregunta
+ * *"¿cuántas cuotas ya pagaste?"*, porque la gente sabe "voy 5 de 12" y no
+ * "devolví 437.500"; pero se guarda en plata (ver `loanProgress`).
+ */
+export function repaidFromInstallments(paidInstallments: number, installmentAmount: number): number {
+  return Math.round(paidInstallments * installmentAmount * 100) / 100
+}
+
+/** El camino inverso, para mostrar en el formulario de edición lo que se cargó. */
+export function installmentsFromRepaid(repaid: number, installmentAmount: number): number {
+  if (installmentAmount <= 0) return 0
+  return Math.round(repaid / installmentAmount)
 }
 
 export interface LoanTotals {

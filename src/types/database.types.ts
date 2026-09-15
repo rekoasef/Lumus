@@ -371,7 +371,9 @@ export type Database = {
           installments: number | null
           next_due_date: string | null
           notes: string | null
+          preexisting: boolean
           principal: number
+          repaid_before_tracking: number
           started_on: string
           updated_at: string
           user_id: string
@@ -388,7 +390,9 @@ export type Database = {
           installments?: number | null
           next_due_date?: string | null
           notes?: string | null
+          preexisting?: boolean
           principal: number
+          repaid_before_tracking?: number
           started_on?: string
           updated_at?: string
           user_id: string
@@ -405,7 +409,9 @@ export type Database = {
           installments?: number | null
           next_due_date?: string | null
           notes?: string | null
+          preexisting?: boolean
           principal?: number
+          repaid_before_tracking?: number
           started_on?: string
           updated_at?: string
           user_id?: string

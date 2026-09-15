@@ -4,7 +4,7 @@
 
 Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es un conjunto acotado de tickets que se toman **de a uno**, se cierran, se verifican y recién ahí se pasa al siguiente. Las rondas cerradas quedan abajo como historial, no se borran.
 
-- **Ronda 6 (`G1`)** — **abierta el 2026-09-15**. El panel de admin que `B4` descartó con dos usuarios: ya hay tres cuentas, y el dueño no tiene forma de saber si la usan sin abrir el SQL editor.
+- **Ronda 6 (`G1`, `E2`)** — **abierta el 2026-09-15**. El panel de admin que `B4` descartó con dos usuarios, y billeteras de inversión con tenencias adentro (una cuenta de broker con varias acciones).
 
 - **Ronda 5 (`F1`–`F2`)** — **abierta el 2026-09-10**. Los dos tickets salieron de que un amigo del dueño usó la app: el camino para cargar un gasto y los préstamos. **Los dos implementados el mismo día**; falta probarlos en pantalla y con un préstamo real.
 - **Ronda 4 (`E1`)** — abierta y **cerrada el 2026-08-28**. `E1` (billeteras de inversión con saldo) está deployado y probado con datos reales.
@@ -25,7 +25,7 @@ Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es u
 
 ## `G1` — Panel de admin: saber si Lumus se usa
 
-Estado: **etapa 1 deployada (2026-09-15, `7a012a2`) · etapa 3 implementada, falta probar el registro con invitación de punta a punta · etapa 2 pendiente**
+Estado: **etapas 1 y 3 deployadas (2026-09-15, `7a012a2` y `730e6b7`) · falta probar el registro con invitación de punta a punta · etapa 2 pendiente**
 
 ### Por qué, y por qué ahora sí
 
@@ -144,6 +144,57 @@ Se adelantó a la 2 por pedido del dueño: lo que más le costaba no era no ver 
 - Las cuatro rutas de `/api/admin` sin sesión: `401`.
 
 **Falta:** un registro de verdad con una invitación, pasando por el mail de verificación y el onboarding. La prueba de arriba inserta en `auth.users` a mano; la de verdad pasa por Supabase Auth.
+
+---
+
+## `E2` — Billeteras de inversión con tenencias adentro
+
+Estado: **decidido (2026-09-15), sin empezar**. Va después de cerrar `F3`.
+
+### Por qué
+
+El pedido del dueño: *"puedo tener una billetera que sea acciones y dentro de esa billetera tener diferentes acciones y ver cómo viene cada una."*
+
+Hoy Lumus tiene las dos mitades de una inversión **sin conectar**:
+
+- **Billeteras de inversión** (`E1`): un saldo que cambia por aportes, retiros y rendimiento. Sirve para Inversiones MP, un plazo fijo, un FCI.
+- **Tenencias** (`D2`): cosas con unidades y precio (0,05 BTC, 100 GGAL), **sueltas**, sin billetera. Comprar no descuenta plata de ningún lado.
+
+Una cuenta de broker o un exchange no es ninguna de las dos: es **una billetera con varias especies adentro y plata sin invertir**. Y el modelo actual deja la puerta abierta a contar la misma plata dos veces: una billetera "Binance" con saldo **y** la tenencia de BTC por separado.
+
+### Lo que lo hace viable
+
+- **Los precios de acciones ya existen.** `D3` encontró data912, que da 96 acciones argentinas en vivo y ya alimenta `/finanzas/mercado`; la misma fuente tiene CEDEARs (endpoint a verificar). Cripto sale de CoinGecko. Casi nada se actualiza a mano.
+- **No hay datos que migrar**: al 2026-09-15 ninguna cuenta tiene tenencias cargadas.
+
+### El modelo
+
+Las billeteras de inversión pasan a tener **dos modos**:
+
+- **Con saldo** — queda exactamente como `E1`. Los números de Inversiones MP no se tocan.
+- **Con tenencias** — adentro hay especies. Por cada una: cantidad, precio promedio de compra, precio actual, ganancia o pérdida en pesos y en dólares. **El valor de la billetera = efectivo + lo que valen sus tenencias.**
+
+El rendimiento en dólares valúa cada compra con el dólar **de su día**, como ya hace `lib/finance/holdings.ts`: si no, una acción comprada en pesos parece rendir lo que en realidad se devaluó el peso.
+
+### Decisiones (2026-09-15)
+
+1. **La billetera tiene efectivo.** Pasar plata del banco al broker es una transferencia (ya existe). **Comprar** saca del efectivo de esa billetera y **vender** lo devuelve; ninguna de las dos es gasto ni ingreso. Se descartó la billetera "solo tenencias": comprar y vender quedaban sin origen ni destino de la plata, el mismo agujero que `F3` acaba de cerrar en los préstamos.
+2. **Compras y ventas desde la primera versión.** Con solo compras, la primera venta rompe la billetera. Varias compras de la misma especie se agrupan en una línea con precio promedio; vender reduce la cantidad y deja la ganancia realizada.
+3. **"Cómo viene" cada especie** (a criterio de Claude, por pedido del dueño): contra lo que se pagó y con la variación del día, que es lo que da la fuente. **Desde el día uno se guarda un precio de cierre diario por especie en cartera**, colgado del cron diario que ya existe (Vercel Hobby permite uno solo). El gráfico por especie aparece cuando haya historia propia; hacia atrás no hay de dónde sacarla. Es la lección de `D1`: la historia que no se empieza a guardar hoy no se puede reconstruir después.
+4. **Mostrar, nunca recomendar.** Cómo le va a cada especie sí; comprar o vender, no. Misma línea de la CNV que `D4`.
+
+### Partes
+
+| Parte | Qué |
+|---|---|
+| **1** | Modo "con tenencias", especies adentro de la billetera, precios automáticos (acciones, CEDEARs, cripto), vista por especie con promedio y rendimiento, snapshot diario de precios |
+| **2** | Efectivo de la billetera, compras y ventas como movimientos, ganancia realizada |
+
+### Riesgos
+
+- **El patrimonio pasa a depender de dos APIs gratuitas.** `D3` ya estableció la regla: si la fuente falla, el precio viejo se muestra con su edad, y sin precio la especie lo dice en vez de inventar uno.
+- **El patrimonio no puede contar dos veces.** El efectivo de la billetera y el valor de sus tenencias se suman una vez, en un solo lugar (`lib/finance/`), con test.
+- **Si se toca lo que ve el análisis de patrimonio, se reprueba el prompt** contra los intentos de sacarle una recomendación (`scripts/verify-wealth-prompt.mjs`). Alguien mirando cómo le va a cada acción es justo el escenario donde esa barrera tiene que aguantar.
 
 ---
 
@@ -360,6 +411,69 @@ Un préstamo **tomado** tiene un contrato —doce cuotas de 45.000 y listo— as
 ### Lo que falta
 
 Cargar un préstamo real y pagarle una cuota, mirando que el saldo de la billetera se mueva lo que tiene que moverse y que la cuota aparezca en el presupuesto del mes. Como en `E1`, esto no está cerrado hasta que pase sobre plata de verdad.
+
+---
+
+## `F3` — Préstamos que ya venías pagando
+
+Estado: **implementado (2026-09-15) — falta probarlo en pantalla, sin commit**
+
+### Por qué
+
+El pedido, de un tester: *"si ya tenías un préstamo sacado, poder poner cuánto ya devolviste y cuánto te queda por pagar de ese préstamo antiguo."*
+
+Parece un campo más y no lo es. **Hoy cargar un préstamo viejo miente.** Crear un préstamo mete la plata en la billetera con la fecha de inicio, que es correcto si lo sacaste hoy. Pero la plata de un préstamo de hace un año ya entró y ya se gastó, y el saldo de la billetera ya lo refleja. Cargarlo hoy:
+
+- **suma el préstamo entero a la billetera por segunda vez** — plata que no existe;
+- y si las cuotas viejas se cargan como pagos, **caen como gastos de este mes**, rompen el presupuesto y el reporte, y vuelven a sacar plata de la billetera.
+
+### La idea de fondo
+
+**Un préstamo preexistente es una deuda sin movimiento de plata.** No crea desembolso, y lo devuelto antes de empezar a usar Lumus se guarda como un número en el préstamo, no como movimientos.
+
+Se descartó reconstruir el pasado con movimientos de fecha vieja (desembolso y cada cuota): ensucia reportes de meses ya cerrados, y el saldo de la billetera queda mal igual.
+
+**Consecuencia buscada, no bug:** cargar un préstamo viejo **baja el patrimonio** por lo que falta, sin plata que lo compense. Hasta hoy el patrimonio no sabía de esa deuda.
+
+### Decisiones (2026-09-15)
+
+1. **Qué se pregunta.** Tomado: *"¿cuántas cuotas ya pagaste?"* — la gente sabe "voy 5 de 12", no "devolví 437.500"; Lumus lo pasa a plata con el valor de la cuota. Otorgado: *"¿cuánto te devolvieron ya?"*, en plata, porque ahí no hay cuotas de verdad. **No se pregunta también "cuánto te queda"**: con el total una sale de la otra, y si alguien pone dos números que no cierran habría que elegir a cuál creerle.
+2. **Vale para las dos direcciones.** "Le presté 200.000 a mi hermano hace un año y ya me devolvió 80.000" es el mismo caso.
+3. **También al editar.** Prender "ya lo venía pagando" en un préstamo cargado como nuevo **saca el desembolso y corrige la billetera**. Es el arreglo para quien ya lo cargó mal, sin tener que mirar sus datos.
+
+### Se guarda en plata, siempre
+
+`repaid_before_tracking` es un monto también en los tomados, aunque se pregunte en cuotas. Es la regla del arreglo del 2026-09-14 (*"lo que falta se mide en plata"*): lo pendiente es `total − (lo devuelto antes + lo registrado)`, y mezclar un conteo de cuotas en esa resta es cómo las dos mitades se separaron la vez anterior.
+
+### Done cuando
+
+- Cargar un préstamo que ya venías pagando no mueve ninguna billetera ni ningún reporte.
+- Lo pendiente descuenta lo devuelto antes, y las cuotas nuevas se numeran siguiendo ("Cuota 6/12").
+- Prender la opción al editar un préstamo cargado como nuevo devuelve la billetera a su saldo sin el desembolso; apagarla lo vuelve a crear.
+- La base rechaza un "ya devuelto" mayor al total, o en un préstamo que no es preexistente.
+- La regla en `lib/finance/loans.ts`, con tests.
+
+### Resultado (2026-09-15)
+
+| Pieza | Qué |
+|---|---|
+| `00032_preexisting_loans.sql` | `preexisting` y `repaid_before_tracking`, con dos CHECK: lo ya devuelto solo en un préstamo preexistente, y nunca más que el total (las cuotas en un tomado, lo prestado en un otorgado) |
+| `lib/finance/loans.ts` | `loanProgress` suma lo devuelto antes a lo registrado; `maxRepaidBeforeTracking` y la conversión cuotas ↔ plata. **8 tests nuevos** |
+| `validations/finance.ts` | Los mismos dos topes que la base, para que el error llegue legible |
+| `api/finance/loans` | El alta no crea desembolso si es preexistente |
+| `api/finance/loans/[id]` | Prender la opción al editar **saca el desembolso** y recalcula la billetera; apagarla lo vuelve a crear. El tope se chequea contra el préstamo como va a quedar, porque en la misma edición pueden cambiar las cuotas |
+| `loan-form.tsx` | Interruptor "Ya lo venía pagando" / "Ya me venían devolviendo"; cuotas pagadas (tomado) o monto devuelto (otorgado); lo pendiente en vivo; aviso de que al guardar se corrige la billetera |
+| `loan-card.tsx` | "Incluye X que pagaste antes de cargarlo en Lumus" |
+
+La cuota siguiente se numera sola: la API ya usaba `paidInstallments + 1`, y ahora ese conteo incluye lo de antes — la primera que se registra de un préstamo que iba 5 de 12 sale como "Cuota 6/12".
+
+### Verificación (2026-09-15)
+
+- `npm test` (**237**), `npx tsc --noEmit`, `npm run lint` (0 errores) y `npm run build`, 49 páginas.
+- Migración aplicada: los 4 préstamos existentes quedaron con `preexisting = false` y 0 devuelto, o sea idénticos.
+- CHECK probados contra la base en un bloque revertido: acepta 5 de 12 cuotas pagadas; rechaza lo devuelto por encima del total, lo devuelto en un préstamo no preexistente, y en un otorgado con cuotas un devuelto por encima de lo prestado.
+
+**Falta:** probar en pantalla el alta de un préstamo viejo y, sobre todo, prender la opción al editar uno cargado como nuevo, mirando que la billetera baje exactamente el desembolso.
 
 ---
 

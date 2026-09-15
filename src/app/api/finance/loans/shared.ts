@@ -5,7 +5,7 @@ import { loanMovementRole, type LoanDirection, type LoanRepayment } from '@/lib/
 type Client = SupabaseClient<Database>
 
 export const LOAN_SELECT =
-  'id, direction, counterparty, wallet_id, category_id, principal, installments, installment_amount, next_due_date, started_on, notes, created_at, updated_at'
+  'id, direction, counterparty, wallet_id, category_id, principal, installments, installment_amount, next_due_date, started_on, notes, preexisting, repaid_before_tracking, created_at, updated_at'
 
 export const WALLET_SELECT =
   'id, name, type, balance, currency, color, icon, created_at, updated_at'

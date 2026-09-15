@@ -64,11 +64,20 @@ export async function POST(req: NextRequest) {
       next_due_date:      input.next_due_date ?? null,
       started_on:         input.started_on,
       notes:              input.notes ?? null,
+      preexisting:        input.preexisting ?? false,
+      repaid_before_tracking: input.preexisting ? (input.repaid_before_tracking ?? 0) : 0,
     })
     .select(LOAN_SELECT)
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Un préstamo que ya venías pagando no tiene desembolso: esa plata entró (o
+  // salió) antes de usar Lumus y el saldo de la billetera ya la refleja.
+  // Crearlo la sumaría por segunda vez (ver `F3`).
+  if (input.preexisting) {
+    return NextResponse.json({ loan }, { status: 201 })
+  }
 
   // El desembolso. Tipo `prestamo` y no `ingreso`/`gasto` a propósito: sacar un
   // préstamo no es ganar plata y prestarla no es gastarla. Va firmado — entra

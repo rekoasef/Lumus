@@ -1,11 +1,18 @@
 'use client'
 
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowDownLeft, ArrowUpRight, X } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, History, X } from 'lucide-react'
 import { createLoanSchema, type CreateLoanInput } from '@/lib/validations/finance'
 import type { FinanceCategory, Wallet } from '@/types/finance.types'
-import type { Loan, LoanDirection } from '@/lib/finance/loans'
+import {
+  installmentsFromRepaid,
+  maxRepaidBeforeTracking,
+  repaidFromInstallments,
+  type Loan,
+  type LoanDirection,
+} from '@/lib/finance/loans'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import { localDateStr } from '@/lib/utils/format-date'
 
@@ -42,6 +49,10 @@ export function LoanForm({ wallets, categories, onSave, onClose, initial }: Loan
       next_due_date:      initial?.next_due_date      ?? null,
       started_on:         initial?.started_on         ?? localDateStr(),
       notes:              initial?.notes              ?? null,
+      preexisting:        initial?.preexisting        ?? false,
+      // Solo el otorgado lo edita en plata; el tomado lo recalcula desde las
+      // cuotas al enviar, así que acá arranca en 0 para no validar un valor viejo.
+      repaid_before_tracking: initial?.direction === 'otorgado' ? Number(initial.repaid_before_tracking) : 0,
     },
   })
 
@@ -50,7 +61,22 @@ export function LoanForm({ wallets, categories, onSave, onClose, initial }: Loan
   const installments = watch('installments')
   const installmentAmount = watch('installment_amount')
 
+  const preexisting = watch('preexisting') ?? false
+  const repaidBeforeMoney = watch('repaid_before_tracking')
+
+  // En un préstamo tomado se pregunta en cuotas ("voy 5 de 12") y se guarda en
+  // plata: la conversión la hace `repaidFromInstallments` al enviar, con el valor
+  // de cuota que haya quedado. Ver `F3`.
+  const [paidInstallments, setPaidInstallments] = useState<string>(() =>
+    initial?.preexisting && initial.installment_amount
+      ? String(installmentsFromRepaid(Number(initial.repaid_before_tracking), initial.installment_amount))
+      : '',
+  )
+  const [paidInstallmentsError, setPaidInstallmentsError] = useState<string | null>(null)
+
   const isTaken = direction === 'tomado'
+  /** Editando un préstamo que se cargó como nuevo: prender la opción saca su desembolso. */
+  const willRemoveDisbursement = Boolean(initial && !initial.preexisting && preexisting)
   const expenseCategories = categories.filter(c => c.type === 'gasto')
 
   // El sobrecosto se muestra en vivo mientras se escribe: es lo que el usuario
@@ -60,6 +86,46 @@ export function LoanForm({ wallets, categories, onSave, onClose, initial }: Loan
     typeof installments === 'number' && typeof installmentAmount === 'number'
       ? installments * installmentAmount
       : null
+
+  const repaidBefore = !preexisting
+    ? 0
+    : isTaken
+      ? typeof installmentAmount === 'number' && paidInstallments !== ''
+        ? repaidFromInstallments(Number(paidInstallments), installmentAmount)
+        : 0
+      : typeof repaidBeforeMoney === 'number' && !Number.isNaN(repaidBeforeMoney) ? repaidBeforeMoney : 0
+
+  const outstandingPreview = preexisting && typeof principal === 'number'
+    ? Math.max(0, maxRepaidBeforeTracking({
+        direction,
+        principal,
+        installments: installments ?? null,
+        installment_amount: installmentAmount ?? null,
+      }) - repaidBefore)
+    : null
+
+  function submit(data: CreateLoanInput) {
+    if (!data.preexisting) {
+      setPaidInstallmentsError(null)
+      return onSave({ ...data, repaid_before_tracking: 0 })
+    }
+    if (data.direction !== 'tomado') {
+      setPaidInstallmentsError(null)
+      return onSave(data)
+    }
+
+    const count = paidInstallments === '' ? 0 : Number(paidInstallments)
+    const total = data.installments ?? 0
+    if (!Number.isInteger(count) || count < 0 || count > total) {
+      setPaidInstallmentsError(`Tiene que ser un número entre 0 y ${total}`)
+      return Promise.resolve()
+    }
+    setPaidInstallmentsError(null)
+    return onSave({
+      ...data,
+      repaid_before_tracking: repaidFromInstallments(count, data.installment_amount ?? 0),
+    })
+  }
 
   const surcharge =
     totalToRepay !== null && typeof principal === 'number' && principal > 0
@@ -78,7 +144,7 @@ export function LoanForm({ wallets, categories, onSave, onClose, initial }: Loan
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSave)} className="space-y-4">
+        <form onSubmit={handleSubmit(submit)} className="space-y-4">
 
           {/* Dirección — no se edita después: cambiarla daría vuelta el signo
               del desembolso ya registrado. */}
@@ -105,6 +171,48 @@ export function LoanForm({ wallets, categories, onSave, onClose, initial }: Loan
                 </button>
               ))}
             </div>
+          )}
+
+          {/* Préstamo que ya venía corriendo (F3): no toca billeteras, porque esa
+              plata se movió antes de usar Lumus y el saldo ya la refleja. */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={preexisting}
+            onClick={() => {
+              // Apagada, lo ya devuelto no existe: se limpia para que el
+              // formulario no rechace un valor que ya no se ve.
+              if (preexisting) setValue('repaid_before_tracking', 0)
+              setValue('preexisting', !preexisting)
+            }}
+            className={`flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors ${
+              preexisting
+                ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)]'
+                : 'border-white/10 bg-white/[0.03] hover:border-white/20'
+            }`}
+          >
+            <History size={16} className={preexisting ? 'mt-0.5 text-[var(--accent-lumus)]' : 'mt-0.5 text-[var(--text-muted)]'} />
+            <span className="flex-1">
+              <span className={`block text-sm font-medium ${preexisting ? 'text-[var(--accent-lumus)]' : 'text-[var(--text-primary)]'}`}>
+                {isTaken ? 'Ya lo venía pagando' : 'Ya me venían devolviendo'}
+              </span>
+              <span className="block text-[0.68rem] text-[var(--text-muted)]">
+                Es de antes de usar Lumus: no se suma ni se resta plata de ninguna billetera.
+              </span>
+            </span>
+            <span
+              aria-hidden
+              className={`mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${preexisting ? 'bg-[var(--accent-lumus)]' : 'bg-white/15'}`}
+            >
+              <span className={`size-4 rounded-full bg-white transition-transform ${preexisting ? 'translate-x-4' : ''}`} />
+            </span>
+          </button>
+
+          {willRemoveDisbursement && (
+            <p className="-mt-1 rounded-lg border border-[var(--warning)]/25 bg-[var(--warning-muted)] px-3 py-2 text-[0.7rem] leading-relaxed text-[var(--text-secondary)]">
+              Al guardar se {isTaken ? 'saca de' : 'devuelve a'} tu billetera {isTaken ? 'la plata que se sumó' : 'la plata que se restó'} cuando lo cargaste
+              {typeof principal === 'number' ? ` (${formatCurrency(principal, 'ARS', 'auto')})` : ''}.
+            </p>
           )}
 
           <div>
@@ -135,7 +243,9 @@ export function LoanForm({ wallets, categories, onSave, onClose, initial }: Loan
 
           <div>
             <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-              {isTaken ? 'A QUÉ BILLETERA ENTRÓ' : 'DE QUÉ BILLETERA SALIÓ'}
+              {preexisting
+                ? isTaken ? 'DE QUÉ BILLETERA PAGÁS LAS CUOTAS' : 'A QUÉ BILLETERA TE DEVUELVEN'
+                : isTaken ? 'A QUÉ BILLETERA ENTRÓ' : 'DE QUÉ BILLETERA SALIÓ'}
             </label>
             <select
               {...register('wallet_id')}
@@ -182,6 +292,52 @@ export function LoanForm({ wallets, categories, onSave, onClose, initial }: Loan
             </p>
           )}
 
+          {preexisting && isTaken && (
+            <div>
+              <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
+                CUÁNTAS CUOTAS YA PAGASTE
+              </label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={paidInstallments}
+                onChange={e => setPaidInstallments(e.target.value)}
+                placeholder="0"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
+              />
+              {paidInstallmentsError && <p className="mt-1 text-xs text-[var(--danger)]">{paidInstallmentsError}</p>}
+            </div>
+          )}
+
+          {preexisting && !isTaken && (
+            <div>
+              <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
+                CUÁNTO TE DEVOLVIERON YA
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                {...register('repaid_before_tracking', { setValueAs: v => (v === '' ? 0 : Number(v)) })}
+                placeholder="0.00"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-lumus)] focus:outline-none"
+              />
+              {errors.repaid_before_tracking && <p className="mt-1 text-xs text-[var(--danger)]">{errors.repaid_before_tracking.message}</p>}
+            </div>
+          )}
+
+          {outstandingPreview !== null && (
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+              <p className="text-sm text-[var(--text-primary)]">
+                {isTaken ? 'Te falta pagar ' : 'Te falta cobrar '}
+                <strong>{formatCurrency(outstandingPreview, 'ARS', 'auto')}</strong>
+              </p>
+              <p className="mt-0.5 text-[0.7rem] text-[var(--text-muted)]">
+                Suma a {isTaken ? 'lo que debés' : 'lo que te deben'} en tu patrimonio, sin mover ninguna billetera.
+              </p>
+            </div>
+          )}
+
           {/* Lo que el amigo pidió: "que te tire cuánto vas a pagar de más". */}
           {totalToRepay !== null && (
             <div className="rounded-xl border border-[var(--accent-lumus)]/20 bg-[var(--accent-muted)] px-4 py-3">
@@ -202,7 +358,7 @@ export function LoanForm({ wallets, categories, onSave, onClose, initial }: Loan
             <>
               <div>
                 <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">
-                  CUÁNDO VENCE LA PRIMERA CUOTA
+                  {preexisting ? 'CUÁNDO VENCE LA PRÓXIMA CUOTA' : 'CUÁNDO VENCE LA PRIMERA CUOTA'}
                 </label>
                 <input
                   type="date"

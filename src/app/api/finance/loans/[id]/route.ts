@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { updateLoanSchema } from '@/lib/validations/finance'
-import { loanMovementRole, loanProgress, type Loan } from '@/lib/finance/loans'
+import { loanMovementRole, loanProgress, maxRepaidBeforeTracking, type Loan } from '@/lib/finance/loans'
 import { LOAN_SELECT, loadRepayments } from '../shared'
 
 export async function PATCH(
@@ -33,9 +33,35 @@ export async function PATCH(
   if (!before) return NextResponse.json({ error: 'Préstamo no encontrado' }, { status: 404 })
   const previous = before as unknown as Loan
 
+  // ── Lo ya devuelto va atado a "ya lo venía pagando" ─────────────────────
+  //
+  // Apagar la opción pone lo ya devuelto en cero: en un préstamo que no es
+  // preexistente todo lo devuelto está en `transactions`, y un número suelto
+  // se contaría dos veces. El tope se chequea contra el préstamo **como va a
+  // quedar**, porque en la misma edición pueden cambiar las cuotas.
+  const preexisting = result.data.preexisting ?? previous.preexisting
+  const repaidBeforeTracking = preexisting
+    ? (result.data.repaid_before_tracking ?? Number(previous.repaid_before_tracking))
+    : 0
+
+  const ceiling = maxRepaidBeforeTracking({
+    direction:          previous.direction,
+    principal:          result.data.principal ?? Number(previous.principal),
+    installments:       result.data.installments !== undefined ? result.data.installments : previous.installments,
+    installment_amount: result.data.installment_amount !== undefined ? result.data.installment_amount : previous.installment_amount,
+  })
+  if (repaidBeforeTracking > ceiling) {
+    return NextResponse.json({ error: 'Lo ya devuelto es más de lo que había que devolver' }, { status: 400 })
+  }
+
   const { data: loan, error } = await supabase
     .from('loans')
-    .update({ ...result.data, updated_at: new Date().toISOString() })
+    .update({
+      ...result.data,
+      preexisting,
+      repaid_before_tracking: repaidBeforeTracking,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id)
     .eq('user_id', user.id)
     .is('deleted_at', null)
@@ -55,15 +81,23 @@ export async function PATCH(
   // adentro, o un préstamo apuntando a una billetera donde la plata nunca
   // entró—. En un préstamo otorgado eso mueve el patrimonio directo, porque
   // ahí lo que falta cobrar sale de `principal`.
+  //
+  // Y "ya lo venía pagando" decide si el desembolso existe (`F3`). Prenderlo en
+  // un préstamo cargado como nuevo es el arreglo para quien lo cargó mal: la
+  // plata que se sumó a la billetera nunca entró, y se saca. Apagarlo lo vuelve
+  // a crear, para que prender y apagar por error deje todo como estaba.
   const amountChanged = updated.principal !== previous.principal
   const walletChanged = updated.wallet_id !== previous.wallet_id
+  const becamePreexisting = updated.preexisting && !previous.preexisting
+  const stoppedBeingPreexisting = !updated.preexisting && previous.preexisting
 
   const wallets: { id: string; balance: number }[] = []
+  const touched = new Set<string>()
 
-  if (amountChanged || walletChanged) {
+  if (amountChanged || walletChanged || becamePreexisting || stoppedBeingPreexisting) {
     const { data: txRows } = await supabase
       .from('transactions')
-      .select('id, type, amount')
+      .select('id, type, amount, wallet_id')
       .eq('user_id', user.id)
       .eq('loan_id', id)
       .is('deleted_at', null)
@@ -72,11 +106,37 @@ export async function PATCH(
       t => loanMovementRole(updated.direction, t.type, Number(t.amount)) === 'desembolso',
     )
 
-    if (disbursement) {
-      // El signo lo sigue poniendo la dirección, que no se puede editar: entra
-      // si lo sacaste, sale si lo prestaste.
-      const signed = updated.direction === 'tomado' ? updated.principal : -updated.principal
+    // El signo lo sigue poniendo la dirección, que no se puede editar: entra
+    // si lo sacaste, sale si lo prestaste.
+    const signed = updated.direction === 'tomado' ? updated.principal : -updated.principal
 
+    if (updated.preexisting) {
+      if (disbursement) {
+        const { error: removeError } = await supabase
+          .from('transactions')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('id', disbursement.id)
+          .eq('user_id', user.id)
+        if (removeError) return NextResponse.json({ error: removeError.message }, { status: 500 })
+        if (disbursement.wallet_id) touched.add(disbursement.wallet_id)
+      }
+    } else if (!disbursement) {
+      const { error: insertError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id:     user.id,
+          wallet_id:   updated.wallet_id,
+          loan_id:     updated.id,
+          type:        'prestamo',
+          amount:      signed,
+          description: updated.direction === 'tomado'
+            ? `Préstamo de ${updated.counterparty}`
+            : `Préstamo a ${updated.counterparty}`,
+          date:        updated.started_on,
+        })
+      if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
+      touched.add(updated.wallet_id)
+    } else {
       await supabase
         .from('transactions')
         .update({
@@ -89,18 +149,20 @@ export async function PATCH(
 
       // Las dos billeteras cuando la plata se mudó: la que la pierde y la que
       // la recibe.
-      const touched = new Set([updated.wallet_id, previous.wallet_id])
-      for (const walletId of touched) {
-        await supabase.rpc('recompute_wallet_balance', { p_wallet_id: walletId })
-        const { data: wallet } = await supabase
-          .from('wallets')
-          .select('id, balance')
-          .eq('id', walletId)
-          .eq('user_id', user.id)
-          .single()
-        if (wallet) wallets.push({ id: wallet.id, balance: Number(wallet.balance) })
-      }
+      touched.add(updated.wallet_id)
+      touched.add(previous.wallet_id)
     }
+  }
+
+  for (const walletId of touched) {
+    await supabase.rpc('recompute_wallet_balance', { p_wallet_id: walletId })
+    const { data: wallet } = await supabase
+      .from('wallets')
+      .select('id, balance')
+      .eq('id', walletId)
+      .eq('user_id', user.id)
+      .single()
+    if (wallet) wallets.push({ id: wallet.id, balance: Number(wallet.balance) })
   }
 
   return NextResponse.json({ loan, wallets })

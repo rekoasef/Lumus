@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { maxRepaidBeforeTracking } from '@/lib/finance/loans'
 
 // ——— Wallets ———
 
@@ -214,6 +215,11 @@ const loanBase = z.object({
   next_due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD').nullable().optional(),
   started_on:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD'),
   notes:         z.string().max(500).nullable().optional(),
+
+  // Un préstamo que ya venía corriendo antes de cargarlo: no mueve billeteras,
+  // y lo devuelto hasta hoy va como número (ver `F3` y migración 00032).
+  preexisting:            z.boolean().optional(),
+  repaid_before_tracking: z.number().min(0, 'No puede ser negativo').optional(),
 })
 
 /** Las dos mitades del plan de cuotas van juntas o no van: con una sola no se puede calcular nada. */
@@ -234,6 +240,21 @@ export const createLoanSchema = loanBase
   .refine(d => d.direction !== 'tomado' || Boolean(d.next_due_date), {
     message: 'Poné cuándo vence la primera cuota',
     path: ['next_due_date'],
+  })
+  // Mismos dos CHECK que la tabla: lo devuelto antes solo en un préstamo
+  // preexistente, y nunca más de lo que había que devolver.
+  .refine(d => d.preexisting === true || !d.repaid_before_tracking, {
+    message: 'Lo ya devuelto solo aplica a un préstamo que ya venías pagando',
+    path: ['repaid_before_tracking'],
+  })
+  .refine(d => (d.repaid_before_tracking ?? 0) <= maxRepaidBeforeTracking({
+    direction: d.direction,
+    principal: d.principal,
+    installments: d.installments ?? null,
+    installment_amount: d.installment_amount ?? null,
+  }), {
+    message: 'Es más de lo que había que devolver',
+    path: ['repaid_before_tracking'],
   })
 
 export const updateLoanSchema = loanBase.partial().omit({ direction: true })

@@ -118,6 +118,13 @@ export function LoanCard({ loan, repayments, onPay, onEdit, onDelete, onArchive 
         />
       </div>
 
+      {Number(loan.repaid_before_tracking) > 0 && (
+        <p className="mt-3 text-[0.68rem] text-[var(--text-muted)]">
+          Incluye {formatCurrency(Number(loan.repaid_before_tracking), 'ARS', 'auto')} que
+          {isTaken ? ' pagaste' : ' te devolvieron'} antes de cargarlo en Lumus
+        </p>
+      )}
+
       {progress.surchargePercent !== null && progress.surchargePercent > 0 && (
         <p className="mt-3 text-[0.68rem] text-[var(--text-muted)]">
           {isTaken ? 'Devolvés' : 'Te devuelven'} {formatCurrency(progress.totalToRepay ?? 0, 'ARS', 'auto')} en total —
