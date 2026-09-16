@@ -146,7 +146,23 @@ Todo lo que sabemos de "alguien que no la construyó" viene de **una sola person
 
 ## `H5` — La landing
 
-Estado: **pendiente** — decidido hacerla el 2026-09-16
+Estado: **primera versión hecha el 2026-09-16, sin deployar** — se va a ir corrigiendo
+
+### Lo que se hizo
+
+- **Dónde vive**: en `/`, el dominio principal (`gestorlumus.site`), como se recomendó. Quien tiene sesión sigue de largo a la app. **La app no se mudó a `app.gestorlumus.site`**: implicaría cambiar la URL del webhook de Mercado Pago, la configuración de Auth de Supabase y los links de los mails. Queda como paso aparte y opcional.
+- **Estilo**: pedido *"moderno, estilo Apple/Tesla, con efectos de scroll y el orbe vivo y brilloso"*. Hero con el orbe (`living-orb.tsx`: aros que giran, partículas, sigue al puntero con resorte), frase que se enciende palabra por palabra, tarjeta de informe que se endereza al bajar y cuyo análisis se escribe solo, calculadora con curva animada, grilla con luz que sigue al puntero, precio y preguntas frecuentes.
+- **Calculadora** *"¿cuánto perdieron tus pesos?"*: usa la historia real del blue (`getPublicRates`, cacheada un día, una cotización por mes) y la misma cuenta que el dashboard (`purchasingPowerChange`).
+- **Precio**: muestra `DISPLAY_PRICE_ARS` (7.800 mientras el cobro está apagado, lo que se cobra de verdad cuando se prenda).
+- **Textos**: todos en `components/modules/landing/landing-copy.ts`, para corregirlos sin recorrer componentes.
+- Respeta movimiento y transparencia reducidos. Revisado con capturas en 1440 y 390 px, sin scroll horizontal ni errores de consola.
+
+### Falta
+
+- Correcciones del dueño.
+- Pantallazos reales de la app (hoy la tarjeta del informe es un ejemplo armado en código, marcado como *Ejemplo*).
+- Links a términos y privacidad cuando existan (`H6`).
+- Analytics de visitas (`G1` etapa 2).
 
 ### Por qué
 

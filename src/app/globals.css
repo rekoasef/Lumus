@@ -236,3 +236,92 @@ select option {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* ============================
+   LANDING
+   ============================
+   Loops infinitos en CSS y no en Framer Motion: corren en el compositor y no
+   despiertan a React en cada cuadro. Con movimiento reducido se quedan quietos. */
+
+@keyframes landing-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes landing-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 0.95; transform: scale(1.07); }
+}
+
+@keyframes landing-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50%      { opacity: 1; transform: scale(1); }
+}
+
+@keyframes landing-caret {
+  50% { opacity: 0; }
+}
+
+.landing-spin         { animation: landing-spin 22s linear infinite; }
+.landing-spin-reverse { animation: landing-spin 34s linear infinite reverse; }
+.landing-breathe      { animation: landing-breathe 7s ease-in-out infinite; }
+.landing-twinkle      { animation: landing-twinkle 4s ease-in-out infinite; }
+.landing-caret        { animation: landing-caret 1s steps(1) infinite; }
+
+/* Texto grande: tracking negativo y leading apretado. El cuerpo queda en 0. */
+.landing-display {
+  font-family: var(--font-hanken), var(--font-geist-sans), sans-serif;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+
+.landing-title {
+  font-family: var(--font-hanken), var(--font-geist-sans), sans-serif;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+}
+
+.landing-gradient-text {
+  background: linear-gradient(180deg, #ffffff 15%, #cfc6ff 70%, #9d8cff 110%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* El anillo del orbe: un conic-gradient recortado a un aro. */
+.landing-ring {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(189, 180, 255, 0.9) 40deg,
+    transparent 110deg,
+    transparent 200deg,
+    rgba(157, 140, 255, 0.7) 250deg,
+    transparent 320deg
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+}
+
+.landing-glass {
+  background: rgba(11, 11, 18, 0.62);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+}
+
+.landing-faq summary::-webkit-details-marker { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-spin,
+  .landing-spin-reverse,
+  .landing-breathe,
+  .landing-twinkle,
+  .landing-caret { animation: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .landing-glass {
+    background: rgba(11, 11, 18, 0.97);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

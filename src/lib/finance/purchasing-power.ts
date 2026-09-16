@@ -80,3 +80,31 @@ export function toUsdOn(amountArs: number, rates: readonly DailyRate[], date: st
   const rate = rateOn(rates, date)
   return rate ? amountArs / rate : null
 }
+
+/**
+ * Una cotización por mes: la primera que hay de cada mes, de más vieja a más
+ * nueva.
+ *
+ * La usa la calculadora pública de la landing, que elige mes y año: mandarle al
+ * navegador quince años día por día son 5.000 filas para mostrar 180.
+ */
+export function monthlyRates(rates: readonly DailyRate[]): DailyRate[] {
+  const firstOfMonth = new Map<string, DailyRate>()
+
+  for (const rate of rates) {
+    const month = rate.date.slice(0, 7)
+    const current = firstOfMonth.get(month)
+    if (!current || rate.date < current.date) firstOfMonth.set(month, rate)
+  }
+
+  return [...firstOfMonth.values()].sort((a, b) => a.date.localeCompare(b.date))
+}
+
+/** La más nueva de una serie, sin asumir el orden en que llegó. */
+export function latestRate(rates: readonly DailyRate[]): DailyRate | null {
+  let latest: DailyRate | null = null
+  for (const rate of rates) {
+    if (!latest || rate.date > latest.date) latest = rate
+  }
+  return latest
+}

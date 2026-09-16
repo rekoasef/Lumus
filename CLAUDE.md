@@ -136,7 +136,7 @@ src/app/api/finance/     → API routes del módulo de finanzas
 src/app/api/billing/     → API routes del paywall de Mercado Pago
 src/components/ui/       → shadcn/ui (no modificar)
 src/components/shared/   → nav, sidebar, diálogos globales
-src/components/modules/  → componentes por módulo (finanzas/, billing/, dashboard/)
+src/components/modules/  → componentes por módulo (finanzas/, billing/, dashboard/, landing/ — textos de la landing en landing-copy.ts)
 src/components/lumus/    → solo el orbe decorativo (lumus-orb.tsx) — ya no hay chat de IA
 src/lib/supabase/        → clientes de Supabase (client/server/service) + helper del proxy de auth
 src/lib/billing/         → constantes del plan de Mercado Pago

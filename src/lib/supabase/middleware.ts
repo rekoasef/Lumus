@@ -38,8 +38,12 @@ export async function updateSession(request: NextRequest) {
   // Abiertas para todos, con sesión o sin ella. `/baja` sale del pie de un
   // mail: si la tratáramos como pública a secas, un usuario logueado que hace
   // clic terminaría rebotado al dashboard sin poder darse de baja.
+  //
+  // `/` es la landing: la ve cualquiera, y la propia página manda a la app a
+  // quien ya tiene sesión. Va por igualdad exacta y no con `startsWith`, que
+  // abriría todas las rutas.
   const openPaths = ['/baja']
-  if (openPaths.some(p => pathname.startsWith(p))) {
+  if (pathname === '/' || openPaths.some(p => pathname.startsWith(p))) {
     return supabaseResponse
   }
 

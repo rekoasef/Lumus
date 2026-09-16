@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { purchasingPowerChange, rateOn, toUsdOn, type DailyRate } from './purchasing-power'
+import { latestRate, monthlyRates, purchasingPowerChange, rateOn, toUsdOn, type DailyRate } from './purchasing-power'
 
 const RATES: DailyRate[] = [
   { date: '2026-08-21', usd: 1500 },  // viernes
@@ -74,5 +74,36 @@ describe('toUsdOn', () => {
 
   it('sin cotización devuelve null en vez de un número cualquiera', () => {
     expect(toUsdOn(1000, RATES, '2010-01-01')).toBeNull()
+  })
+})
+
+describe('monthlyRates', () => {
+  it('se queda con la primera cotización de cada mes, ordenada', () => {
+    const series: DailyRate[] = [
+      { date: '2026-02-03', usd: 1300 },
+      { date: '2026-01-15', usd: 1250 },
+      { date: '2026-01-02', usd: 1200 },
+      { date: '2026-02-10', usd: 1320 },
+    ]
+
+    expect(monthlyRates(series)).toEqual([
+      { date: '2026-01-02', usd: 1200 },
+      { date: '2026-02-03', usd: 1300 },
+    ])
+  })
+
+  it('con la serie vacía devuelve vacío', () => {
+    expect(monthlyRates([])).toEqual([])
+  })
+})
+
+describe('latestRate', () => {
+  it('encuentra la más nueva sin importar el orden', () => {
+    expect(latestRate([
+      { date: '2026-09-10', usd: 1500 },
+      { date: '2026-09-16', usd: 1543 },
+      { date: '2026-09-12', usd: 1510 },
+    ])).toEqual({ date: '2026-09-16', usd: 1543 })
+    expect(latestRate([])).toBeNull()
   })
 })

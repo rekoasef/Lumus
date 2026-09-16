@@ -30,3 +30,18 @@ export const ACCESS_ENDING_WARNING_DAYS = 7
  * checkout: la pantalla y la API tienen que decir lo mismo.
  */
 export const CHECKOUT_ENABLED = false
+
+/**
+ * El precio decidido el 2026-09-16: el equivalente a 5 USD, cobrado en pesos, y
+ * revisado cada 6 meses (`docs/NEGOCIO.md`). Es el que anuncia la landing
+ * mientras el cobro está apagado. El día que se active el cobro,
+ * `SUBSCRIPTION_PRICE_ARS` pasa a valer esto.
+ */
+export const LIST_PRICE_ARS = 7800
+
+/**
+ * El precio que se le muestra a alguien que todavía no paga. Con el cobro
+ * prendido manda el que se cobra de verdad: la landing no puede anunciar un
+ * número y el checkout cobrar otro.
+ */
+export const DISPLAY_PRICE_ARS = CHECKOUT_ENABLED ? SUBSCRIPTION_PRICE_ARS : LIST_PRICE_ARS
