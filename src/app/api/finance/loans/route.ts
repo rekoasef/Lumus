@@ -110,6 +110,7 @@ export async function POST(req: NextRequest) {
     .from('wallets')
     .select(WALLET_SELECT)
     .eq('id', input.wallet_id)
+    .is('deleted_at', null)
     .single()
 
   return NextResponse.json({ loan, wallet: updatedWallet }, { status: 201 })

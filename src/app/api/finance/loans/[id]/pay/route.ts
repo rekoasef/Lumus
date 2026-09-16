@@ -116,6 +116,7 @@ export async function POST(
     .from('wallets')
     .select(WALLET_SELECT)
     .eq('id', input.wallet_id)
+    .is('deleted_at', null)
     .single()
 
   return NextResponse.json({

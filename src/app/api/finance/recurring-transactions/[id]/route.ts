@@ -72,7 +72,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: rec, error: recErr } = await supabase
     .from('recurring_transactions')
-    .select('*')
+    // Las columnas que usa el alta, no `*`: la fila tiene más campos de los que
+    // hacen falta para registrar la ocurrencia y avanzar la próxima fecha.
+    .select('id, wallet_id, category_id, type, amount, description, next_date, repeat_type, repeat_day')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
@@ -121,6 +123,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .from('wallets')
     .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, investment_mode, created_at, updated_at')
     .eq('id', rec.wallet_id)
+    .is('deleted_at', null)
     .single()
 
   return NextResponse.json({ transaction: tx, wallet, newNextDate: newNext }, { status: 201 })

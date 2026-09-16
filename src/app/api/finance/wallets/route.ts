@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
       .from('wallets')
       .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, investment_mode, created_at, updated_at')
       .eq('id', data.id)
+      .is('deleted_at', null)
       .single()
 
     if (updatedError) return NextResponse.json({ error: updatedError.message }, { status: 500 })

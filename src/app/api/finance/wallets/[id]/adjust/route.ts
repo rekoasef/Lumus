@@ -56,6 +56,7 @@ export async function POST(
       .from('wallets')
       .select(WALLET_COLUMNS)
       .eq('id', id)
+      .is('deleted_at', null)
       .single()
     return NextResponse.json({ wallet: unchanged, events: [] })
   }
@@ -139,6 +140,7 @@ export async function POST(
       .from('wallets')
       .select(WALLET_COLUMNS)
       .eq('id', id)
+      .is('deleted_at', null)
       .single()
 
     if (updError) return NextResponse.json({ error: updError.message }, { status: 500 })
