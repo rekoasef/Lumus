@@ -23,6 +23,19 @@ Lumus pasa de ser una herramienta personal a ser **un producto que se le vende a
 | **Marketing** | Se arma plan y seguimiento (este doc). |
 | **VPS** | Descartada. Se queda en Vercel + Supabase (`docs/NEGOCIO.md`). |
 | **Plan Pro a futuro** | Idea: carga de gastos y consultas por WhatsApp (sección 9). |
+| **Cuándo se activa el cobro** | **Primero se consiguen ~10 usuarios y se les da un mes gratis.** Recién ahí, el mismo día: monotributo, Vercel Pro y precio activo. Ver abajo. |
+
+### Cuándo se activa el cobro (decidido el 2026-09-16)
+
+Con un solo cliente, Lumus pierde plata aunque no existiera el monotributo: entran ~7.200 y Vercel Pro solo ya son ~31.000. Por eso **no se cobra hasta tener una base**:
+
+1. **Etapa gratis**: se buscan ~10 usuarios con acceso gratis de un mes (`free_access_grants` con `expires_at`, sin tarjeta). Vercel sigue en **Hobby**, que lo permite mientras nadie pague, y no hace falta monotributo.
+2. **Antes de que venza el mes**: se les avisa el precio y se los invita a suscribirse. Como la prueba es sin tarjeta, suscribirse es un paso que tienen que dar ellos: mandarles recordatorios.
+3. **El día que se activa el cobro, todo junto**: inscripción al monotributo, Vercel a Pro, precio real en `SUBSCRIPTION_PRICE_ARS`, y lo de `H6` listo.
+4. **No todos van a pagar.** Contar con que convierta una parte de los 10, no todos. Si se decide dar precio de fundador (35%), cada uno deja menos (~4.600 netos en vez de ~7.200): hacer la cuenta contra Vercel más la cuota real del monotributo antes de activar.
+5. **Si de los ~10 no paga casi nadie**, es la respuesta que se buscaba, y se obtuvo sin haber pagado nada. Volver a la sección 8 para ver en qué paso se perdió la gente.
+
+**No se cobra en negro ni desde Hobby**, ni siquiera "hasta ver si funciona". No facturar es causal de exclusión del monotributo, y Vercel puede pausar un proyecto Hobby con uso comercial, que con clientes pagando es el peor momento posible.
 
 ## 2. Qué falta decidir
 
@@ -208,7 +221,7 @@ A tener en cuenta cuando llegue el momento:
 | 2 | Legal y operativo | Términos, privacidad, aceptación, botones de arrepentimiento y baja, AAIP, facturación, Vercel/Supabase Pro | `H6` |
 | 3 | Precio | Cerrar lo abierto de la sección 2, probar el `PUT`, poner el precio real | `C8` |
 | 4 | Landing | Landing, calculadora, preguntas frecuentes, soporte visible, analytics | `H5` |
-| 5 | Beta cerrada | ~10 testers, mails de la prueba, conseguir testimonios | `C8` |
+| 5 | Primeros ~10 usuarios | Un mes gratis, mails de la prueba, testimonios. **Al final: activar el cobro** (monotributo, Vercel Pro y precio, el mismo día) | `C8` |
 | 6 | Lanzamiento | Marketing semanal y planilla de seguimiento | este doc |
 | 7 | Plan Pro | WhatsApp | a futuro |
 
