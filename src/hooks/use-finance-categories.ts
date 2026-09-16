@@ -12,7 +12,7 @@ export function useFinanceCategories(initialCategories: FinanceCategory[]) {
 
   const byType = (type: CategoryType) => categories.filter(c => c.type === type)
 
-  const createCategory = useCallback(async (input: CreateCategoryInput): Promise<FinanceCategory | null> => {
+  const createCategory = useCallback(async (input: CreateCategoryInput): Promise<FinanceCategory> => {
     setLoading(true)
     setError(null)
     try {
@@ -27,13 +27,13 @@ export function useFinanceCategories(initialCategories: FinanceCategory[]) {
       return category
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return null
+      throw e
     } finally {
       setLoading(false)
     }
   }, [])
 
-  const updateCategory = useCallback(async (id: string, input: UpdateCategoryInput): Promise<FinanceCategory | null> => {
+  const updateCategory = useCallback(async (id: string, input: UpdateCategoryInput): Promise<FinanceCategory> => {
     setLoading(true)
     setError(null)
     try {
@@ -48,13 +48,13 @@ export function useFinanceCategories(initialCategories: FinanceCategory[]) {
       return category
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return null
+      throw e
     } finally {
       setLoading(false)
     }
   }, [])
 
-  const deleteCategory = useCallback(async (id: string): Promise<boolean> => {
+  const deleteCategory = useCallback(async (id: string): Promise<void> => {
     setLoading(true)
     setError(null)
     try {
@@ -64,10 +64,10 @@ export function useFinanceCategories(initialCategories: FinanceCategory[]) {
         throw new Error(msg)
       }
       setCategories(prev => prev.filter(c => c.id !== id))
-      return true
+      return
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return false
+      throw e
     } finally {
       setLoading(false)
     }
@@ -81,7 +81,7 @@ export function useFinanceCategories(initialCategories: FinanceCategory[]) {
   const mergeCategory = useCallback(async (
     sourceId: string,
     targetId: string,
-  ): Promise<MergeCategoriesResult | null> => {
+  ): Promise<MergeCategoriesResult> => {
     setLoading(true)
     setError(null)
     try {
@@ -93,10 +93,13 @@ export function useFinanceCategories(initialCategories: FinanceCategory[]) {
       const payload = await res.json() as { merged?: MergeCategoriesResult; error?: string }
       if (!res.ok) throw new Error(payload.error ?? 'Error al unificar las categorías')
       setCategories(prev => prev.filter(c => c.id !== sourceId))
-      return payload.merged ?? null
+      // Un `200` sin el resultado adentro es una respuesta rota: se trata como
+      // error en vez de devolver un vacío que la pantalla mostraría como éxito.
+      if (!payload.merged) throw new Error('La unificación no devolvió resultado')
+      return payload.merged
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return null
+      throw e
     } finally {
       setLoading(false)
     }

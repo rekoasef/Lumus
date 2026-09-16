@@ -18,6 +18,12 @@ export interface DeleteTransactionResult {
   error?: string
 }
 
+/** El mensaje del servidor si vino uno legible; si no, el genérico. */
+async function serverError(res: Response, fallback: string): Promise<string> {
+  const body = await res.json().catch(() => null) as { error?: unknown } | null
+  return typeof body?.error === 'string' ? body.error : fallback
+}
+
 interface UseTransactionsCallbacks {
   onWalletBalance?: (wallets: WalletBalanceUpdate[]) => void
   /** Se llama después de cada alta, edición o baja: los totales agregados quedaron viejos. */
@@ -39,7 +45,14 @@ export function useTransactions(callbacks?: UseTransactionsCallbacks) {
   const onWalletBalance = callbacks?.onWalletBalance
   const onMutated = callbacks?.onMutated
 
-  const createTransaction = useCallback(async (input: CreateTransactionInput): Promise<Transaction | null> => {
+  /**
+   * Alta de un movimiento.
+   *
+   * Tira si el servidor rechaza, y no devuelve `null`: la pantalla tiene que
+   * poder distinguir un alta que falló de una que anduvo. Cuando devolvía
+   * `null`, el cartel decía "Movimiento registrado" igual y el gasto no existía.
+   */
+  const createTransaction = useCallback(async (input: CreateTransactionInput): Promise<Transaction> => {
     setLoading(true)
     setError(null)
     try {
@@ -48,7 +61,7 @@ export function useTransactions(callbacks?: UseTransactionsCallbacks) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       })
-      if (!res.ok) throw new Error('Error al crear la transacción')
+      if (!res.ok) throw new Error(await serverError(res, 'Error al crear el movimiento'))
       const body = await res.json() as {
         transaction: Transaction
         extraTransaction?: Transaction
@@ -61,13 +74,14 @@ export function useTransactions(callbacks?: UseTransactionsCallbacks) {
       return body.transaction
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return null
+      throw e
     } finally {
       setLoading(false)
     }
   }, [onWalletBalance, onMutated])
 
-  const updateTransaction = useCallback(async (id: string, input: UpdateTransactionInput): Promise<Transaction | null> => {
+  /** Edición de un movimiento. Tira si el servidor rechaza, igual que el alta. */
+  const updateTransaction = useCallback(async (id: string, input: UpdateTransactionInput): Promise<Transaction> => {
     setLoading(true)
     setError(null)
     try {
@@ -76,14 +90,14 @@ export function useTransactions(callbacks?: UseTransactionsCallbacks) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       })
-      if (!res.ok) throw new Error('Error al actualizar la transacción')
+      if (!res.ok) throw new Error(await serverError(res, 'Error al actualizar el movimiento'))
       const { transaction, wallets } = await res.json() as { transaction: Transaction; wallets?: WalletBalanceUpdate[] }
       if (wallets?.length) onWalletBalance?.(wallets)
       onMutated?.()
       return transaction
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return null
+      throw e
     } finally {
       setLoading(false)
     }

@@ -305,12 +305,20 @@ export function TransactionList({
   }
 
   async function handleSave(data: CreateTransactionInput) {
-    if (editing) {
-      await onUpdate(editing.id, data as UpdateTransactionInput)
-      toast.success('Movimiento actualizado')
-    } else {
-      await onCreate(data)
-      toast.success('Movimiento registrado')
+    // Se mira que haya andado antes de festejar, igual que al borrar: si la API
+    // rechaza el movimiento, el cartel decía "registrado" y el gasto no existía.
+    try {
+      if (editing) {
+        await onUpdate(editing.id, data as UpdateTransactionInput)
+        toast.success('Movimiento actualizado')
+      } else {
+        await onCreate(data)
+        toast.success('Movimiento registrado')
+      }
+    } catch (e) {
+      // El formulario queda abierto con lo cargado, para corregir y reintentar.
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar el movimiento')
+      return
     }
     setShowForm(false)
     setEditing(null)

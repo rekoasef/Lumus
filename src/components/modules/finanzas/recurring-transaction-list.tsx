@@ -57,12 +57,18 @@ export function RecurringTransactionList({
   const [editing, setEditing] = useState<RecurringTransaction | null>(null)
 
   async function handleSave(data: CreateRecurringTransactionInput) {
-    if (editing) {
-      await update(editing.id, data)
-      toast.success('Recurrente actualizada')
-    } else {
-      await create(data)
-      toast.success('Recurrente creada')
+    try {
+      if (editing) {
+        await update(editing.id, data)
+        toast.success('Recurrente actualizada')
+      } else {
+        await create(data)
+        toast.success('Recurrente creada')
+      }
+    } catch (e) {
+      // El formulario queda abierto con lo cargado, para corregir y reintentar.
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar la recurrente')
+      return
     }
     setShowForm(false)
     setEditing(null)
@@ -71,14 +77,35 @@ export function RecurringTransactionList({
   async function handleDelete(id: string) {
     const ok = await confirm({ description: '¿Eliminar esta transacción recurrente?' })
     if (!ok) return
-    await remove(id)
+    try {
+      await remove(id)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo eliminar la recurrente')
+      return
+    }
     toast.success('Eliminada')
   }
 
+  async function handleToggle(id: string) {
+    try {
+      await toggleActive(id)
+    } catch (e) {
+      // Sin esto, pausar o reanudar un gasto fijo fallaba en silencio: el
+      // interruptor volvía solo a donde estaba y nadie decía por qué.
+      toast.error(e instanceof Error ? e.message : 'No se pudo cambiar el estado')
+    }
+  }
+
   async function handleApply(id: string) {
-    const result = await apply(id)
-    if (result) toast.success('Transacción registrada')
-    else toast.error('No se pudo registrar')
+    try {
+      await apply(id)
+    } catch (e) {
+      // Registrar un gasto fijo mueve plata de una billetera: el motivo del
+      // rechazo es lo único que dice si hay que corregir algo.
+      toast.error(e instanceof Error ? e.message : 'No se pudo registrar')
+      return
+    }
+    toast.success('Transacción registrada')
   }
 
   const active   = recurring.filter(r => r.active)
@@ -159,7 +186,7 @@ export function RecurringTransactionList({
       {/* Activas */}
       {active.length > 0 && (
         <div className="space-y-2">
-          {active.map(r => <RecurringCard key={r.id} r={r} onApply={handleApply} onEdit={() => { setEditing(r); setShowForm(true) }} onDelete={handleDelete} onToggle={toggleActive} />)}
+          {active.map(r => <RecurringCard key={r.id} r={r} onApply={handleApply} onEdit={() => { setEditing(r); setShowForm(true) }} onDelete={handleDelete} onToggle={handleToggle} />)}
         </div>
       )}
 
@@ -168,7 +195,7 @@ export function RecurringTransactionList({
         <div className="mt-6">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">Pausadas</p>
           <div className="space-y-2 opacity-50">
-            {inactive.map(r => <RecurringCard key={r.id} r={r} onApply={handleApply} onEdit={() => { setEditing(r); setShowForm(true) }} onDelete={handleDelete} onToggle={toggleActive} />)}
+            {inactive.map(r => <RecurringCard key={r.id} r={r} onApply={handleApply} onEdit={() => { setEditing(r); setShowForm(true) }} onDelete={handleDelete} onToggle={handleToggle} />)}
           </div>
         </div>
       )}

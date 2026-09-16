@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { CategoryIcon } from '@/lib/utils/category-icons'
 import { Pencil, Trash2, CheckCircle2, Plus, Wallet } from 'lucide-react'
 import type { SavingGoal, Wallet as WalletType } from '@/types/finance.types'
@@ -55,10 +56,19 @@ export function SavingGoalCard({ goal, wallets, toARS, onEdit, onDelete, onContr
     const n = parseFloat(amount)
     if (!n || n <= 0) return
     setSaving(true)
-    await onContribute(goal.id, n, walletId)
+    try {
+      await onContribute(goal.id, n, walletId)
+    } catch (e) {
+      // El monto queda escrito para reintentar: un aporte que la API rechazó
+      // —por ejemplo, sin saldo en la billetera— no se puede dar por hecho.
+      toast.error(e instanceof Error ? e.message : 'No se pudo registrar el aporte')
+      return
+    } finally {
+      // Va en `finally` para que un rechazo no deje el botón en "Guardando…".
+      setSaving(false)
+    }
     setAmount('')
     setContributing(false)
-    setSaving(false)
   }
 
   function openContribute() {

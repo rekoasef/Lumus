@@ -26,12 +26,18 @@ export function CategoryList({ initialCategories }: CategoryListProps) {
   const [mergeLoading, setMergeLoading] = useState(false)
 
   async function handleSave(data: CreateCategoryInput) {
-    if (editing) {
-      await updateCategory(editing.id, data)
-      toast.success('Categoría actualizada')
-    } else {
-      await createCategory(data)
-      toast.success('Categoría creada')
+    try {
+      if (editing) {
+        await updateCategory(editing.id, data)
+        toast.success('Categoría actualizada')
+      } else {
+        await createCategory(data)
+        toast.success('Categoría creada')
+      }
+    } catch (e) {
+      // El formulario queda abierto con lo cargado, para corregir y reintentar.
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar la categoría')
+      return
     }
     setShowForm(false)
     setEditing(null)
@@ -45,7 +51,12 @@ export function CategoryList({ initialCategories }: CategoryListProps) {
   async function handleDelete(id: string) {
     const ok = await confirm({ description: '¿Eliminar esta categoría?' })
     if (!ok) return
-    await deleteCategory(id)
+    try {
+      await deleteCategory(id)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo eliminar la categoría')
+      return
+    }
     toast.success('Categoría eliminada')
   }
 
@@ -53,12 +64,19 @@ export function CategoryList({ initialCategories }: CategoryListProps) {
     if (!merging) return
     setMergeLoading(true)
     const target = categories.find(c => c.id === targetId)
-    const result = await mergeCategory(merging.id, targetId)
-    setMergeLoading(false)
-    if (!result) {
-      toast.error('No se pudo unificar')
+
+    let result
+    try {
+      result = await mergeCategory(merging.id, targetId)
+    } catch (e) {
+      // El motivo del servidor y no "no se pudo": la función SQL rechaza mezclar
+      // un gasto con un ingreso, y eso hay que poder leerlo.
+      toast.error(e instanceof Error ? e.message : 'No se pudo unificar')
       return
+    } finally {
+      setMergeLoading(false)
     }
+
     const moved = result.transactions_visible + result.recurring + result.budgets_moved + result.budgets_merged
     toast.success(
       moved === 0

@@ -26,12 +26,18 @@ export function MetasView({ initialGoals, wallets }: MetasViewProps) {
   const [editing, setEditing] = useState<SavingGoal | null>(null)
 
   async function handleSave(data: CreateSavingGoalInput) {
-    if (editing) {
-      await updateGoal(editing.id, data)
-      toast.success('Meta actualizada')
-    } else {
-      await createGoal(data)
-      toast.success('Meta creada')
+    try {
+      if (editing) {
+        await updateGoal(editing.id, data)
+        toast.success('Meta actualizada')
+      } else {
+        await createGoal(data)
+        toast.success('Meta creada')
+      }
+    } catch (e) {
+      // El formulario queda abierto con lo cargado, para corregir y reintentar.
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar la meta')
+      return
     }
     setShowForm(false)
     setEditing(null)
@@ -40,7 +46,12 @@ export function MetasView({ initialGoals, wallets }: MetasViewProps) {
   async function handleDelete(id: string) {
     const ok = await confirm({ description: '¿Eliminar esta meta de ahorro?' })
     if (!ok) return
-    await deleteGoal(id)
+    try {
+      await deleteGoal(id)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo eliminar la meta')
+      return
+    }
     toast.success('Meta eliminada')
   }
 
@@ -88,7 +99,13 @@ export function MetasView({ initialGoals, wallets }: MetasViewProps) {
               onEdit={g => { setEditing(g); setShowForm(true) }}
               onDelete={handleDelete}
               onContribute={async (id, amount, walletId) => { await contribute(id, amount, walletId) }}
-              onMarkAchieved={async (id) => { await markAchieved(id) }}
+              onMarkAchieved={async (id) => {
+                try {
+                  await markAchieved(id)
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : 'No se pudo marcar la meta como cumplida')
+                }
+              }}
             />
           ))}
         </div>

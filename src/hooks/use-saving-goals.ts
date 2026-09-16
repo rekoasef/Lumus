@@ -24,7 +24,7 @@ export function useSavingGoals(initialGoals: SavingGoal[]) {
     }
   }, [])
 
-  const createGoal = useCallback(async (input: CreateSavingGoalInput): Promise<SavingGoal | null> => {
+  const createGoal = useCallback(async (input: CreateSavingGoalInput): Promise<SavingGoal> => {
     setLoading(true)
     setError(null)
     try {
@@ -42,13 +42,13 @@ export function useSavingGoals(initialGoals: SavingGoal[]) {
       return goal
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return null
+      throw e
     } finally {
       setLoading(false)
     }
   }, [])
 
-  const updateGoal = useCallback(async (id: string, input: UpdateSavingGoalInput): Promise<SavingGoal | null> => {
+  const updateGoal = useCallback(async (id: string, input: UpdateSavingGoalInput): Promise<SavingGoal> => {
     setError(null)
     try {
       const res = await fetch(`/api/finance/saving-goals/${id}`, {
@@ -62,21 +62,21 @@ export function useSavingGoals(initialGoals: SavingGoal[]) {
       return goal
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return null
+      throw e
     }
   }, [])
 
-  const deleteGoal = useCallback(async (id: string): Promise<boolean> => {
+  const deleteGoal = useCallback(async (id: string): Promise<void> => {
     setLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/finance/saving-goals/${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Error al eliminar la meta')
       setGoals(prev => prev.filter(g => g.id !== id))
-      return true
+      return
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return false
+      throw e
     } finally {
       setLoading(false)
     }
@@ -86,7 +86,7 @@ export function useSavingGoals(initialGoals: SavingGoal[]) {
     id: string,
     amount: number,
     walletId?: string | null,
-  ): Promise<boolean> => {
+  ): Promise<void> => {
     setLoading(true)
     setError(null)
     const date = new Date().toISOString().slice(0, 10)
@@ -102,10 +102,10 @@ export function useSavingGoals(initialGoals: SavingGoal[]) {
       }
       const { goal } = await res.json() as { goal: SavingGoal }
       setGoals(prev => prev.map(g => g.id === id ? goal : g))
-      return true
+      return
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return false
+      throw e
     } finally {
       setLoading(false)
     }
@@ -114,8 +114,8 @@ export function useSavingGoals(initialGoals: SavingGoal[]) {
   const markAchieved = useCallback(async (id: string): Promise<boolean> => {
     const goal = goals.find(g => g.id === id)
     if (!goal) return false
-    const updated = await updateGoal(id, { achieved: true, current_amount: Math.max(goal.current_amount, goal.target_amount) })
-    return updated !== null
+    await updateGoal(id, { achieved: true, current_amount: Math.max(goal.current_amount, goal.target_amount) })
+    return true
   }, [goals, updateGoal])
 
   return {

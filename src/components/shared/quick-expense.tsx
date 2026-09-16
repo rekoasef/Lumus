@@ -62,10 +62,12 @@ export function QuickExpenseProvider({ wallets, categories, defaults }: QuickExp
   if (!openWith) return null
 
   async function handleSave(data: CreateTransactionInput) {
-    const created = await createTransaction(data)
-    if (!created) {
-      // El formulario queda abierto a propósito: lo escrito sigue ahí.
-      toast.error('No se pudo guardar el movimiento')
+    try {
+      await createTransaction(data)
+    } catch (e) {
+      // El formulario queda abierto a propósito: lo escrito sigue ahí. Y el
+      // motivo es el del servidor, que es el único que dice qué corregir.
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar el movimiento')
       return
     }
     toast.success(data.type === 'ingreso' ? 'Ingreso cargado' : 'Gasto cargado')

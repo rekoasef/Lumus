@@ -44,12 +44,18 @@ export function PresupuestosView({
   }
 
   async function handleSave(data: CreateBudgetInput) {
-    if (editing) {
-      await updateBudget(editing.id, { amount: data.amount })
-      toast.success('Presupuesto actualizado')
-    } else {
-      await createBudget(data)
-      toast.success('Presupuesto creado')
+    try {
+      if (editing) {
+        await updateBudget(editing.id, { amount: data.amount })
+        toast.success('Presupuesto actualizado')
+      } else {
+        await createBudget(data)
+        toast.success('Presupuesto creado')
+      }
+    } catch (e) {
+      // El formulario queda abierto con lo cargado, para corregir y reintentar.
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar el presupuesto')
+      return
     }
     setShowForm(false)
     setEditing(null)
@@ -58,7 +64,12 @@ export function PresupuestosView({
   async function handleDelete(id: string) {
     const ok = await confirm({ description: '¿Eliminar este presupuesto?' })
     if (!ok) return
-    await deleteBudget(id)
+    try {
+      await deleteBudget(id)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo eliminar el presupuesto')
+      return
+    }
     toast.success('Presupuesto eliminado')
   }
 

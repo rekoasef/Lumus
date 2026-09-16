@@ -31,7 +31,7 @@ export function useBudgets(initialBudgets: Budget[], initialMonth: number, initi
     }
   }, [month, year])
 
-  const createBudget = useCallback(async (input: CreateBudgetInput): Promise<Budget | null> => {
+  const createBudget = useCallback(async (input: CreateBudgetInput): Promise<Budget> => {
     setLoading(true)
     setError(null)
     try {
@@ -52,13 +52,13 @@ export function useBudgets(initialBudgets: Budget[], initialMonth: number, initi
       return budget
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return null
+      throw e
     } finally {
       setLoading(false)
     }
   }, [month, year])
 
-  const updateBudget = useCallback(async (id: string, input: UpdateBudgetInput): Promise<Budget | null> => {
+  const updateBudget = useCallback(async (id: string, input: UpdateBudgetInput): Promise<Budget> => {
     setLoading(true)
     setError(null)
     try {
@@ -73,23 +73,23 @@ export function useBudgets(initialBudgets: Budget[], initialMonth: number, initi
       return budget
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return null
+      throw e
     } finally {
       setLoading(false)
     }
   }, [])
 
-  const deleteBudget = useCallback(async (id: string): Promise<boolean> => {
+  const deleteBudget = useCallback(async (id: string): Promise<void> => {
     setLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/finance/budgets/${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Error al eliminar el presupuesto')
       setBudgets(prev => prev.filter(b => b.id !== id))
-      return true
+      return
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return false
+      throw e
     } finally {
       setLoading(false)
     }
