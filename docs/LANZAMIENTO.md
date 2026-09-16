@@ -53,15 +53,18 @@ Se eligió sin tarjeta porque, sin audiencia, lo que importa es que la gente pru
 | **Se suscribe** | Checkout de Mercado Pago, vuelve con `authorized` y entra con todo como estaba. Ese día empieza a pagar. |
 | **No se suscribe** | Sus datos quedan guardados (cuánto tiempo, se decide en `H3`). A los 30 días, un mail de *"volvé"* (sección 7). |
 
-**Qué hay hoy y qué falta** (auditado el 2026-09-16):
+**Implementado el 2026-09-16** (migración `00034`, ya aplicada en prod):
 
-- ✅ El acceso gratis con vencimiento y el gate que lo respeta (`src/lib/billing/access.ts`).
-- ✅ **Dar 30 días a mano o por invitación** (`beta_invites` + el trigger `grant_access_from_invite`, `00031`). **Para los primeros ~10 usuarios alcanza con esto**: se los invita desde el panel de admin con 30 días.
-- ✅ La fecha de vencimiento se ve en `/perfil` (`subscription-card.tsx`).
-- ❌ **Prueba automática al registrarse**, sin invitación. Hace falta para la landing pública. Ojo: el trigger sobre `auth.users` **nunca puede fallar** (regla de `CLAUDE.md`).
-- ❌ El cartel con los días que quedan.
-- ❌ Los avisos de los días 25, 28 y 30 (un tipo nuevo en el motor de `C4`/`C5`).
-- ❌ El texto de *"tu prueba terminó"* en `/suscripcion`. Hoy el cambio es de golpe: quien no pasó por `/perfil` no sabe que se le terminaba.
+- ✅ **Prueba automática al registrarse.** El trigger `grant_access_from_invite` da 30 días a quien se registra sin invitación (`reason = 'prueba gratis'`). Con invitación manda la invitación, como antes. Se probó en una transacción deshecha: sin invitación, 30 días; invitado a 90, 90 días. Sigue sin poder fallar.
+- ✅ **El cartel del dashboard** (`access-ending-banner.tsx`): una línea discreta con los días que quedan, y en la última semana un cartel con el paso siguiente.
+- ✅ **Los avisos** (`acceso_por_vencer`, `lib/notifications/access-ending.ts`): a 5, 2 y 0 días, y uno cuando ya terminó. No se pueden apagar. Van por ventanas, así que si el cron no corre un día salen al siguiente.
+- ✅ **`/suscripcion` distingue** prueba en curso, prueba terminada (*"todo lo que cargaste sigue guardado"*) y cuenta nueva.
+- ✅ **`/perfil`** muestra "Acceso gratis" con los días que quedan. "Cortesía" queda para los accesos sin fecha.
+- ✅ **El cobro está apagado** (`CHECKOUT_ENABLED = false`, `src/lib/billing/plan.ts`). Sin botón de pago, la API rechaza el checkout, y los textos mandan a escribir a `gestorlumus@gmail.com` en vez de a pagar. Se prende el día que se active el cobro, junto con todo lo demás.
+
+Aplica igual a la prueba y a una cortesía con fecha (por ejemplo, un tester con 3 meses): **para quien lo lee es lo mismo**, se le termina el acceso gratis. Las cortesías sin fecha no ven nada.
+
+**Límite conocido:** borrar la cuenta y volver a registrarse da otra prueba. Con este precio no justifica más control.
 
 ## 2. Qué falta decidir
 

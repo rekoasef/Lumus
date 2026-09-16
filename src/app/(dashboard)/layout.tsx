@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { hasAccess } from '@/lib/billing/access'
+import { getAccessStatus } from '@/lib/billing/access'
+import { accessBannerState } from '@/lib/billing/access-ending'
+import { AccessEndingBanner } from '@/components/modules/billing/access-ending-banner'
 import { needsOnboarding } from '@/lib/auth/onboarding'
 import { BottomNav } from '@/components/shared/bottom-nav'
 import { TopNav } from '@/components/shared/top-nav'
@@ -17,8 +19,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (await needsOnboarding(supabase, user.id)) redirect('/onboarding')
 
-  // Suscripción activa o acceso de cortesía vigente — ver lib/billing/access
-  if (!(await hasAccess(supabase, user.id))) redirect('/suscripcion')
+  // Suscripción activa o acceso gratis vigente — ver lib/billing/access
+  const access = await getAccessStatus(supabase, user.id)
+  if (access.kind === 'none') redirect('/suscripcion')
+  const banner = accessBannerState(access)
 
   // Lo que necesita el formulario de carga rápida, más el contador de la
   // campanita. Se pide en el layout porque el botón `+` vive en las dos barras
@@ -49,6 +53,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
       <TopNav unreadNotifications={unreadRes.count ?? 0} />
       <main className="relative min-h-screen pt-16 pb-24 lg:pb-0">
+        {banner && <AccessEndingBanner state={banner} />}
         {children}
       </main>
       <BottomNav />

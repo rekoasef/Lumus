@@ -48,12 +48,20 @@ describe('indexPreferences', () => {
 })
 
 describe('allChannelsFor', () => {
-  it('devuelve los seis tipos con defaults aplicados', () => {
+  it('devuelve los siete tipos con defaults aplicados', () => {
     const all = allChannelsFor(new Map(), USER)
 
-    expect(Object.keys(all)).toHaveLength(6)
+    expect(Object.keys(all)).toHaveLength(7)
     expect(all.vencimiento.email).toBe(true)
     expect(all.resumen_semanal.email).toBe(false)
+  })
+
+  it('el fin del acceso gratis llega aunque haya una fila que lo apague', () => {
+    const explicit = new Map([
+      [preferenceKey(USER, 'acceso_por_vencer'), { inApp: false, email: false }],
+    ])
+
+    expect(allChannelsFor(explicit, USER).acceso_por_vencer).toEqual({ inApp: true, email: true })
   })
 })
 

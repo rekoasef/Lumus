@@ -9,9 +9,11 @@ const POLL_MAX_ATTEMPTS = 40 // ~2 minutos
 
 interface SubscribeButtonProps {
   pendingCheck?: boolean
+  /** Falso con el cobro apagado: queda solo "Cerrar sesión". */
+  showSubscribe?: boolean
 }
 
-export function SubscribeButton({ pendingCheck = false }: SubscribeButtonProps) {
+export function SubscribeButton({ pendingCheck = false, showSubscribe = true }: SubscribeButtonProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -74,15 +76,17 @@ export function SubscribeButton({ pendingCheck = false }: SubscribeButtonProps) 
           Esperando la confirmación del pago...
         </div>
       )}
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={loading}
-        className="w-full rounded-full bg-[var(--accent-lumus)] py-3 text-sm font-bold uppercase text-[#190f5d] transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-50"
-        style={{ letterSpacing: '0.08em' }}
-      >
-        {loading ? 'Redirigiendo...' : 'Suscribirme'}
-      </button>
+      {showSubscribe && (
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={loading}
+          className="w-full rounded-full bg-[var(--accent-lumus)] py-3 text-sm font-bold uppercase text-[#190f5d] transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-50"
+          style={{ letterSpacing: '0.08em' }}
+        >
+          {loading ? 'Redirigiendo...' : 'Suscribirme'}
+        </button>
+      )}
       {error && (
         <div className="mt-4 rounded-lg border border-[var(--danger)]/20 bg-[var(--danger-muted)] px-3 py-2.5 text-sm text-[var(--danger)]">
           {error}

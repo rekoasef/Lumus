@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { confirm } from '@/components/shared/confirm-dialog'
 import { useSubscriptionCancel } from '@/hooks/use-profile'
 import { SUBSCRIPTION_PRICE_ARS, SUBSCRIPTION_CURRENCY } from '@/lib/billing/plan'
+import { accessDaysLeft, accessEndingPhrase } from '@/lib/billing/access-ending'
+import { formatCurrency } from '@/lib/utils/format-currency'
 import { SectionHeading } from './section-heading'
 import type { BillingSubscription } from '@/types'
 import type { AccessStatus } from '@/lib/billing/access'
@@ -12,6 +14,9 @@ import type { AccessStatus } from '@/lib/billing/access'
 const COURTESY_LABEL = 'Cortesía'
 const COURTESY_TITLE = 'Acceso de cortesía'
 const COURTESY_DESCRIPTION = 'Tenés Lumus completo, sin costo y sin suscripción asociada.'
+const FREE_LABEL = 'Gratis'
+const FREE_TITLE = 'Acceso gratis'
+const FREE_DESCRIPTION = 'Tenés Lumus completo, sin costo. Cuando termine, tus datos quedan guardados.'
 
 interface SubscriptionCardProps {
   subscription: BillingSubscription | null
@@ -51,6 +56,9 @@ export function SubscriptionCard({ subscription, access }: SubscriptionCardProps
   }
 
   if (access.kind === 'free_grant') {
+    // Con fecha es una prueba (o una cortesía que vence): lo importante es
+    // cuándo termina. Sin fecha, es una cortesía permanente.
+    const expires = access.grantExpiresAt
     return (
       <section>
         <SectionHeading
@@ -59,19 +67,21 @@ export function SubscriptionCard({ subscription, access }: SubscriptionCardProps
           action={
             <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--accent-lumus)]">
               <span className="size-1.5 rounded-full bg-[var(--accent-lumus)]" />
-              {COURTESY_LABEL}
+              {expires ? FREE_LABEL : COURTESY_LABEL}
             </span>
           }
         />
 
         <div className="mt-6">
-          <p className="text-2xl font-semibold text-[var(--text-primary)]">{COURTESY_TITLE}</p>
-          <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">
-            {COURTESY_DESCRIPTION}
+          <p className="text-2xl font-semibold text-[var(--text-primary)]">
+            {expires ? FREE_TITLE : COURTESY_TITLE}
           </p>
-          {access.grantExpiresAt && (
+          <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">
+            {expires ? FREE_DESCRIPTION : COURTESY_DESCRIPTION}
+          </p>
+          {expires && (
             <p className="mt-2 text-xs text-[var(--text-muted)]">
-              Vigente hasta el {formatDate(access.grantExpiresAt)}
+              Vigente hasta el {formatDate(expires)} · {accessEndingPhrase(accessDaysLeft(expires))}
             </p>
           )}
         </div>
@@ -94,8 +104,8 @@ export function SubscriptionCard({ subscription, access }: SubscriptionCardProps
 
       <div className="mt-6 flex flex-wrap items-baseline justify-between gap-3">
         <p className="text-2xl font-semibold text-[var(--text-primary)]">
-          ${SUBSCRIPTION_PRICE_ARS.toLocaleString('es-AR')}
-          <span className="text-sm font-normal text-[var(--text-muted)]"> {SUBSCRIPTION_CURRENCY}/mes</span>
+          {formatCurrency(SUBSCRIPTION_PRICE_ARS, SUBSCRIPTION_CURRENCY, 'rounded')}
+          <span className="text-sm font-normal text-[var(--text-muted)]"> por mes</span>
         </p>
         {subscription?.next_payment_date && (
           <p className="text-xs text-[var(--text-secondary)]">

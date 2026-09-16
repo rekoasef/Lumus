@@ -1,14 +1,28 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import { SubscribeButton } from '@/components/modules/billing/subscribe-button'
-import { SUBSCRIPTION_PRICE_ARS } from '@/lib/billing/plan'
-import { hasAccess } from '@/lib/billing/access'
+import { CHECKOUT_ENABLED, SUBSCRIPTION_CURRENCY, SUBSCRIPTION_PRICE_ARS } from '@/lib/billing/plan'
+import { resolveAccessKind } from '@/lib/billing/access'
+import { accessDaysLeft, accessEndingPhrase, formatAccessDate } from '@/lib/billing/access-ending'
+import { SUPPORT_EMAIL } from '@/lib/contact'
+import { formatCurrency } from '@/lib/utils/format-currency'
 
 const STATUS_MESSAGES: Record<string, string> = {
   pending: 'Tu pago está pendiente de confirmación. Si ya pagaste, puede tardar unos minutos en reflejarse.',
   paused: 'Tu suscripción está pausada. Reactivala para volver a usar Lumus.',
   cancelled: 'Tu suscripción fue cancelada. Suscribite de nuevo para volver a entrar.',
+}
+
+const COPY = {
+  eyebrowNew: 'Activá tu cuenta',
+  eyebrowAccount: 'Tu cuenta',
+  titleNew: 'Suscribite a Lumus',
+  titleEnded: 'Tu acceso gratis terminó',
+  keptData: 'Todo lo que cargaste sigue guardado.',
+  chargeToday: 'Si te suscribís ahora, el primer cobro es hoy y los días gratis que te quedan no se suman.',
+  back: 'Volver a Lumus',
 }
 
 export default async function SuscripcionPage() {
@@ -17,18 +31,32 @@ export default async function SuscripcionPage() {
 
   if (!user) redirect('/login')
 
-  const { data: subscription } = await supabase
-    .from('billing_subscriptions')
-    .select('status')
-    .eq('user_id', user.id)
-    .maybeSingle()
+  // Se lee el grant aunque esté vencido: es lo que distingue "tu prueba
+  // terminó" de alguien que nunca tuvo acceso.
+  const [{ data: subscription }, { data: grant }] = await Promise.all([
+    supabase.from('billing_subscriptions').select('status').eq('user_id', user.id).maybeSingle(),
+    supabase.from('free_access_grants').select('expires_at').eq('user_id', user.id).maybeSingle(),
+  ])
 
-  // Incluye el acceso de cortesía: sin esto, un usuario con acceso gratis
-  // podría entrar acá y pagar una suscripción que no necesita.
-  if (await hasAccess(supabase, user.id)) redirect('/dashboard')
+  const access = resolveAccessKind(subscription?.status ?? null, grant !== null, grant?.expires_at ?? null)
+
+  // Con una suscripción, o una cortesía sin fecha, no hay nada que pagar: sin
+  // esto alguien con acceso gratis podría pagar una suscripción que no necesita.
+  if (access === 'subscription') redirect('/dashboard')
+  if (access === 'free_grant' && !grant?.expires_at) redirect('/dashboard')
+
+  const activeGrantEnds = access === 'free_grant' ? grant?.expires_at ?? null : null
+  const endedGrant = access === 'none' && grant?.expires_at ? grant.expires_at : null
 
   const isPending = subscription?.status === 'pending'
   const statusMessage = subscription?.status && !isPending ? STATUS_MESSAGES[subscription.status] : null
+  const price = formatCurrency(SUBSCRIPTION_PRICE_ARS, SUBSCRIPTION_CURRENCY, 'rounded')
+
+  const title = activeGrantEnds
+    ? `Tu acceso gratis ${accessEndingPhrase(accessDaysLeft(activeGrantEnds))}`
+    : endedGrant
+      ? COPY.titleEnded
+      : COPY.titleNew
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--bg-base)] px-4 py-12">
@@ -51,14 +79,29 @@ export default async function SuscripcionPage() {
               </div>
               <span className="lumus-heading text-2xl font-semibold text-[#d8d1ff]">LUMUS</span>
             </div>
-            <p className="lumus-label text-[#cfc6ff]">Activá tu cuenta</p>
-            <h1 className="lumus-heading mt-4 text-3xl font-bold text-[var(--text-primary)]">
-              Suscribite a Lumus
-            </h1>
-            <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              Acceso completo por{' '}
-              <span className="text-[var(--text-primary)]">${SUBSCRIPTION_PRICE_ARS} ARS/mes</span>.
+            <p className="lumus-label text-[#cfc6ff]">
+              {activeGrantEnds || endedGrant ? COPY.eyebrowAccount : COPY.eyebrowNew}
             </p>
+            <h1 className="lumus-heading mt-4 text-3xl font-bold text-[var(--text-primary)]">
+              {title}
+            </h1>
+
+            {activeGrantEnds && (
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Vence el {formatAccessDate(activeGrantEnds)}. {COPY.keptData}
+              </p>
+            )}
+            {endedGrant && (
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Terminó el {formatAccessDate(endedGrant)}. {COPY.keptData}
+              </p>
+            )}
+            {CHECKOUT_ENABLED && (
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Acceso completo por{' '}
+                <span className="text-[var(--text-primary)]">{price} por mes</span>.
+              </p>
+            )}
           </div>
 
           {statusMessage && (
@@ -67,7 +110,35 @@ export default async function SuscripcionPage() {
             </div>
           )}
 
-          <SubscribeButton pendingCheck={isPending} />
+          {CHECKOUT_ENABLED && activeGrantEnds && (
+            <p className="mb-4 text-center text-xs leading-relaxed text-[var(--text-muted)]">
+              {COPY.chargeToday}
+            </p>
+          )}
+
+          {!CHECKOUT_ENABLED && (
+            <div className="mb-4 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3.5 text-sm leading-relaxed text-[var(--text-secondary)]">
+              Las suscripciones todavía no están abiertas. Escribinos a{' '}
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                className="font-medium text-[var(--accent-lumus)] hover:underline"
+              >
+                {SUPPORT_EMAIL}
+              </a>
+              {endedGrant ? ' y te extendemos el acceso.' : ' si tenés cualquier duda.'}
+            </div>
+          )}
+
+          <SubscribeButton pendingCheck={isPending} showSubscribe={CHECKOUT_ENABLED} />
+
+          {activeGrantEnds && (
+            <Link
+              href="/dashboard"
+              className="mt-2 block text-center text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:underline"
+            >
+              {COPY.back}
+            </Link>
+          )}
         </div>
       </div>
     </div>

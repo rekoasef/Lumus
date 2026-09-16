@@ -17,6 +17,7 @@ export const NOTIFICATION_TYPES = [
   'meta_alcanzada',
   'reporte_mensual',
   'resumen_semanal',
+  'acceso_por_vencer',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -39,8 +40,8 @@ export interface NotificationTypeInfo {
   default: NotificationChannels
   /**
    * Los avisos transaccionales no se apagan: si no llegan, el usuario pierde
-   * algo sin enterarse de por qué. Hoy ninguno lo es — los de facturación
-   * llegan con `C8`.
+   * algo sin enterarse de por qué. Hoy lo es solo `acceso_por_vencer`: apagarlo
+   * es quedarse afuera de la app sin aviso.
    */
   canDisable: boolean
 }
@@ -83,6 +84,12 @@ export const NOTIFICATION_TYPE_INFO: Record<NotificationType, NotificationTypeIn
     // urgencia tiene. Que lo prenda quien lo quiera.
     default: { inApp: false, email: false },
     canDisable: true,
+  },
+  acceso_por_vencer: {
+    label: 'Fin del acceso gratis',
+    description: 'Cuando se está por terminar tu prueba gratis, y el día que termina.',
+    default: { inApp: true, email: true },
+    canDisable: false,
   },
 }
 

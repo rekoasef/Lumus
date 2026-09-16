@@ -54,6 +54,13 @@ Lumus se registra libre (email + código de verificación, ver flujo de auth ya 
 - [x] Revisado en Mercado Pago Developers → Webhooks que la entrega haya sido 200
 - [x] Probada cancelación real → webhook sincronizó solo a `cancelled`
 
+## Prueba gratis y cobro apagado (2026-09-16)
+
+- **Registrarse da 30 días gratis, sin tarjeta.** Lo hace el trigger de `auth.users` (`00034_trial_on_signup.sql`): con invitación manda la invitación (`beta_invites`), y sin invitación inserta un `free_access_grants` con `reason = 'prueba gratis'`. `TRIAL_DAYS` en `plan.ts` es solo para los textos.
+- **Avisos de fin de acceso**: tipo `acceso_por_vencer`, no se puede apagar. Ver `lib/notifications/access-ending.ts`.
+- **`CHECKOUT_ENABLED = false`** en `plan.ts`: sin botón de pago en `/suscripcion`, y `create-subscription` responde 403. **Se prende el día que se active el cobro**, junto con el monotributo, Vercel Pro y el precio real (`docs/LANZAMIENTO.md`).
+- Con el cobro prendido, quien se suscribe durante la prueba **paga desde ese día**: los días gratis que le quedaban no se suman, y la pantalla lo dice. Pasarle a Mercado Pago una fecha de inicio (`auto_recurring.start_date`) evitaría eso, pero no está probado.
+
 ## Pendiente antes de un lanzamiento de verdad
 
 - [ ] Subir `SUBSCRIPTION_PRICE_ARS` (`src/lib/billing/plan.ts`) del precio de prueba ($1000 ARS) al precio real

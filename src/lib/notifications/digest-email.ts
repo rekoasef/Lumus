@@ -56,6 +56,7 @@ const CHIPS: Record<NotificationType, { label: string; bg: string; fg: string }>
   meta_alcanzada:       { label: 'META',        bg: C.okBg,     fg: C.okFg },
   reporte_mensual:      { label: 'REPORTE',     bg: C.infoBg,   fg: C.infoFg },
   resumen_semanal:      { label: 'RESUMEN',     bg: C.infoBg,   fg: C.infoFg },
+  acceso_por_vencer:    { label: 'TU CUENTA',   bg: C.warnBg,   fg: C.warnFg },
 }
 
 /** El título del aviso ya viene armado por quien lo generó. */

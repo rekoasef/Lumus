@@ -12,6 +12,7 @@ import { todayInArgentina } from '@/lib/notifications/due-notification'
 import { isFirstOfMonth, isMonday } from '@/lib/notifications/finance-notices'
 import { channelsFor } from '@/lib/notifications/preferences'
 import {
+  collectAccessEndingNotices,
   collectBudgetNotices,
   collectDueNotices,
   collectLoanDueNotices,
@@ -76,6 +77,7 @@ export async function GET(req: NextRequest) {
     ['cuotas de préstamo', () => collectLoanDueNotices(supabase, today)],
     ['presupuestos', () => collectBudgetNotices(supabase, today)],
     ['metas', () => collectGoalNotices(supabase)],
+    ['fin de acceso gratis', () => collectAccessEndingNotices(supabase, new Date())],
   ]
 
   if (isFirstOfMonth(today)) {

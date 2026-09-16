@@ -6,6 +6,7 @@ import {
   SUBSCRIPTION_CURRENCY,
   SUBSCRIPTION_REASON,
   SUBSCRIPTION_FREQUENCY_MONTHS,
+  CHECKOUT_ENABLED,
 } from '@/lib/billing/plan'
 
 interface MpPreapprovalResponse {
@@ -17,6 +18,12 @@ export async function POST() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+  // La pantalla ya esconde el botón; esto evita que se pueda pagar igual
+  // pegándole al endpoint. Ver CHECKOUT_ENABLED.
+  if (!CHECKOUT_ENABLED) {
+    return NextResponse.json({ error: 'Las suscripciones todavía no están abiertas' }, { status: 403 })
+  }
 
   const { data: existing } = await supabase
     .from('billing_subscriptions')

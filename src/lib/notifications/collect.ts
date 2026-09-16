@@ -5,6 +5,9 @@ import { getExchangeRates, convertToARS } from '@/lib/finance/exchange-rates'
 import { selectDueNotices, DUE_SOON_DAYS, type RecurringDue } from './due-recurring'
 import { buildLoanDueNotification, selectLoanDueNotices, type LoanDue } from './due-loans'
 import { buildDueNotification } from './due-notification'
+import { selectAccessEndingNotices, type ExpiringGrant } from './access-ending'
+import { CHECKOUT_ENABLED } from '@/lib/billing/plan'
+import { SUPPORT_EMAIL } from '@/lib/contact'
 import {
   selectBudgetNotices,
   selectGoalNotices,
@@ -104,6 +107,45 @@ export async function collectLoanDueNotices(
   if (error) throw new Error(`cuotas de préstamo: ${error.message}`)
 
   return selectLoanDueNotices((data ?? []) as LoanDue[], today).map(buildLoanDueNotification)
+}
+
+/**
+ * Accesos gratis (la prueba de 30 días o una cortesía con fecha) que se
+ * terminan o que terminaron hace poco.
+ *
+ * La ventana es más ancha que las fases de `access-ending.ts` a propósito: la
+ * que decide qué se avisa es la función pura, que está testeada. Esto solo
+ * evita traer grants que no pueden tener ningún aviso.
+ */
+export async function collectAccessEndingNotices(
+  supabase: ServiceClient,
+  now: Date,
+): Promise<NewNotification[]> {
+  const from = new Date(now.getTime() - 4 * 86_400_000).toISOString()
+  const to = new Date(now.getTime() + 7 * 86_400_000).toISOString()
+
+  const { data: grants, error } = await supabase
+    .from('free_access_grants')
+    .select('user_id, expires_at')
+    .not('expires_at', 'is', null)
+    .gte('expires_at', from)
+    .lte('expires_at', to)
+
+  if (error) throw new Error(`accesos gratis: ${error.message}`)
+  if (!grants?.length) return []
+
+  const { data: subscriptions, error: subError } = await supabase
+    .from('billing_subscriptions')
+    .select('user_id')
+    .eq('status', 'authorized')
+    .in('user_id', grants.map(g => g.user_id))
+
+  if (subError) throw new Error(`suscripciones: ${subError.message}`)
+
+  const subscribed = new Set((subscriptions ?? []).map(s => s.user_id))
+  const expiring = grants.filter((g): g is ExpiringGrant => g.expires_at !== null)
+
+  return selectAccessEndingNotices(expiring, subscribed, now, CHECKOUT_ENABLED, SUPPORT_EMAIL)
 }
 
 export async function collectBudgetNotices(

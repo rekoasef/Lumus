@@ -26,6 +26,7 @@ const DOT: Record<NotificationType, string> = {
   meta_alcanzada:       'var(--success)',
   reporte_mensual:      'var(--accent-lumus)',
   resumen_semanal:      'var(--accent-lumus)',
+  acceso_por_vencer:    'var(--warning)',
 }
 
 function dotColor(notification: Notification): string {
