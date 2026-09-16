@@ -4,7 +4,7 @@
 
 Este doc junta la charla del 2026-09-16 sobre **cuánto cobrar** y **cuánto cuesta mantener Lumus** con 300 y con 1.000 usuarios. Los precios de terceros son los que se encontraron ese día. Antes de apoyarse en ellos, volver a mirarlos: cambian.
 
-> **Estado (2026-09-16, misma charla):** el dueño decidió **5 USD por mes cobrados en pesos (~7.800 ARS)**, con un ajuste manual cada cierto tiempo para mantener ese valor. **Sin precio de fundador: todos pagan lo mismo.** **Siguen abiertos** la frecuencia del ajuste, la prueba con o sin tarjeta y el plan anual. Están en la sección 2 de `docs/LANZAMIENTO.md`, junto con lo legal y el plan de marketing. El precio de `C8` (2026-08-27) queda reemplazado. No tocar `SUBSCRIPTION_PRICE_ARS` hasta cerrar lo abierto.
+> **Estado (2026-09-16, misma charla):** el dueño decidió **5 USD por mes cobrados en pesos (~7.800 ARS)**, con un ajuste manual cada cierto tiempo para mantener ese valor. **Sin precio de fundador: todos pagan lo mismo.** **Ajuste cada 6 meses, prueba de un mes sin tarjeta y sin plan anual por ahora** (detalle en la sección 1 de `docs/LANZAMIENTO.md`, junto con lo legal y el plan de marketing). El precio de `C8` (2026-08-27) queda reemplazado. `SUBSCRIPTION_PRICE_ARS` se cambia recién el día que se active el cobro.
 
 Cotización usada en todo el doc: **dólar blue venta 1.560 ARS** (bluelytics, 2026-09-16).
 

@@ -16,8 +16,9 @@ Lumus pasa de ser una herramienta personal a ser **un producto que se le vende a
 | Tema | Decisión |
 |---|---|
 | **Precio** | **El equivalente a 5 USD, cobrado en pesos** (~7.800 ARS/mes al blue de 1.560). En pesos a propósito: mucha gente en Argentina no paga algo que ve en dólares, aunque valga lo mismo, por la tarjeta y los recargos. |
-| **Actualización** | El precio en pesos se actualiza **cada cierto tiempo** (6 meses o 1 año, a definir) para que siga valiendo ~5 USD. Lo fija el dueño a mano, no una fórmula automática. |
-| **Prueba** | Primer mes gratis. |
+| **Actualización** | El precio en pesos se actualiza **cada 6 meses** para que siga valiendo ~5 USD. Lo fija el dueño a mano, no una fórmula automática. Aviso con 30 días de anticipación (sección 4). |
+| **Prueba** | Primer mes gratis, **sin tarjeta**. Ver *Cómo funciona la prueba sin tarjeta* abajo. |
+| **Plan anual** | **No, por ahora.** Con un precio que se ajusta cada 6 meses, un anual en pesos es una apuesta contra la inflación. |
 | **Soporte** | `gestorlumus@gmail.com` |
 | **Landing** | Se hace (`H5`). |
 | **Marketing** | Se arma plan y seguimiento (este doc). |
@@ -38,13 +39,34 @@ Con un solo cliente, Lumus pierde plata aunque no existiera el monotributo: entr
 
 **No se cobra en negro ni desde Hobby**, ni siquiera "hasta ver si funciona". No facturar es causal de exclusión del monotributo, y Vercel puede pausar un proyecto Hobby con uso comercial, que con clientes pagando es el peor momento posible.
 
+### Cómo funciona la prueba sin tarjeta (decidido el 2026-09-16)
+
+Se eligió sin tarjeta porque, sin audiencia, lo que importa es que la gente pruebe Lumus. Además, **nadie recibe un cobro que no esperaba**, y eso evita reclamos y arrepentimientos. La contra es que pagar es un paso que la persona tiene que dar: los avisos existen para eso.
+
+| Momento | Qué pasa |
+|---|---|
+| **Registro** | Recibe **30 días** de acceso gratis (`free_access_grants` con `expires_at`). No carga ninguna tarjeta. |
+| **Durante la prueba** | Un cartel discreto en la app: *"Te quedan N días de prueba"*, con un botón para suscribirse. **Desde 7 días antes del vencimiento**, el cartel se vuelve más visible. |
+| **Días 25, 28 y 30** | Aviso por mail (en el digest, con `dedupe_key`) y en la campanita: *"Tu prueba termina el X. Tus datos quedan guardados."* |
+| **Antes del día 30** | Que haya visto el informe mensual de la IA (sección 7). |
+| **Vence** | Al entrar, va a `/suscripcion` con un texto propio: *"Tu prueba terminó. Todo lo que cargaste sigue guardado: suscribite para seguir."* **No se borra nada.** |
+| **Se suscribe** | Checkout de Mercado Pago, vuelve con `authorized` y entra con todo como estaba. Ese día empieza a pagar. |
+| **No se suscribe** | Sus datos quedan guardados (cuánto tiempo, se decide en `H3`). A los 30 días, un mail de *"volvé"* (sección 7). |
+
+**Qué hay hoy y qué falta** (auditado el 2026-09-16):
+
+- ✅ El acceso gratis con vencimiento y el gate que lo respeta (`src/lib/billing/access.ts`).
+- ✅ **Dar 30 días a mano o por invitación** (`beta_invites` + el trigger `grant_access_from_invite`, `00031`). **Para los primeros ~10 usuarios alcanza con esto**: se los invita desde el panel de admin con 30 días.
+- ✅ La fecha de vencimiento se ve en `/perfil` (`subscription-card.tsx`).
+- ❌ **Prueba automática al registrarse**, sin invitación. Hace falta para la landing pública. Ojo: el trigger sobre `auth.users` **nunca puede fallar** (regla de `CLAUDE.md`).
+- ❌ El cartel con los días que quedan.
+- ❌ Los avisos de los días 25, 28 y 30 (un tipo nuevo en el motor de `C4`/`C5`).
+- ❌ El texto de *"tu prueba terminó"* en `/suscripcion`. Hoy el cambio es de golpe: quien no pasó por `/perfil` no sabe que se le terminaba.
+
 ## 2. Qué falta decidir
 
 | Tema | Opciones | Recomendación |
 |---|---|---|
-| **Cada cuánto se ajusta el precio** | 6 meses o 1 año | **6 meses.** Con la inflación, un año de atraso es mucho, y ajustes chicos se sienten menos que uno grande. |
-| **Prueba con o sin tarjeta** | Sin tarjeta: más gente prueba y menos paga. Con tarjeta: menos gente prueba, pero se cobra sola al terminar. | **Sin tarjeta al principio.** Sin audiencia, lo que importa es que la prueben. Además ya existe la mecánica (`free_access_grants` con `expires_at`), y no hay cobros sorpresa que terminen en reclamo. Revisarlo cuando haya volumen. |
-| **Plan anual** | Sí o no | Dejarlo para después. Con un precio que se ajusta cada 6 meses, un anual en pesos es una apuesta contra la inflación. |
 | **Dónde vive la landing** | Subdominio, o dominio principal con la app en `app.` | Ver `H5`. |
 | **Datos de quien se da de baja** | Se guardan N días, se exportan, se borran | Decidirlo antes del primer cliente (`H3`). |
 
