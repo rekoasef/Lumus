@@ -340,7 +340,7 @@ No son código, pero sin ellas parte del trabajo no sirve:
 
 - `C7` **postergado** (2026-08-27), por decisión del usuario: poca gente sube el resumen del banco, el uso real es una línea por gasto. La fricción que importaba era la de `C6`, que ya está cerrada. Sigue siendo válido para el día que haya que migrar usuarios desde otra app.
 
-Queda **`C8`** (cerrar el paywall). **El precio ya está decidido** (30 fundadores a 9.500, público 15.000 — está en el ticket), así que `C8` dejó de depender de una decisión y es solo trabajo.
+Queda **`C8`** (cerrar el paywall). El precio de ese momento (30 fundadores a 9.500, público 15.000) **se reemplazó el 2026-09-16** por un precio único atado a 5 USD: ver `docs/NEGOCIO.md` y `docs/LANZAMIENTO.md`.
 
 La **ronda 3 está abierta** (`D1`–`D4`, 2026-08-27), salida de una charla de producto. **`D1` ya está cerrado**: Lumus guarda la cotización de cada día (con 15 años de historia del blue sembrados desde bluelytics) y el dashboard muestra qué le pasó a tus pesos por quedarse quietos. **`D2` y `D3` también están cerrados**: hay una pestaña de Inversiones (tenencias valuadas con CoinGecko o precio manual, ya dentro del patrimonio) y una pantalla de **Mercado** en `/finanzas/mercado` con el dólar —graficado desde la propia base, 15 años—, cripto y 96 acciones argentinas vía data912. **La ronda 3 está cerrada entera.** `D4` sumó el análisis de patrimonio por IA en `/finanzas/reportes`: usa datos reales (composición, reserva, pérdida del peso por ventana) y **tiene prohibido recomendar inversiones** — prohibición verificada contra siete intentos de sacarle una recomendación.
 

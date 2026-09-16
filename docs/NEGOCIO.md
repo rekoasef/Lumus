@@ -4,7 +4,7 @@
 
 Este doc junta la charla del 2026-09-16 sobre **cuánto cobrar** y **cuánto cuesta mantener Lumus** con 300 y con 1.000 usuarios. Los precios de terceros son los que se encontraron ese día. Antes de apoyarse en ellos, volver a mirarlos: cambian.
 
-> **Estado (2026-09-16, misma charla):** el dueño decidió **5 USD por mes cobrados en pesos (~7.800 ARS)**, con un ajuste manual cada cierto tiempo para mantener ese valor. **Siguen abiertos** la frecuencia del ajuste, el precio de fundador, la prueba con o sin tarjeta y el plan anual. Están en la sección 2 de `docs/LANZAMIENTO.md`, junto con lo legal y el plan de marketing. El precio de `C8` (2026-08-27) queda reemplazado. No tocar `SUBSCRIPTION_PRICE_ARS` hasta cerrar lo abierto.
+> **Estado (2026-09-16, misma charla):** el dueño decidió **5 USD por mes cobrados en pesos (~7.800 ARS)**, con un ajuste manual cada cierto tiempo para mantener ese valor. **Sin precio de fundador: todos pagan lo mismo.** **Siguen abiertos** la frecuencia del ajuste, la prueba con o sin tarjeta y el plan anual. Están en la sección 2 de `docs/LANZAMIENTO.md`, junto con lo legal y el plan de marketing. El precio de `C8` (2026-08-27) queda reemplazado. No tocar `SUBSCRIPTION_PRICE_ARS` hasta cerrar lo abierto.
 
 Cotización usada en todo el doc: **dólar blue venta 1.560 ARS** (bluelytics, 2026-09-16).
 
@@ -28,7 +28,7 @@ La idea del dueño: poner la suscripción en USD, total Mercado Pago le debita p
 - **No está confirmado que Mercado Pago lo acepte.** La referencia de `POST /preapproval` solo muestra ejemplos con `currency_id: "ARS"` y no dice qué monedas admite en Argentina. Hoy el código usa `SUBSCRIPTION_CURRENCY = 'ARS'` (`src/lib/billing/plan.ts`). **Se averigua probándolo**, no se afirma de memoria.
 - **Aunque se pudiera, le complica la vida al cliente.** Un cobro en dólares con tarjeta argentina suele tener recargos impositivos para el que paga, y un precio en USD asusta.
 
-### Lo que se propuso (no decidido)
+### Lo que se propuso (el precio de fundador se descartó después)
 
 **Cobrar en pesos, pero con el precio atado al dólar.**
 
@@ -42,6 +42,8 @@ La idea del dueño: poner la suscripción en USD, total Mercado Pago le debita p
 - **Los fundadores tienen un porcentaje fijo de descuento, no un monto fijo.** Así el descuento no se pierde con la inflación y el ingreso tampoco. Mantiene la urgencia de *"quedan N lugares"*.
 - El número de fundadores coincide con los 5.000 que el dueño tenía en mente, pero solo para los primeros.
 - Con 30 fundadores y 70 públicos: **~700 mil ARS/mes** en bruto.
+
+> **Descartado el mismo día:** el dueño sacó el precio de fundador. **Todos pagan el mismo precio.** Con 100 usuarios a 7.800 son ~780 mil ARS/mes en bruto.
 
 ### La incógnita que bloquea este esquema
 

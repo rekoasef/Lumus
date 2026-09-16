@@ -155,7 +155,7 @@ Hoy `gestorlumus.site` lleva directo al login (`src/app/page.tsx`). Alguien que 
 ### Alcance
 
 1. **El mensaje**: el diferencial no es *"controlá tus gastos"*, sino que **Lumus sabe que tus pesos se devalúan** (`D1`–`D4`).
-2. **El precio** visible, con los lugares de fundador que quedan. Depende de cerrar `docs/NEGOCIO.md`.
+2. **El precio** visible (único, sin precio de fundador). Depende de cerrar `docs/NEGOCIO.md`.
 3. **Dónde vive**: el dueño pensó en un subdominio. Lo común es al revés: la landing en el dominio principal y la app en `app.gestorlumus.site`. Se decide al arrancar.
 
 ### Done cuando
@@ -1599,7 +1599,7 @@ Es lo único que separa a Lumus de poder cobrar. `SUBSCRIPTION_PRICE_ARS = 1000`
 
 ### El precio, decidido el 2026-08-27
 
-> **En revisión desde el 2026-09-16** — ver `docs/NEGOCIO.md`. El congelamiento en pesos deja el ingreso a merced de la inflación. Se propuso atar el precio a ~5 USD y darles a los fundadores un porcentaje de descuento en vez de un monto fijo. Nada decidido todavía, y la tabla de abajo es la que estaba.
+> **En revisión desde el 2026-09-16** — ver `docs/NEGOCIO.md`. El congelamiento en pesos deja el ingreso a merced de la inflación. **Reemplazado**: precio único de 5 USD por mes cobrado en pesos, con ajuste periódico y **sin cohorte de fundadores**. La tabla de abajo es la que estaba y ya no vale, igual que el criterio de *"30 lugares fundadores"* del Done.
 
 | Cohorte | Mensual | Anual | Nota |
 |---|---|---|---|
