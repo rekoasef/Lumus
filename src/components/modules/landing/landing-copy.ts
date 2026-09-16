@@ -22,7 +22,28 @@ export const HERO = {
   scroll: 'Deslizá',
 }
 
-export const STATEMENT = 'Vos anotás lo que gastás. Lumus entiende el resto y te lo cuenta cada mes, en simple.'
+/**
+ * La escena del orden: gastos sueltos que se acomodan solos al bajar. Son de
+ * ejemplo; el total se suma de estos montos.
+ */
+export const SORT_SCENE = {
+  before: 'Vos anotás lo que gastás.',
+  after: ['Lumus lo ordena', 'y te lo explica.'],
+  cardTitle: 'Tus gastos de la semana',
+  cardTag: 'Ordenado por Lumus',
+  total: 'Total',
+  topCategory: 'Lo que más pesó: Supermercado',
+  expenses: [
+    { key: 'super', name: 'Supermercado', amount: 48_300 },
+    { key: 'fuel', name: 'Nafta', amount: 32_000 },
+    { key: 'food', name: 'Delivery', amount: 18_900 },
+    { key: 'coffee', name: 'Café', amount: 4_200 },
+    { key: 'power', name: 'Luz', amount: 26_750 },
+    { key: 'streaming', name: 'Streaming', amount: 9_990 },
+    { key: 'pharmacy', name: 'Farmacia', amount: 15_600 },
+    { key: 'transport', name: 'SUBE', amount: 8_000 },
+  ],
+}
 
 export const REPORT = {
   eyebrow: 'Informe mensual con IA',

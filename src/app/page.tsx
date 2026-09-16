@@ -5,7 +5,7 @@ import { needsOnboarding } from '@/lib/auth/onboarding'
 import { getPublicRates } from '@/lib/finance/public-rates'
 import { LandingNav } from '@/components/modules/landing/landing-nav'
 import { LandingHero } from '@/components/modules/landing/landing-hero'
-import { ScrollStatement } from '@/components/modules/landing/scroll-statement'
+import { ExpenseSortScene } from '@/components/modules/landing/expense-sort-scene'
 import { ReportShowcase } from '@/components/modules/landing/report-showcase'
 import { DevaluationSection } from '@/components/modules/landing/devaluation-section'
 import { FeatureGrid } from '@/components/modules/landing/feature-grid'
@@ -49,7 +49,7 @@ export default async function Home() {
       <LandingNav />
       <main>
         <LandingHero />
-        <ScrollStatement />
+        <ExpenseSortScene />
         <ReportShowcase />
         <DevaluationSection series={rates.monthly} latest={rates.latest} />
         <FeatureGrid />
