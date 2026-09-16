@@ -1,10 +1,12 @@
 # Lumus — Backlog de trabajo
 
-Última revisión: 2026-09-15
+Última revisión: 2026-09-16
 
 Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es un conjunto acotado de tickets que se toman **de a uno**, se cierran, se verifican y recién ahí se pasa al siguiente. Las rondas cerradas quedan abajo como historial, no se borran.
 
-- **Ronda 6 (`G1`, `E2`)** — **abierta el 2026-09-15**. El panel de admin que `B4` descartó con dos usuarios, y billeteras de inversión con tenencias adentro (una cuenta de broker con varias acciones).
+- **Ronda 7 (`H1`–`H4`)** — **abierta el 2026-09-16**. Un mes para que Lumus salga a producción como SaaS y la gente pague. Cuatro ejes en orden: que no mienta ni pierda datos, ojos en producción, que el cobro no falle, que un desconocido sepa usarla. **Es la ronda activa.**
+
+- **Ronda 6 (`G1`, `E2`)** — **abierta el 2026-09-15**. El panel de admin que `B4` descartó con dos usuarios, y billeteras de inversión con tenencias adentro (una cuenta de broker con varias acciones). `E2` quedó **escondida con un flag** el 2026-09-16: la UI no convenció.
 
 - **Ronda 5 (`F1`–`F2`)** — **abierta el 2026-09-10**. Los dos tickets salieron de que un amigo del dueño usó la app: el camino para cargar un gasto y los préstamos. **Los dos implementados el mismo día**; falta probarlos en pantalla y con un préstamo real.
 - **Ronda 4 (`E1`)** — abierta y **cerrada el 2026-08-28**. `E1` (billeteras de inversión con saldo) está deployado y probado con datos reales.
@@ -18,6 +20,125 @@ Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es u
 
 > **El deploy es manual** (`vercel --prod --yes`) y la base y el código deployado tienen que moverse juntos. El 2026-08-20 quedaron desfasados unos minutos y eso dejó al dueño fuera de su propia app hasta el deploy siguiente. Si un ticket toca el gate de acceso o una migración, deployar en el mismo tramo.
 
+
+---
+
+# Ronda 7 — abierta (2026-09-16)
+
+**El objetivo cambió de tamaño.** Hasta acá Lumus se construyó para su dueño y dos conocidos. La decisión del 2026-09-16 es otra: **un mes de trabajo para que salga a producción y la gente pague**. El paywall y el precio ya están (`C8`, `docs/BILLING.md`); lo que falta no es cobrar, es merecer el cobro.
+
+## Por qué en este orden
+
+Los cuatro ejes los eligió el dueño. El orden no es arbitrario: **cada uno depende del anterior**.
+
+| # | Eje | Por qué va acá |
+|---|---|---|
+| `H1` | Que no mienta ni pierda datos | Es lo único que no se puede compensar con soporte. Si Lumus miente sobre un gasto guardado, todo lo demás da igual |
+| `H2` | Ojos en producción | Sin esto, `H3` y `H4` se hacen a ciegas: no hay forma de saber si alguien se trabó salvo que escriba |
+| `H3` | Que el cobro no falle | Recién con datos de uso se puede ver dónde se cae una suscripción de verdad |
+| `H4` | Que un desconocido sepa usarla | Último a propósito: pulir la experiencia de algo que todavía puede mentir sobre un guardado es pulir sobre arena |
+
+> La regla de oro de la ronda: **un usuario que paga no reporta bugs, se va**. Los dos primeros ejes existen para enterarse sin depender de que alguien tenga la generosidad de avisar.
+
+---
+
+## `H1` — Que no mienta ni pierda datos
+
+Estado: **empezado el 2026-09-16** — el falso "guardado" está cerrado (`9e8676d`), los límites de error del dashboard también (`55330eb`)
+
+### Por qué
+
+La auditoría del 2026-09-16 encontró que **la acción central de la app podía mentir**: si el servidor rechazaba un movimiento, la pantalla decía "Movimiento registrado", cerraba el formulario, y el gasto no existía. El motivo quedaba guardado en un `error` que ninguna pantalla leía. El mismo patrón estaba en metas, presupuestos, categorías y recurrentes.
+
+Lo que lo hace un ticket y no un arreglo suelto: **ese bug ya se había arreglado dos veces** —en el borrado de movimientos y en billeteras— y las dos veces se arregló solo donde había aparecido. Es un patrón, no un descuido.
+
+### Ya hecho (2026-09-16)
+
+- Todos los hooks de mutación tiran con el mensaje del servidor; todas las pantallas lo muestran y dejan el formulario abierto con lo cargado. Las firmas perdieron el `null`, así que **una pantalla que se olvide de manejar el fallo no compila**.
+- `error.tsx` y `loading.tsx` para el grupo `(dashboard)`: el error se ve adentro del layout, con reintento y con el `digest` que ata lo que vio el usuario con lo que quedó en Sentry.
+- `select('*')` y siete relecturas de `wallets` sin `deleted_at`.
+- Tests de las tres funciones puras que no tenían red (`summary`, `report-parser`, `format-date`).
+
+### Lo que falta
+
+1. **Recorrer cada camino donde se mueve plata** preguntando lo mismo: si la API rechaza, ¿qué ve el usuario? Quedan préstamos (pagar, editar, borrar), ajuste de billeteras, aportes a metas desde otras pantallas.
+2. **Qué pasa si se corta la conexión en el medio.** Hoy un `fetch` caído y un rechazo del servidor se ven igual. No lo son: uno se reintenta, el otro se corrige.
+3. **Doble envío.** Un doble toque en "Guardar" con la red lenta, ¿carga el gasto dos veces? Hay que mirarlo antes que alguien lo descubra con su plata.
+4. **El backup** (`npm run backup`) nunca se probó restaurando. Un backup que no se restauró no es un backup.
+
+### Done cuando
+
+- Ninguna pantalla afirma que guardó sin haberlo confirmado, y todo rechazo muestra el motivo del servidor.
+- Un doble toque no duplica un movimiento.
+- Se restauró un backup a una base limpia y los números cierran.
+
+---
+
+## `H2` — Ojos en producción
+
+Estado: **pendiente**
+
+### Por qué
+
+Hoy el dueño se entera de un problema **solo si alguien le escribe**. El primer tester lleva casi un mes sin mandar feedback y no hay forma de saber si es porque no la usa (`G1` nació de eso mismo). Con gente pagando, ese silencio pasa de incómodo a caro.
+
+### Alcance
+
+1. **Sentry andando de verdad.** Falta `SENTRY_AUTH_TOKEN` en Vercel, así que los stack traces llegan sin mapear. Un error ilegible es casi no tener el error.
+2. **Saber si un error le pasó a alguien o a todos.** Agrupación por usuario, sin datos financieros adentro — la frontera de `G1` (conteos, no montos) vale igual acá.
+3. **`G1` etapa 2**: días activos reales, no "creó la cuenta". Es la única métrica que contesta *"¿la están usando?"*.
+4. **Un aviso al dueño** cuando algo se rompe de verdad, por el digest diario que ya existe. Sin mails por evento (regla de `docs/ARQUITECTURA.md`).
+
+### Done cuando
+
+- Un error en producción llega legible y con su línea de código.
+- El dueño puede contestar, sin escribir SQL: cuánta gente usó Lumus esta semana, y si alguien chocó con un error.
+
+---
+
+## `H3` — Que el cobro no falle
+
+Estado: **pendiente**
+
+### Por qué
+
+El paywall funciona: alguien paga y entra (`docs/BILLING.md`, probado en producción). Lo que **nunca se probó es el camino cuando algo sale mal**, que con un solo cliente no aparece y con cincuenta aparece todas las semanas.
+
+### Alcance
+
+1. **Un pago que se cae.** Mercado Pago reintenta; la tarjeta vence; el usuario no tiene fondos ese día. ¿Qué ve? ¿Cuántos días de gracia tiene antes de perder el acceso? Hoy no está decidido, y es una decisión de producto, no de código.
+2. **Recuperar una suscripción vencida** sin tener que escribirle al dueño.
+3. **El webhook.** Ya está firmado con HMAC, pero falta probar qué pasa si llega dos veces, o desordenado, o si Mercado Pago lo reintenta después de una caída.
+4. **Qué pasa con los datos de alguien que deja de pagar.** Se guardan, se exportan, se borran. Decisión del dueño, y hay que escribirla antes de que pase.
+5. **Poder darse de baja desde la app.** Sin eso, la única baja es el reclamo.
+
+### Done cuando
+
+- Está escrito y probado qué pasa con un pago caído, día por día, hasta perder el acceso.
+- Un usuario puede darse de baja y volver sin intervención manual.
+- El webhook es idempotente y hay prueba de que un reintento no cobra ni habilita dos veces.
+
+---
+
+## `H4` — Que un desconocido sepa usarla
+
+Estado: **pendiente**
+
+### Por qué
+
+Todo lo que sabemos de "alguien que no la construyó" viene de **una sola persona**: el amigo que la usó y generó `F1` y `F2`. Sus dos quejas —cargar un gasto son tres toques, la app no sabe qué es deber plata— eran cosas que desde adentro no se veían.
+
+### Alcance
+
+1. **El primer día.** Qué ve alguien que entra con la app vacía: sin billeteras, sin movimientos, sin categorías propias. Hoy los estados vacíos existen pero nadie los miró como un camino.
+2. **Los textos.** Escritos por quien conoce el modelo de datos. "Recurrente", "ajuste", "tenencias" son palabras de adentro.
+3. **Que el camino diario sea obvio**: abrir, cargar lo del día, cerrar. Es lo único que alguien hace todos los días.
+4. **Probarlo con gente de verdad**: los ~10 testers de `C8`, mirando dónde se traban sin explicarles nada.
+
+### Done cuando
+
+- Alguien que nunca vio Lumus carga su primer gasto sin preguntar nada.
+- Los textos de la UI no usan ninguna palabra que venga del esquema de la base.
 
 ---
 
