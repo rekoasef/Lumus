@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
+  animate,
   motion,
+  useInView,
+  useMotionValue,
   useReducedMotion,
-  useScroll,
   useTransform,
   type MotionValue,
 } from 'framer-motion'
@@ -60,19 +62,45 @@ const HEAD_GAP = 28
 const STAGGER = 0.025
 
 /**
- * Gastos sueltos por la pantalla que, a medida que bajás, vuelan a su lugar y
- * forman una lista ordenada junto al orbe. Es la promesa de Lumus contada sin
- * palabras: vos anotás, Lumus ordena.
+ * Lo que dura la escena entera, en segundos. Todas las etapas de abajo son
+ * fracciones de esto.
+ */
+const SCENE_DURATION = 2.8
+/**
+ * Arranca lento y aterriza suave. Con una curva que arranca rápido, el desorden
+ * del principio casi no llegaba a verse, y sin él la escena no cuenta nada.
+ */
+const SCENE_EASE = [0.65, 0, 0.35, 1] as const
+
+/**
+ * Gastos sueltos por la pantalla que vuelan a su lugar y forman una lista
+ * ordenada junto al orbe. Es la promesa de Lumus contada sin palabras: vos
+ * anotás, Lumus ordena.
  *
- * Todo el movimiento sale del scroll (no hay tiempos): si subís, se desordena
- * de nuevo. Con movimiento reducido se muestra directamente ordenado.
+ * Ocupa una pantalla y se reproduce sola, entera, cuando la sección queda a la
+ * vista. La primera versión avanzaba con el scroll y pedía más de tres
+ * pantallas para terminar: los testers sintieron que era demasiado scroll para
+ * una sola idea (2026-09-17). Con movimiento reducido se muestra ordenada.
  */
 export function ExpenseSortScene() {
   const ref = useRef<HTMLElement>(null)
   const headRef = useRef<HTMLDivElement>(null)
   const reduceMotion = useReducedMotion()
   const [viewport, setViewport] = useState(FALLBACK)
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end end'] })
+  // Arranca cuando se ve más de la mitad: antes, la animación pasaría a
+  // medias fuera de pantalla.
+  const inView = useInView(ref, { once: true, amount: 0.55 })
+  const progress = useMotionValue(0)
+
+  useEffect(() => {
+    if (!inView) return
+    if (reduceMotion) {
+      progress.set(1)
+      return
+    }
+    const controls = animate(progress, 1, { duration: SCENE_DURATION, ease: SCENE_EASE })
+    return () => controls.stop()
+  }, [inView, reduceMotion, progress])
 
   useEffect(() => {
     // El título final ocupa una línea en escritorio y dos en el celular: se
@@ -105,9 +133,6 @@ export function ExpenseSortScene() {
   // El escenario está escalado: sus coordenadas internas van sin escalar.
   const cardTop = cardTopScreen / scale
 
-  // Con movimiento reducido, el scroll no mueve nada: todo queda en su lugar final.
-  const progress = useTransform(scrollYProgress, v => (reduceMotion ? 1 : v))
-
   const headingY = useTransform(progress, [0.12, 0.55], [0, headingFinalY])
   const beforeOpacity = useTransform(progress, [0.4, 0.52], [1, 0])
   const afterOpacity = useTransform(progress, [0.5, 0.62], [0, 1])
@@ -123,8 +148,8 @@ export function ExpenseSortScene() {
   )
 
   return (
-    <section ref={ref} className="relative h-[320vh]">
-      <div className="sticky top-0 h-[100svh] overflow-clip">
+    <section ref={ref} className="relative h-[100svh] min-h-[600px]">
+      <div className="relative h-full overflow-clip">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(124,109,250,0.10),transparent_60%)]" aria-hidden />
 
         {/* Título: arranca en el centro, entre los gastos, y sube a su lugar. */}
