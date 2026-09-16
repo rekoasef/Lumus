@@ -22,6 +22,7 @@ const FREE_DESCRIPTION = 'Tenés Lumus completo, sin costo. Cuando termine, tus 
 const ENDING_LABEL = 'No se renueva'
 const ENDING_DESCRIPTION = 'Tu suscripción no está activa, pero seguís entrando hasta que termine lo que pagaste. Tus datos quedan guardados.'
 const RESUBSCRIBE = 'Volver a suscribirme'
+const SUBSCRIBE = 'Suscribirme sin perder los días que quedan'
 
 interface SubscriptionCardProps {
   subscription: BillingSubscription | null
@@ -87,6 +88,14 @@ export function SubscriptionCard({ subscription, access }: SubscriptionCardProps
             <p className="mt-2 text-xs text-[var(--text-muted)]">
               Vigente hasta el {formatDate(expires)} · {accessEndingPhrase(accessDaysLeft(expires))}
             </p>
+          )}
+          {expires && CHECKOUT_ENABLED && (
+            <Link
+              href="/suscripcion"
+              className="mt-4 inline-block text-xs font-medium text-[var(--accent-lumus)] hover:underline"
+            >
+              {SUBSCRIBE}
+            </Link>
           )}
         </div>
       </section>

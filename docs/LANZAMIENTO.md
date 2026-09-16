@@ -37,6 +37,8 @@ Con un solo cliente, Lumus pierde plata aunque no existiera el monotributo: entr
 4. **No todos van a pagar.** Contar con que convierta una parte de los 10, no todos. Cada uno deja ~7.200 netos: hacer la cuenta contra Vercel más la cuota real del monotributo antes de activar.
 5. **Si de los ~10 no paga casi nadie**, es la respuesta que se buscaba, y se obtuvo sin haber pagado nada. Volver a la sección 8 para ver en qué paso se perdió la gente.
 
+**Cambio del 2026-09-17: el cobro se prendió antes**, por decisión del dueño, para dejarlo listo. No cobra nada todavía: la prueba de 30 días y `start_date` hacen que **el primer cobro real caiga el día que termina la prueba del primer suscriptor** (como muy pronto, 30 días después de su registro). El dueño y los testers tienen accesos gratis sin vencimiento y no ven el botón de pago. **La fecha límite para el monotributo, Vercel Pro y `H6` es ese primer cobro**: cuando alguien se suscriba, aparece como *Pagando* en el panel de admin, y su fecha de cobro está en Mercado Pago.
+
 **No se cobra en negro ni desde Hobby**, ni siquiera "hasta ver si funciona". No facturar es causal de exclusión del monotributo, y Vercel puede pausar un proyecto Hobby con uso comercial, que con clientes pagando es el peor momento posible.
 
 ### Cómo funciona la prueba sin tarjeta (decidido el 2026-09-16)

@@ -63,7 +63,7 @@ Lumus se registra libre (email + código de verificación, ver flujo de auth ya 
 
 ## El cobro, listo para prender (2026-09-17)
 
-Todo lo de esta sección está hecho con el cobro **apagado** (`CHECKOUT_ENABLED = false`). Prenderlo es cambiar esa línea y deployar, el mismo día que el monotributo y Vercel Pro.
+Todo lo de esta sección se hizo con el cobro apagado. **Se prendió el 2026-09-17** (`CHECKOUT_ENABLED = true`), por decisión del dueño: con la prueba de 30 días y `start_date`, el primer cobro real cae recién cuando termina la prueba del primer suscriptor, y esa es la fecha límite para el monotributo y Vercel Pro.
 
 ### El acceso dura lo que se pagó (`00035`)
 
@@ -96,5 +96,6 @@ Con el cobro prendido en un deploy de prueba o un rato en producción, con una c
 
 - [x] Subir `SUBSCRIPTION_PRICE_ARS` al precio real (7.800, 2026-09-17)
 - [ ] Las pruebas con tarjeta real de la sección de arriba
-- [ ] Prender `CHECKOUT_ENABLED` el mismo día que el monotributo y Vercel Pro
+- [x] Prender `CHECKOUT_ENABLED` (2026-09-17)
+- [ ] Monotributo, Vercel Pro y `H6` antes del primer cobro real (fin de la prueba del primer suscriptor)
 - [ ] Probar el caso de suscripción `paused` (no probado, solo `authorized → cancelled`)

@@ -14,14 +14,15 @@ import { useRouter } from 'next/navigation'
  * Barra inferior de dos niveles.
  *
  * Doce destinos no entran en una barra: el límite no es de diseño, es el ancho
- * del pulgar. Quedan a la vista los cuatro que se miran seguido, el `+` de
- * cargar un gasto ocupa el centro —que es el lugar más fácil de acertar sin
- * mirar— y el resto vive en "Más". La lista sale de `lib/nav/destinations`, la
- * misma que usa la barra de desktop.
+ * del pulgar. Cinco lugares iguales: dos destinos, el `+` de cargar un gasto en
+ * el centro exacto —el lugar más fácil de acertar sin mirar—, un destino y
+ * "Más", donde vive el resto. La lista sale de `lib/nav/destinations`, la misma
+ * que usa la barra de desktop.
  *
- * Seis slots es el techo: en una pantalla de 360px cada uno queda en 60, que es
- * lo mínimo para un ícono con su etiqueta debajo. Panel no entra por eso, y no
- * queda huérfano porque el logo del header linkea al dashboard.
+ * Hasta el 2026-09-17 eran seis lugares y el `+` quedaba corrido a la
+ * izquierda; los testers además pedían íconos más grandes, que con seis no
+ * entraban. Con cinco, cada lugar tiene 72px en una pantalla de 360: íconos de
+ * 24 y zonas táctiles de más de 48, el mínimo para acertar con el pulgar.
  */
 export function BottomNav() {
   const pathname = usePathname()
@@ -74,9 +75,11 @@ export function BottomNav() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-              className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-white/10 bg-[#111018] pb-8"
+              className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-white/10 bg-[#111018] pb-[calc(6.5rem+env(safe-area-inset-bottom))]"
               onClick={e => e.stopPropagation()}
             >
+              {/* El relleno de abajo deja lugar a la barra, que queda encima de
+                  la hoja: sin él, "Cerrar sesión" quedaba tapado. */}
               <div className="flex items-center justify-between px-5 pb-2 pt-5">
                 <h2 className="lumus-heading text-lg font-semibold text-[var(--text-primary)]">
                   Todo
@@ -90,20 +93,20 @@ export function BottomNav() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 px-4 pt-2">
+              <div className="grid grid-cols-3 gap-2.5 px-4 pt-2">
                 {MOBILE_MORE.map(({ href, label, icon: Icon }) => {
                   const active = isActiveHref(pathname, href)
                   return (
                     <Link
                       key={href}
                       href={href}
-                      className={`flex flex-col items-center gap-2 rounded-2xl border p-4 text-center text-[0.7rem] font-medium transition-colors ${
+                      className={`flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-2xl border p-3 text-center text-xs font-medium transition-colors active:scale-[0.97] ${
                         active
                           ? 'border-[var(--accent-lumus)]/30 bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
                           : 'border-white/[0.07] bg-white/[0.02] text-[var(--text-secondary)] hover:bg-white/[0.05]'
                       }`}
                     >
-                      <Icon size={20} />
+                      <Icon size={24} />
                       <span>{label}</span>
                     </Link>
                   )
@@ -111,22 +114,22 @@ export function BottomNav() {
 
                 <Link
                   href="/perfil"
-                  className={`flex flex-col items-center gap-2 rounded-2xl border p-4 text-center text-[0.7rem] font-medium transition-colors ${
+                  className={`flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-2xl border p-3 text-center text-xs font-medium transition-colors active:scale-[0.97] ${
                     pathname === '/perfil'
                       ? 'border-[var(--accent-lumus)]/30 bg-[var(--accent-muted)] text-[var(--accent-lumus)]'
                       : 'border-white/[0.07] bg-white/[0.02] text-[var(--text-secondary)] hover:bg-white/[0.05]'
                   }`}
                 >
-                  <UserCircle size={20} />
+                  <UserCircle size={24} />
                   <span>Perfil</span>
                 </Link>
               </div>
 
               <button
                 onClick={handleLogout}
-                className="mx-4 mt-3 flex w-[calc(100%-2rem)] items-center justify-center gap-2 rounded-2xl border border-white/[0.07] p-4 text-[0.75rem] font-medium text-[var(--text-muted)] transition-colors hover:bg-red-500/10 hover:text-red-400"
+                className="mx-4 mt-3 flex w-[calc(100%-2rem)] items-center justify-center gap-2 rounded-2xl border border-white/[0.07] p-4 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-red-500/10 hover:text-red-400"
               >
-                <LogOut size={16} />
+                <LogOut size={18} />
                 Cerrar sesión
               </button>
             </motion.div>
@@ -139,23 +142,22 @@ export function BottomNav() {
           <NavTab key={dest.href} {...dest} active={isActiveHref(pathname, dest.href)} />
         ))}
 
-        {/* El `+` va al centro: es la acción que se repite veinte veces por
-            semana y el punto de la barra que el pulgar acierta sin mirar. */}
-        <button
-          onClick={() => openQuickExpense()}
-          aria-label="Cargar gasto"
-          className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5"
-        >
-          <span
-            className="flex size-10 items-center justify-center rounded-2xl text-white transition-transform active:scale-95"
+        {/* El `+` va al centro exacto: es la acción que se repite veinte veces
+            por semana y el punto de la barra que el pulgar acierta sin mirar.
+            Sobresale de la barra para que se note que es otra cosa. */}
+        <div className="flex flex-1 items-start justify-center">
+          <button
+            onClick={() => openQuickExpense()}
+            aria-label="Cargar gasto"
+            className="-mt-5 flex size-[60px] items-center justify-center rounded-full text-white ring-[5px] ring-[#0b0b12] transition-transform active:scale-95"
             style={{
-              background: 'linear-gradient(135deg, #8b7dff 0%, #7c6dfa 100%)',
-              boxShadow: '0 4px 16px rgba(124,109,250,0.45)',
+              background: 'linear-gradient(135deg, #9d90ff 0%, #7c6dfa 100%)',
+              boxShadow: '0 8px 24px rgba(124,109,250,0.55)',
             }}
           >
-            <Plus size={22} strokeWidth={2.5} />
-          </span>
-        </button>
+            <Plus size={28} strokeWidth={2.5} />
+          </button>
+        </div>
 
         {MOBILE_PRIMARY.slice(2).map(dest => (
           <NavTab key={dest.href} {...dest} active={isActiveHref(pathname, dest.href)} />
@@ -164,13 +166,13 @@ export function BottomNav() {
         <button
           onClick={() => setMoreOpen(true)}
           aria-expanded={moreOpen}
-          className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[9px] font-semibold transition-colors ${
+          className={`flex min-h-[64px] min-w-0 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors active:scale-95 ${
             moreActive || moreOpen
               ? 'text-[var(--accent-lumus)]'
               : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
           }`}
         >
-          <Menu size={19} />
+          <Menu size={24} />
           <span>Más</span>
         </button>
       </nav>
@@ -192,11 +194,11 @@ function NavTab({
   return (
     <Link
       href={href}
-      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[9px] font-semibold transition-colors ${
+      className={`flex min-h-[64px] min-w-0 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors active:scale-95 ${
         active ? 'text-[var(--accent-lumus)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
       }`}
     >
-      <Icon size={19} />
+      <Icon size={24} />
       <span className="max-w-full truncate px-0.5">{label}</span>
     </Link>
   )

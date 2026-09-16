@@ -48,7 +48,9 @@ export const NAV_DESTINATIONS: readonly NavDestination[] = [
   { href: '/dashboard',              label: 'Panel',        icon: LayoutDashboard, tier: 'desktop' },
   { href: '/finanzas',               label: 'Gastos',       icon: Wallet,          tier: 'primary' },
   { href: '/finanzas/billeteras',    label: 'Billeteras',   icon: CreditCard,      tier: 'primary' },
-  { href: '/finanzas/inversiones',   label: 'Inversiones',  icon: TrendingUp,      tier: 'primary' },
+  // En mobile va al menú desde el 2026-09-17: la barra quedó en cuatro destinos
+  // más el `+`, para que el `+` caiga justo en el centro.
+  { href: '/finanzas/inversiones',   label: 'Inversiones',  icon: TrendingUp,      tier: 'desktop' },
   { href: '/finanzas/reportes',      label: 'Reportes',     icon: BarChart2,       tier: 'primary' },
   { href: '/finanzas/fijos',         label: 'Fijos',        icon: Repeat,          tier: 'more' },
   { href: '/finanzas/prestamos',     label: 'Préstamos',    icon: HandCoins,       tier: 'more' },

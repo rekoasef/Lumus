@@ -22,15 +22,18 @@ export const TRIAL_DAYS = 30
 export const ACCESS_ENDING_WARNING_DAYS = 7
 
 /**
- * Si se puede pagar una suscripción. **Apagado hasta que se active el cobro**
- * (decisión del 2026-09-16, `docs/LANZAMIENTO.md`).
+ * Si se puede pagar una suscripción. **Prendido desde el 2026-09-17**, por
+ * decisión del dueño, para que el cobro quede listo y no se arme a último
+ * momento.
  *
- * Primero se consiguen ~10 usuarios con un mes gratis, y recién después, el
- * mismo día, se hace todo junto: monotributo, Vercel Pro (Hobby prohíbe el uso
- * comercial) y lo legal de `H6`. El precio real ya está cargado.
- * Prender esto antes es cobrar en negro y desde un plan que no lo permite.
+ * Por qué eso no cobra nada todavía: todo el que se registra tiene 30 días de
+ * prueba, y `start_date` hace que el primer cobro caiga el día que termina. El
+ * dueño y los testers tienen accesos gratis sin vencimiento, así que
+ * `/suscripcion` ni siquiera les ofrece pagar. **El primer cobro posible es el
+ * fin de la prueba del primer suscriptor**: antes de esa fecha tienen que estar
+ * el monotributo, Vercel Pro y lo legal de `H6` (`docs/LANZAMIENTO.md`).
  *
  * Apagado, `/suscripcion` no muestra el botón de pago y la API rechaza el
  * checkout: la pantalla y la API tienen que decir lo mismo.
  */
-export const CHECKOUT_ENABLED = false
+export const CHECKOUT_ENABLED = true
