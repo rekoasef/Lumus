@@ -56,6 +56,10 @@ Lumus pasa de ser una herramienta personal a ser **un producto que se le vende a
 ### Facturación (monotributo)
 
 - Un monotributista tiene que emitir **factura C por cada venta o servicio**, sin importar el monto. No facturar bien es causal de exclusión del régimen.
+- **Rige desde el primer cobro, sin mínimo.** Mientras Lumus sea gratis (beta, testers) no hay nada que facturar. **Inscribirse al monotributo justo antes de activar el precio**, no antes. No cobrar en negro: Mercado Pago informa los movimientos a ARCA.
+- **Cuota (agosto 2026)**: categoría A de servicios, **49.527 ARS/mes**, con un tope de 12.009.410 ARS/año (~128 clientes a 7.800). Esa cuota suma impuesto integrado, jubilación y obra social. **Quien además trabaja en relación de dependencia paga solo el impuesto integrado**, que es una fracción de ese número, porque la jubilación y la obra social ya las aporta el empleador. Es el caso del dueño: **confirmarlo con el contador**, junto con Ingresos Brutos de la provincia.
+- **Sin ese beneficio, la cuota completa se come los primeros ~7 clientes.** Con él, probablemente alcance con uno o dos (confirmar el monto del impuesto integrado).
+- **Los primeros ~20 clientes se pueden facturar a mano** (Comprobantes en línea de ARCA): una factura C por cliente por mes, a consumidor final.
 - **Con 100 usuarios son 100 facturas por mes.** Hacerlas a mano no escala: hay que automatizarlas (servicios con API para ARCA, o disparar la factura desde el webhook de pago). Ver con el contador qué categoría corresponde y si "software como servicio" entra como servicio.
 
 ### Lo que tiene que aceptar el usuario
@@ -222,6 +226,8 @@ Las fases 1 a 3 pueden avanzar en paralelo en lo que no es código: la consulta 
 - [Los aumentos de precio en los servicios — Justicia Colectiva](https://justiciacolectiva.org.ar/los-aumento-de-precio-en-los-servicios/)
 - [Protección de datos personales — AAIP](https://www.argentina.gob.ar/aaip/datospersonales)
 - [Registro de bases de datos ante la AAIP — JBB Abogados](https://jbbabogados.com.ar/registro-de-bases-de-datos-personales-en-argentina-cuando-corresponde-inscribirlas-ante-la-aaip-y-como-hacerlo/)
+- [Monotributo: escalas e importes desde agosto 2026 — iProfesional](https://www.iprofesional.com/impuestos/461293-monotributo-asi-quedan-las-escalas-topes-e-importes-a-pagar-desde-agosto-2026)
+- [Tipos de monotributo — ARCA](https://www.afip.gob.ar/monotributo/ayuda/tipos-de-monotributo.asp)
 - [Factura C 2026 — garca.app](https://garca.app/monotributo/factura-c)
 - [Cómo facturar como monotributista en ARCA 2026 — aFacturar](https://afacturar.com.ar/blog/como-facturar-monotributista-arca/)
 - [Mercado Pago — Suscripciones con plan asociado](https://www.mercadopago.com.uy/developers/es/docs/subscriptions/integration-configuration/subscription-associated-plan)
