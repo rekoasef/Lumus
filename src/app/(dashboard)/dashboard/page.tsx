@@ -22,8 +22,7 @@ import { budgetUsage, monthlyRecurringAmount, savingGoalProgress } from '@/lib/f
 import { purchasingPowerChange, rateOn, type DailyRate } from '@/lib/finance/purchasing-power'
 import { PurchasingPowerCard } from '@/components/modules/dashboard/purchasing-power-card'
 import { NetWorthCard } from '@/components/modules/dashboard/net-worth-card'
-import { getCryptoPrices } from '@/lib/finance/crypto-prices'
-import { portfolioTotals, resolvePriceUsd, valuateHolding, type Holding } from '@/lib/finance/holdings'
+import { getPortfolioValue } from '@/lib/finance/portfolio-data'
 import { loanTotals, type Loan } from '@/lib/finance/loans'
 import { LOAN_SELECT, loadRepayments } from '@/app/api/finance/loans/shared'
 import { formatCurrency } from '@/lib/utils/format-currency'
@@ -230,22 +229,8 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
 
   // Las inversiones son parte del patrimonio: el saldo de las billeteras no es
   // todo lo que tiene el usuario.
-  const { data: holdingRows } = await supabase
-    .from('holdings')
-    .select('id, name, kind, price_source, quantity, purchase_price, purchase_currency, purchase_date, manual_price')
-    .eq('user_id', userId)
-
-  const holdings = (holdingRows ?? []) as unknown as Holding[]
-  const cryptoPrices = await getCryptoPrices(
-    holdings.map(h => h.price_source).filter((id): id is string => Boolean(id)),
-  )
-
-  const holdingsArs = portfolioTotals(
-    holdings.map(holding => {
-      const price = resolvePriceUsd(holding, cryptoPrices)
-      return price === null ? null : valuateHolding(holding, price, rates.USD, rateHistory)
-    }),
-  ).valueArs
+  const { totals: portfolio } = await getPortfolioValue(supabase, userId, rates.USD, rateHistory)
+  const holdingsArs = portfolio.valueArs
 
   // Préstamos. Es lo único del patrimonio que puede **restar**: hasta que
   // existieron, la cuenta era una suma de cosas positivas y sacar un préstamo

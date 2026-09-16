@@ -1,45 +1,70 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import type { Wallet } from '@/types/finance.types'
-import type { Holding } from '@/lib/finance/holdings'
+import type { Holding, HoldingTrade, PriceQuotes } from '@/lib/finance/holdings'
 import type { DailyRate } from '@/lib/finance/purchasing-power'
 import type { InvestmentEvent } from '@/lib/finance/investment'
-import { HoldingsSection } from './holdings-section'
+import type { ExchangeRates } from '@/lib/finance/exchange-rates'
+import type { CreateWalletInput } from '@/lib/validations/finance'
+import { PortfolioSection } from './portfolio-section'
 import { InvestmentWalletsSection } from './investment-wallets-section'
 import { WalletAdjustForm, type WalletAdjustSubmit } from './wallet-adjust-form'
+import { WalletForm } from './wallet-form'
 import { FinanzasPageHeader, FinanzasPageShell } from './finanzas-page-header'
 import { useWallets, type AdjustBalanceResult } from '@/hooks/use-wallets'
 import { useInvestmentReturns } from '@/hooks/use-investment-returns'
-import { useExchangeRates } from '@/hooks/use-exchange-rates'
 
 interface InversionesViewProps {
   /** Todas las billeteras: el ajuste de una inversión necesita la contraparte del aporte. */
   initialWallets: Wallet[]
   initialInvestmentEvents: Record<string, InvestmentEvent[]>
-  initialHoldings: Holding[]
-  /** Precios de cripto en USD, resueltos en el server. */
-  cryptoPrices: Record<string, number>
+  holdings: Holding[]
+  trades: HoldingTrade[]
+  /** Precios de mercado, resueltos en el server. */
+  quotes: PriceQuotes
+  quotesFetchedAt: string | null
+  rates: ExchangeRates
   rateHistory: DailyRate[]
 }
 
 export function InversionesView({
   initialWallets,
   initialInvestmentEvents,
-  initialHoldings,
-  cryptoPrices,
+  holdings,
+  trades,
+  quotes,
+  quotesFetchedAt,
+  rates,
   rateHistory,
 }: InversionesViewProps) {
-  const { wallets, adjustBalance } = useWallets(initialWallets)
-  const { rates: exchangeRates } = useExchangeRates()
+  const router = useRouter()
+  const { wallets, adjustBalance, createWallet } = useWallets(initialWallets)
+  const [creatingPortfolio, setCreatingPortfolio] = useState(false)
 
   const [investmentEvents, setInvestmentEvents] =
     useState<Record<string, InvestmentEvent[]>>(initialInvestmentEvents)
   const [adjustingWallet, setAdjustingWallet] = useState<Wallet | null>(null)
 
   const investmentReturns = useInvestmentReturns(wallets, investmentEvents, rateHistory)
-  const investmentWallets = wallets.filter(w => w.type === 'inversion')
+  // Dos modos de billetera de inversión (`E2`): las que tienen especies adentro y
+  // las que son un saldo que se actualiza.
+  const portfolioWallets = wallets.filter(w => w.type === 'inversion' && w.investment_mode === 'tenencias')
+  const balanceWallets = wallets.filter(w => w.type === 'inversion' && w.investment_mode !== 'tenencias')
+
+  async function handleCreatePortfolio(input: CreateWalletInput) {
+    try {
+      await createWallet(input)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo crear la cartera')
+      return
+    }
+    setCreatingPortfolio(false)
+    toast.success('Cartera creada')
+    router.refresh()
+  }
 
   async function handleAdjustBalance(input: WalletAdjustSubmit) {
     if (!adjustingWallet) return
@@ -76,30 +101,44 @@ export function InversionesView({
     <FinanzasPageShell>
       <FinanzasPageHeader
         title="Inversiones"
-        description="Lo que tiene saldo y lo que tiene unidades, en un solo lugar."
+        description="Tus carteras con acciones y cripto, y lo que tiene saldo, en un solo lugar."
       />
 
       <div className="space-y-8">
-        {/* Las billeteras de inversión van arriba: son plata que ya está
-            puesta y que se actualiza a mano, así que es lo primero que se
-            viene a mirar acá. */}
-        <InvestmentWalletsSection
-          wallets={investmentWallets}
-          events={investmentEvents}
-          returns={investmentReturns}
-          onAdjust={setAdjustingWallet}
+        {/* Las carteras van arriba: es lo que se viene a mirar todos los días,
+            porque los precios se mueven solos. */}
+        <PortfolioSection
+          wallets={portfolioWallets}
+          holdings={holdings}
+          trades={trades}
+          quotes={quotes}
+          quotesFetchedAt={quotesFetchedAt}
+          rates={rates}
+          rateHistory={rateHistory}
+          onCreatePortfolio={() => setCreatingPortfolio(true)}
+          onAdjustCash={setAdjustingWallet}
         />
 
-        <HoldingsSection
-          initialHoldings={initialHoldings}
-          prices={cryptoPrices}
-          // Si la cotización todavía no cargó, la conversión a pesos espera:
-          // mostrar un valor en ARS con un dólar inventado es peor que no
-          // mostrarlo, y el valor en dólares se ve igual.
-          arsPerUsd={exchangeRates?.USD ?? 0}
-          rateHistory={rateHistory}
-        />
+        {/* Si no hay ninguna billetera de saldo, la sección no aparece: su
+            estado vacío le explicaría a alguien con un broker cómo marcar una
+            billetera, que es justo lo que no necesita. */}
+        {balanceWallets.length > 0 && (
+          <InvestmentWalletsSection
+            wallets={balanceWallets}
+            events={investmentEvents}
+            returns={investmentReturns}
+            onAdjust={setAdjustingWallet}
+          />
+        )}
       </div>
+
+      {creatingPortfolio && (
+        <WalletForm
+          preset={{ type: 'inversion', investment_mode: 'tenencias' }}
+          onSave={handleCreatePortfolio}
+          onClose={() => setCreatingPortfolio(false)}
+        />
+      )}
 
       {adjustingWallet && (
         <WalletAdjustForm

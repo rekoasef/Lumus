@@ -5,7 +5,7 @@ import { splitBalanceChange, isNegligible, type InvestmentEvent } from '@/lib/fi
 
 /** Las columnas de una billetera que la UI necesita. Nunca `*`. */
 const WALLET_COLUMNS =
-  'id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, created_at, updated_at'
+  'id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, investment_mode, created_at, updated_at'
 
 export async function POST(
   req: NextRequest,
@@ -27,7 +27,7 @@ export async function POST(
   // Traer billetera actual
   const { data: wallet, error: walletError } = await supabase
     .from('wallets')
-    .select('id, type, balance, currency, created_at, investment_baseline_date')
+    .select('id, type, balance, currency, created_at, investment_baseline_date, investment_mode')
     .eq('id', id)
     .eq('user_id', user.id)
     .is('deleted_at', null)
@@ -37,9 +37,11 @@ export async function POST(
     return NextResponse.json({ error: 'Billetera no encontrada' }, { status: 404 })
   }
 
-  const isInvestment = wallet.type === 'inversion'
-  // El movimiento solo significa algo en una inversión: en el resto de las
-  // billeteras un cambio de saldo es siempre una corrección.
+  // El movimiento solo significa algo en una inversión **con saldo**: en el
+  // resto de las billeteras un cambio de saldo es siempre una corrección. En una
+  // cartera de tenencias el saldo es el efectivo, y lo que rinde son las
+  // especies, no ese número (`E2`).
+  const isInvestment = wallet.type === 'inversion' && wallet.investment_mode !== 'tenencias'
   const movement = isInvestment ? (result.data.movement ?? 0) : 0
 
   const current_balance = Number(wallet.balance)

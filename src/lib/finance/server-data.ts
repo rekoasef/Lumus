@@ -7,7 +7,7 @@ import { fetchRateHistory } from '@/lib/finance/rate-history'
 import type { DailyRate } from '@/lib/finance/purchasing-power'
 
 const WALLET_COLUMNS =
-  'id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, created_at, updated_at'
+  'id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, investment_mode, created_at, updated_at'
 
 /**
  * Billeteras y categorías del usuario.
@@ -63,7 +63,7 @@ export async function getInvestmentContext(
   const supabase = await createClient()
 
   const investmentWallets = wallets.filter(
-    w => w.type === 'inversion' && w.investment_baseline_date !== null,
+    w => w.type === 'inversion' && w.investment_mode !== 'tenencias' && w.investment_baseline_date !== null,
   )
 
   const oldestBaseline = investmentWallets.reduce<string | null>(

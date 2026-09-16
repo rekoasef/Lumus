@@ -34,6 +34,12 @@ export interface DeleteWalletResult {
   error?: string
 }
 
+/** El mensaje del servidor si vino uno legible; si no, el genérico. */
+async function serverError(res: Response, fallback: string): Promise<string> {
+  const body = await res.json().catch(() => null) as { error?: unknown } | null
+  return typeof body?.error === 'string' ? body.error : fallback
+}
+
 export function useWallets(initialWallets: Wallet[]) {
   const [wallets, setWallets] = useState<Wallet[]>(initialWallets)
   const [loading, setLoading] = useState(false)
@@ -48,7 +54,7 @@ export function useWallets(initialWallets: Wallet[]) {
     return acc
   }, {})
 
-  const createWallet = useCallback(async (input: CreateWalletInput): Promise<Wallet | null> => {
+  const createWallet = useCallback(async (input: CreateWalletInput): Promise<Wallet> => {
     setLoading(true)
     setError(null)
     try {
@@ -57,19 +63,21 @@ export function useWallets(initialWallets: Wallet[]) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       })
-      if (!res.ok) throw new Error('Error al crear la billetera')
+      if (!res.ok) throw new Error(await serverError(res, 'Error al crear la billetera'))
       const { wallet } = await res.json() as { wallet: Wallet }
       setWallets(prev => [...prev, wallet])
       return wallet
     } catch (e) {
+      // Se propaga, como en el ajuste: la pantalla tiene que poder decir por qué
+      // falló en vez de mostrar "Billetera creada" sobre algo que no se guardó.
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return null
+      throw e
     } finally {
       setLoading(false)
     }
   }, [])
 
-  const updateWallet = useCallback(async (id: string, input: UpdateWalletInput): Promise<Wallet | null> => {
+  const updateWallet = useCallback(async (id: string, input: UpdateWalletInput): Promise<Wallet> => {
     setLoading(true)
     setError(null)
     try {
@@ -78,13 +86,15 @@ export function useWallets(initialWallets: Wallet[]) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       })
-      if (!res.ok) throw new Error('Error al actualizar la billetera')
+      if (!res.ok) throw new Error(await serverError(res, 'Error al actualizar la billetera'))
       const { wallet } = await res.json() as { wallet: Wallet }
       setWallets(prev => prev.map(w => w.id === id ? wallet : w))
       return wallet
     } catch (e) {
+      // Se propaga: una cartera con acciones no puede cambiar de tipo, y ese
+      // mensaje tiene que llegar a la pantalla.
       setError(e instanceof Error ? e.message : 'Error desconocido')
-      return null
+      throw e
     } finally {
       setLoading(false)
     }

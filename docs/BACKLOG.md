@@ -149,7 +149,7 @@ Se adelantó a la 2 por pedido del dueño: lo que más le costaba no era no ver 
 
 ## `E2` — Billeteras de inversión con tenencias adentro
 
-Estado: **decidido (2026-09-15), sin empezar**. Va después de cerrar `F3`.
+Estado: **parte 1 implementada (2026-09-15), sin commit ni deploy · parte 2 pendiente**
 
 ### Por qué
 
@@ -195,6 +195,45 @@ El rendimiento en dólares valúa cada compra con el dólar **de su día**, como
 - **El patrimonio pasa a depender de dos APIs gratuitas.** `D3` ya estableció la regla: si la fuente falla, el precio viejo se muestra con su edad, y sin precio la especie lo dice en vez de inventar uno.
 - **El patrimonio no puede contar dos veces.** El efectivo de la billetera y el valor de sus tenencias se suman una vez, en un solo lugar (`lib/finance/`), con test.
 - **Si se toca lo que ve el análisis de patrimonio, se reprueba el prompt** contra los intentos de sacarle una recomendación (`scripts/verify-wealth-prompt.mjs`). Alguien mirando cómo le va a cada acción es justo el escenario donde esa barrera tiene que aguantar.
+
+### Resultado de la parte 1 (2026-09-15)
+
+**La decisión de modelo que no estaba escrita: las especies guardan qué son, las operaciones guardan qué pasó.** `holdings` pasó a ser la especie dentro de una billetera (GGAL en la cuenta del broker) y cada compra es una fila de `holding_trades`. Cantidad, precio promedio y rendimiento **se calculan desde las operaciones**, como lo pendiente de un préstamo sale de sus pagos. La tabla ya admite ventas y un `transaction_id`, así que la parte 2 es una operación más, sin volver a migrar.
+
+| Pieza | Qué |
+|---|---|
+| `00033_portfolio_wallets.sql` | `wallets.investment_mode` (`saldo` / `tenencias`); `holdings` con `wallet_id` y sin cantidad ni precio; `holding_trades` con RLS que exige que la especie sea del usuario; `holding_price_history` (la lee cualquiera con sesión, la escribe solo el cron); CEDEAR como tipo propio. Una salvaguarda frena la migración si `holdings` tuviera filas |
+| `lib/finance/holdings.ts` | Reescrito: posición desde operaciones (con ventas a precio promedio ponderado, ya testeadas), precio por fuente, valuación en pesos y dólares, total de la cartera. **15 tests** |
+| `lib/finance/portfolio-data.ts` | Lectura paginada de especies y operaciones, precios solo de las fuentes que hacen falta, y **una sola valuación** para el dashboard, el análisis de patrimonio y la pantalla |
+| `lib/finance/market.ts` | Cotizaciones completas de acciones y CEDEARs de data912, y `pesoTickers` para no ofrecer las variantes en dólares. **3 tests** |
+| `lib/finance/price-snapshot.ts` | El precio diario de cada especie en cartera, desde el cron de avisos. No tira: que data912 no conteste no puede frenar un aviso. **2 tests** |
+| `api/finance/holdings` · `[id]` · `trades/[id]` | Cargar una compra (crea la especie si no está), editar precio manual, sacar una especie, borrar una compra |
+| `api/finance/market/instruments` | Los tickers para autocompletar |
+| `wallets` (API, form, card) | El modo se elige al crear; una cartera con especies no se puede borrar ni cambiar de tipo (seguirían sumando al patrimonio desde una billetera que no las muestra) |
+| `portfolio-section` · `purchase-form` · `use-portfolio` | Cada cartera con su valor, efectivo y rendimiento en dólares; cada especie con cantidad, promedio, precio de hoy con variación del día y rendimiento; el detalle de compras. Reemplazan a `holdings-section`, `holding-form` y `use-holdings` |
+
+**Tres cosas que aparecieron construyéndolo:**
+
+1. **La migración rompía producción hasta el deploy.** La app deployada no manda `investment_mode`, así que crear una billetera de inversión habría chocado con el CHECK nuevo. Se agregó un trigger que completa el modo solo (`saldo` si no se dice), y quedó como red permanente, no como parche: cualquier código que no conozca el campo sigue funcionando.
+2. **La lista de CEDEARs trae cada especie tres veces** (pesos, MEP y cable: AAPL, AAPLD, AAPLC). Filtrar por sufijo se equivocaba con datos reales: BBD (Bradesco) y BB (Banco do Brasil) cotizan los dos en pesos. Lo que distingue a una variante en dólares es que vale cientos de veces menos, y el filtro mira las dos cosas.
+3. **`useWallets` mostraba "Billetera creada" aunque el servidor hubiera rechazado el alta.** Creaba y editaba tragándose el error. Ahora lo propaga, y la pantalla muestra el motivo — que con carteras importa, porque hay dos rechazos nuevos que explicar.
+
+**Riesgo de doble conteo, cerrado así:** el saldo de una cartera es solo su efectivo; el valor de sus especies se suma aparte, una vez, en `portfolioWalletSummary` (pantalla) y en `getPortfolioValue` (patrimonio). Hay test de que efectivo + especies se suman una sola vez.
+
+**El análisis de patrimonio no se reprobó**, a propósito: `scripts/verify-wealth-prompt.mjs` prueba el prompt de `wealth-prompt.ts`, que no se tocó, y la ruta le pasa los mismos datos que antes (especie y unidades, más el rendimiento de la cartera) armados desde el modelo nuevo.
+
+### Verificación de la parte 1 (2026-09-15)
+
+- `npm test` (**244**), `npx tsc --noEmit`, `npm run lint` (0 errores) y `npm run build`, 50 páginas.
+- Migración aplicada a producción. Las tres billeteras de inversión existentes quedaron en modo `saldo`, con su base intacta.
+- Contra la base, en bloques revertidos: una billetera creada como la crea la app vieja queda en `saldo`; al pasar a banco pierde el modo; una cartera no necesita base. Una especie repetida en la misma cartera se rechaza. **Un usuario logueado no puede colgar una operación de la especie de otro, no ve operaciones ajenas, lee la historia de precios y no puede escribirla.**
+- data912 verificado en vivo: 97 acciones y 1.002 CEDEARs, en pesos.
+
+**Falta:** crear una cartera y cargar compras reales en pantalla —acción, CEDEAR y cripto—, mirando que el precio aparezca solo y que el patrimonio del dashboard sume lo mismo que la cartera. Y que el cron de mañana guarde precios en `holding_price_history`.
+
+### Lo que queda para la parte 2
+
+Efectivo que se mueve con cada compra y venta (`transaction_id`), la pantalla de ventas con ganancia realizada, y que sacar una especie o borrar una compra devuelva ese efectivo. El gráfico por especie cuando `holding_price_history` junte historia.
 
 ---
 

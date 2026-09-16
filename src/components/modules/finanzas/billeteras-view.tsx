@@ -43,13 +43,19 @@ export function BilleterasView({
   const investmentReturns = useInvestmentReturns(wallets, investmentEvents, rateHistory)
 
   async function handleSaveWallet(data: CreateWalletInput) {
-    if (editingWallet) {
-      const { balance: _b, ...updateData } = data
-      await updateWallet(editingWallet.id, updateData as UpdateWalletInput)
-      toast.success('Billetera actualizada')
-    } else {
-      await createWallet(data)
-      toast.success('Billetera creada')
+    try {
+      if (editingWallet) {
+        const { balance: _b, ...updateData } = data
+        await updateWallet(editingWallet.id, updateData as UpdateWalletInput)
+        toast.success('Billetera actualizada')
+      } else {
+        await createWallet(data)
+        toast.success('Billetera creada')
+      }
+    } catch (e) {
+      // El formulario queda abierto con lo cargado, para corregir.
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar la billetera')
+      return
     }
     setShowWalletForm(false)
     setEditingWallet(null)

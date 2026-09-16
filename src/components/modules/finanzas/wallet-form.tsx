@@ -15,12 +15,22 @@ const WALLET_TYPES = [
 ] as const
 
 /**
- * Una billetera de inversión pregunta, cada vez que cambia el saldo, si la
- * plata entró o si rindió. Conviene decirlo antes de elegir el tipo, no
- * después de que aparezca un formulario distinto al esperado.
+ * Los dos modos de una billetera de inversión (`E1` y `E2`). Conviene decir qué
+ * hace cada uno antes de elegir, no después de que aparezca un formulario
+ * distinto al esperado.
  */
-const INVESTMENT_HINT =
-  'Cada vez que actualices el saldo te va a preguntar si pusiste plata o si rindió, para poder calcular el rendimiento.'
+const INVESTMENT_MODES = [
+  {
+    value: 'saldo',
+    label: 'Con saldo',
+    hint: 'Mercado Pago, plazo fijo, FCI. Cada vez que actualices el saldo te pregunta si pusiste plata o si rindió.',
+  },
+  {
+    value: 'tenencias',
+    label: 'Con acciones o cripto',
+    hint: 'Un broker o un exchange. Adentro cargás cada acción, CEDEAR o cripto y ves cómo viene cada una.',
+  },
+] as const
 
 const CURRENCIES = [
   { value: 'ARS', label: 'ARS', flag: '🇦🇷' },
@@ -37,9 +47,11 @@ interface WalletFormProps {
   onSave: (data: CreateWalletInput) => Promise<void>
   onClose: () => void
   initial?: Wallet
+  /** Valores de arranque para una billetera nueva, como la cartera que se crea desde Inversiones. */
+  preset?: Partial<Pick<CreateWalletInput, 'name' | 'type' | 'investment_mode'>>
 }
 
-export function WalletForm({ onSave, onClose, initial }: WalletFormProps) {
+export function WalletForm({ onSave, onClose, initial, preset }: WalletFormProps) {
   const {
     register,
     handleSubmit,
@@ -49,8 +61,9 @@ export function WalletForm({ onSave, onClose, initial }: WalletFormProps) {
   } = useForm<CreateWalletInput>({
     resolver: zodResolver(createWalletSchema),
     defaultValues: {
-      name:     initial?.name     ?? '',
-      type:     initial?.type     ?? 'efectivo',
+      name:     initial?.name     ?? preset?.name ?? '',
+      type:     initial?.type     ?? preset?.type ?? 'efectivo',
+      investment_mode: initial?.investment_mode ?? preset?.investment_mode ?? 'saldo',
       balance:  initial?.balance  ?? 0,
       currency: initial?.currency ?? 'ARS',
       color:    initial?.color    ?? '#6366f1',
@@ -103,9 +116,28 @@ export function WalletForm({ onSave, onClose, initial }: WalletFormProps) {
               ))}
             </div>
             {watch('type') === 'inversion' && (
-              <p className="mt-2 text-[0.65rem] leading-relaxed text-[var(--text-muted)]">
-                {INVESTMENT_HINT}
-              </p>
+              <div className="mt-2 grid gap-2">
+                {INVESTMENT_MODES.map(mode => {
+                  const active = (watch('investment_mode') ?? 'saldo') === mode.value
+                  return (
+                    <button
+                      key={mode.value}
+                      type="button"
+                      onClick={() => setValue('investment_mode', mode.value)}
+                      className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                        active
+                          ? 'border-[var(--accent-lumus)] bg-[var(--accent-muted)]'
+                          : 'border-white/10 bg-white/[0.03] hover:border-white/20'
+                      }`}
+                    >
+                      <span className={`block text-xs font-medium ${active ? 'text-[var(--accent-lumus)]' : 'text-[var(--text-primary)]'}`}>
+                        {mode.label}
+                      </span>
+                      <span className="mt-0.5 block text-[0.65rem] leading-relaxed text-[var(--text-muted)]">{mode.hint}</span>
+                    </button>
+                  )
+                })}
+              </div>
             )}
           </div>
 

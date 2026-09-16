@@ -104,7 +104,8 @@ interface WalletAdjustFormProps {
 }
 
 export function WalletAdjustForm({ wallet, wallets, onAdjust, onClose }: WalletAdjustFormProps) {
-  const isInvestment = wallet.type === 'inversion'
+  // Solo las inversiones con saldo preguntan por aportes y rendimiento (ver la API).
+  const isInvestment = wallet.type === 'inversion' && wallet.investment_mode !== 'tenencias'
 
   const [newBalance, setNewBalance] = useState<string>(String(wallet.balance))
   const [note, setNote] = useState('')

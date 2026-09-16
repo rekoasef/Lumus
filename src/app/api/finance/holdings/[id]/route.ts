@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { updateHoldingSchema } from '@/lib/validations/finance'
+import { HOLDING_SELECT, toHolding } from '@/lib/finance/portfolio-data'
 
-const COLUMNS = 'id, user_id, name, kind, price_source, quantity, purchase_price, purchase_currency, purchase_date, manual_price, created_at, updated_at'
-
+// PATCH /api/finance/holdings/:id — nombre o precio manual
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -12,7 +12,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params
   const parsed = updateHoldingSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 })
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos' }, { status: 400 })
   }
 
   const { data, error } = await supabase
@@ -20,16 +20,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('user_id', user.id)
-    .select(COLUMNS)
+    .select(HOLDING_SELECT)
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ holding: data })
+  // El CHECK de la base rechaza dejar sin precio algo que no tiene fuente.
+  if (error) return NextResponse.json({ error: 'No se pudo actualizar la especie' }, { status: 400 })
+  return NextResponse.json({ holding: toHolding(data) })
 }
 
 /**
- * Se borra físicamente, como `budgets` y `saving_goals`: ninguna otra tabla
- * referencia una tenencia para mostrar historial.
+ * Sacar una especie de la billetera, con todas sus operaciones.
+ *
+ * Se borra físicamente, como `budgets` y `saving_goals`: ninguna otra tabla la
+ * referencia para mostrar historial, y sus operaciones se van en cascada. En la
+ * parte 2, cuando una compra mueva efectivo, esto va a tener que devolver ese
+ * efectivo — hoy ninguna operación lo mueve.
  */
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()

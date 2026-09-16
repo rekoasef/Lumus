@@ -314,6 +314,87 @@ export type Database = {
         }
         Relationships: []
       }
+      holding_price_history: {
+        Row: {
+          created_at: string
+          currency: string
+          date: string
+          kind: string
+          price: number
+          symbol: string
+        }
+        Insert: {
+          created_at?: string
+          currency: string
+          date: string
+          kind: string
+          price: number
+          symbol: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          date?: string
+          kind?: string
+          price?: number
+          symbol?: string
+        }
+        Relationships: []
+      }
+      holding_trades: {
+        Row: {
+          created_at: string
+          currency: string
+          holding_id: string
+          id: string
+          price: number
+          quantity: number
+          side: string
+          trade_date: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency: string
+          holding_id: string
+          id?: string
+          price: number
+          quantity: number
+          side: string
+          trade_date: string
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          holding_id?: string
+          id?: string
+          price?: number
+          quantity?: number
+          side?: string
+          trade_date?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holding_trades_holding_id_fkey"
+            columns: ["holding_id"]
+            isOneToOne: false
+            referencedRelation: "holdings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holding_trades_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       holdings: {
         Row: {
           created_at: string
@@ -322,12 +403,9 @@ export type Database = {
           manual_price: number | null
           name: string
           price_source: string | null
-          purchase_currency: string
-          purchase_date: string
-          purchase_price: number
-          quantity: number
           updated_at: string
           user_id: string
+          wallet_id: string
         }
         Insert: {
           created_at?: string
@@ -336,12 +414,9 @@ export type Database = {
           manual_price?: number | null
           name: string
           price_source?: string | null
-          purchase_currency?: string
-          purchase_date: string
-          purchase_price: number
-          quantity: number
           updated_at?: string
           user_id: string
+          wallet_id: string
         }
         Update: {
           created_at?: string
@@ -350,14 +425,19 @@ export type Database = {
           manual_price?: number | null
           name?: string
           price_source?: string | null
-          purchase_currency?: string
-          purchase_date?: string
-          purchase_price?: number
-          quantity?: number
           updated_at?: string
           user_id?: string
+          wallet_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "holdings_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       loans: {
         Row: {
@@ -886,6 +966,7 @@ export type Database = {
           id: string
           investment_baseline: number | null
           investment_baseline_date: string | null
+          investment_mode: string | null
           name: string
           type: string
           updated_at: string | null
@@ -901,6 +982,7 @@ export type Database = {
           id?: string
           investment_baseline?: number | null
           investment_baseline_date?: string | null
+          investment_mode?: string | null
           name: string
           type: string
           updated_at?: string | null
@@ -916,6 +998,7 @@ export type Database = {
           id?: string
           investment_baseline?: number | null
           investment_baseline_date?: string | null
+          investment_mode?: string | null
           name?: string
           type?: string
           updated_at?: string | null

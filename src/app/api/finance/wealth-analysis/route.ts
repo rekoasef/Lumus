@@ -4,8 +4,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { MAX_REPORT_REGENERATIONS, regenerationState } from '@/lib/finance/report-limits'
 import { convertToARS, getExchangeRates } from '@/lib/finance/exchange-rates'
-import { getCryptoPrices } from '@/lib/finance/crypto-prices'
-import { portfolioTotals, resolvePriceUsd, valuateHolding, type Holding } from '@/lib/finance/holdings'
+import { getPortfolioValue } from '@/lib/finance/portfolio-data'
 import { rateOn } from '@/lib/finance/purchasing-power'
 import { fetchRateHistory, yearsAgo } from '@/lib/finance/rate-history'
 import { monthsOfRunway, pesoLossOverWindows, wealthComposition } from '@/lib/finance/wealth'
@@ -32,12 +31,8 @@ async function buildWealthContext(
 ): Promise<WealthSnapshot> {
   const today = todayInArgentina()
 
-  const [walletsRes, holdingsRes, rateHistory, rates, goalsRes] = await Promise.all([
+  const [walletsRes, rateHistory, rates, goalsRes] = await Promise.all([
     supabase.from('wallets').select('id, type, balance, currency').eq('user_id', userId).is('deleted_at', null),
-    supabase
-      .from('holdings')
-      .select('id, name, kind, price_source, quantity, purchase_price, purchase_currency, purchase_date, manual_price')
-      .eq('user_id', userId),
     // Dos años alcanzan para las ventanas que se comparan acá.
     fetchRateHistory(supabase, yearsAgo(2)),
     getExchangeRates(),
@@ -48,7 +43,6 @@ async function buildWealthContext(
   ])
 
   const wallets = walletsRes.data ?? []
-  const holdings = (holdingsRes.data ?? []) as unknown as Holding[]
 
   // ── Patrimonio ──
   const arsArs = wallets
@@ -59,13 +53,8 @@ async function buildWealthContext(
     .filter(w => (w.currency ?? 'ARS') !== 'ARS')
     .reduce((sum, w) => sum + convertToARS(Number(w.balance ?? 0), w.currency ?? 'ARS', rates), 0)
 
-  const cryptoPrices = await getCryptoPrices(
-    holdings.map(h => h.price_source).filter((id): id is string => Boolean(id)),
-  )
-  const portfolio = portfolioTotals(holdings.map(holding => {
-    const price = resolvePriceUsd(holding, cryptoPrices)
-    return price === null ? null : valuateHolding(holding, price, rates.USD, rateHistory)
-  }))
+  // Misma valuación que el dashboard y la pantalla de inversiones: ver `lib/finance/portfolio-data.ts`.
+  const { valued: holdings, totals: portfolio } = await getPortfolioValue(supabase, userId, rates.USD, rateHistory)
 
   // ── Préstamos ──
   // Es lo único del patrimonio que resta. Sin esto, alguien con 3 millones y
@@ -171,7 +160,7 @@ ${loans.filter(l => l.direction === 'tomado' && !loanProgress(l, repayments[l.id
   : ''}
 
 ${holdings.length > 0
-  ? `INVERSIONES\n${holdings.map(h => `  - ${h.name}: ${h.quantity} unidades`).join('\n')}${portfolio.costUsd > 0 ? `\n  Rendimiento de la cartera: ${portfolio.returnPercent >= 0 ? '+' : ''}${portfolio.returnPercent.toFixed(1)}% en dólares, medido contra lo que se pagó` : ''}`
+  ? `INVERSIONES\n${holdings.map(h => `  - ${h.holding.name}: ${h.position.quantity} unidades`).join('\n')}${portfolio.costUsd > 0 ? `\n  Rendimiento de la cartera: ${portfolio.returnPercent >= 0 ? '+' : ''}${portfolio.returnPercent.toFixed(1)}% en dólares, medido contra lo que se pagó` : ''}`
   : 'INVERSIONES\n  - No hay ninguna cargada.'}
 
 GASTO Y RESERVA

@@ -20,6 +20,7 @@ import {
   collectWeeklyNotices,
   recordTodayRate,
 } from '@/lib/notifications/collect'
+import { recordHoldingPrices } from '@/lib/finance/price-snapshot'
 import { NOTIFICATION_TYPES, type NewNotification, type NotificationType } from '@/types/notifications.types'
 
 /**
@@ -60,6 +61,10 @@ export async function GET(req: NextRequest) {
   // Lo primero, antes que los avisos: la cotización de hoy no se puede
   // recuperar mañana. Si falla el resto de la corrida, esto ya quedó guardado.
   const rateSaved = await recordTodayRate(supabase, today)
+
+  // Mismo motivo que la cotización: el precio de hoy de cada acción no se
+  // consigue mañana (`E2`). No tira nunca, así que no puede frenar los avisos.
+  const holdingPricesSaved = await recordHoldingPrices(supabase, today)
 
   const collected: NewNotification[] = []
   const failures: string[] = []
@@ -129,6 +134,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     today,
     rateSaved,
+    holdingPricesSaved,
     collected: collected.length,
     created: created.length,
     usersNotified: usersWithNews.length,

@@ -9,7 +9,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('wallets')
-    .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, created_at, updated_at')
+    .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, investment_mode, created_at, updated_at')
     .eq('user_id', user.id)
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
@@ -33,10 +33,13 @@ export async function POST(req: NextRequest) {
   const initialBalance = result.data.balance
   const today = new Date().toISOString().slice(0, 10)
 
-  // Una billetera de inversión nace con una línea de base: lo que ya tiene
-  // adentro es capital aportado, no ganancia. Sin esto el primer rendimiento
-  // que se calcule sería el saldo entero — ver `lib/finance/investment.ts`.
-  const isInvestment = result.data.type === 'inversion'
+  // Una billetera de inversión con saldo nace con una línea de base: lo que ya
+  // tiene adentro es capital aportado, no ganancia. Sin esto el primer
+  // rendimiento que se calcule sería el saldo entero — ver
+  // `lib/finance/investment.ts`. Una cartera de tenencias no la necesita: su
+  // rendimiento sale de cada especie contra lo que se pagó (`E2`).
+  const investmentMode = result.data.type === 'inversion' ? (result.data.investment_mode ?? 'saldo') : null
+  const isInvestment = investmentMode === 'saldo'
 
   const { data, error } = await supabase
     .from('wallets')
@@ -50,9 +53,10 @@ export async function POST(req: NextRequest) {
       icon: result.data.icon ?? null,
       investment_baseline:      isInvestment ? initialBalance : null,
       investment_baseline_date: isInvestment ? today : null,
+      investment_mode:          investmentMode,
       deleted_at: null,
     })
-    .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, created_at, updated_at')
+    .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, investment_mode, created_at, updated_at')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -76,7 +80,7 @@ export async function POST(req: NextRequest) {
 
     const { data: updated, error: updatedError } = await supabase
       .from('wallets')
-      .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, created_at, updated_at')
+      .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, investment_mode, created_at, updated_at')
       .eq('id', data.id)
       .single()
 

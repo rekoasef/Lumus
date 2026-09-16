@@ -93,7 +93,7 @@ if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 - Tablas con `deleted_at`: `transactions`, `wallets`, `finance_categories`
 - Nunca borrar físicamente — siempre `update({ deleted_at: new Date() })`
 - Siempre filtrar: `.is('deleted_at', null)`
-- Excepción explícita: `budgets`, `recurring_transactions` y `saving_goals` (y su tabla puente `saving_goal_wallets`) sí se borran físicamente a propósito — ninguna otra tabla las referencia para mostrar historial, así que no hay riesgo de perder datos ajenos al borrar. Si en algún momento algo empieza a depender de ellas para historial, sumarles `deleted_at` como se hizo con `finance_categories`.
+- Excepción explícita: `budgets`, `recurring_transactions`, `saving_goals` (y su tabla puente `saving_goal_wallets`), `holdings` y `holding_trades` sí se borran físicamente a propósito — ninguna otra tabla las referencia para mostrar historial, así que no hay riesgo de perder datos ajenos al borrar. Si en algún momento algo empieza a depender de ellas para historial, sumarles `deleted_at` como se hizo con `finance_categories`.
 
 ---
 
@@ -205,6 +205,7 @@ Los cuatro chequeos antes de dar algo por terminado: `npm test`, `npx tsc --noEm
 - ❌ No poner lógica de negocio en los componentes — va en hooks o lib
 - ❌ No calcular a mano el progreso de una meta, el uso de un presupuesto ni el equivalente mensual de un recurrente — están en `src/lib/finance/rules.ts` (por eso existe ese archivo: la misma meta llegó a mostrar 62% en una pantalla y 0% en otra)
 - ❌ No calcular a mano el rendimiento de una billetera de inversión ni el reparto entre aporte y rendimiento — están en `src/lib/finance/investment.ts`. Y no guardar un aporte como `ajuste`: `ajuste` significa "me equivoqué al contar", y mezclarlo con "esto rindió" es lo que hacía incalculable el rendimiento
+- ❌ No calcular a mano la cantidad, el precio promedio ni el valor de una acción o cripto — la posición sale de sus operaciones (`holding_trades`) con `src/lib/finance/holdings.ts`, y la valuación de la cartera entera con `getPortfolioValue` de `src/lib/finance/portfolio-data.ts`, que es la misma para el dashboard, el análisis de patrimonio y la pantalla. El saldo de una cartera es solo su efectivo: sumarle además el valor de sus especies las contaría dos veces
 - ❌ No crear un `Intl.NumberFormat` suelto — usar `formatCurrency` de `src/lib/utils/format-currency.ts`
 - ❌ No mandar un aviso sin `dedupe_key` — el `unique (user_id, dedupe_key)` de `notifications` es lo único que evita que un cron reintentado mande el mismo mail dos veces
 - ❌ No mandar un mail por evento — todo aviso sale por el digest diario (`/api/cron/avisos`), un mail por usuario por día

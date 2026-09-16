@@ -38,7 +38,7 @@ export function useInvestmentReturns(
 
     return Object.fromEntries(
       wallets
-        .filter(w => w.type === 'inversion' && w.investment_baseline !== null)
+        .filter(w => w.type === 'inversion' && w.investment_mode !== 'tenencias' && w.investment_baseline !== null)
         .map(w => {
           const movements = movementsOf(events[w.id] ?? [])
           const baseline = w.investment_baseline ?? 0

@@ -1,136 +1,200 @@
 import { describe, it, expect } from 'vitest'
-import { costInUsd, portfolioTotals, resolvePriceUsd, valuateHolding, type Holding } from './holdings'
+import {
+  averagePrice,
+  portfolioTotals,
+  portfolioWalletSummary,
+  positionFromTrades,
+  resolveHoldingPrice,
+  valueHoldings,
+  valuatePosition,
+  EMPTY_QUOTES,
+  type Holding,
+  type HoldingTrade,
+  type PriceQuotes,
+} from './holdings'
 import type { DailyRate } from './purchasing-power'
 
 const RATES: DailyRate[] = [
   { date: '2024-06-03', usd: 1000 },
+  { date: '2026-01-10', usd: 1400 },
   { date: '2026-08-27', usd: 1500 },
 ]
+
+let seq = 0
+function trade(overrides: Partial<HoldingTrade> = {}): HoldingTrade {
+  seq++
+  return {
+    id: `t${seq}`,
+    holding_id: 'h1',
+    side: 'compra',
+    quantity: 10,
+    price: 1000,
+    currency: 'ARS',
+    trade_date: '2026-01-10',
+    created_at: `2026-01-10T00:00:${String(seq).padStart(2, '0')}Z`,
+    ...overrides,
+  }
+}
 
 function holding(overrides: Partial<Holding> = {}): Holding {
   return {
     id: 'h1',
-    name: 'Bitcoin',
-    kind: 'cripto',
-    price_source: 'bitcoin',
-    quantity: 0.5,
-    purchase_price: 60000,
-    purchase_currency: 'USD',
-    purchase_date: '2024-06-03',
+    wallet_id: 'w1',
+    name: 'GGAL',
+    kind: 'accion',
+    price_source: 'GGAL',
     manual_price: null,
     ...overrides,
   }
 }
 
-describe('costInUsd', () => {
-  it('una compra en dólares es directa', () => {
-    expect(costInUsd(holding(), RATES)).toBe(30000)
+describe('positionFromTrades', () => {
+  it('varias compras se suman, con el costo en dólares de cada día', () => {
+    const p = positionFromTrades([
+      trade({ quantity: 10, price: 1000, trade_date: '2024-06-03' }), // 10.000 ARS @1000 = 10 USD
+      trade({ quantity: 10, price: 2800, trade_date: '2026-01-10' }), // 28.000 ARS @1400 = 20 USD
+    ], RATES)
+
+    expect(p.quantity).toBe(20)
+    expect(p.costArs).toBe(38_000)
+    expect(p.costUsd).toBe(30)
   })
 
-  it('una compra en pesos usa la cotización del día que compraste', () => {
-    // 500.000 pesos a 1000 en 2024 son 500 dólares. Con la cotización de hoy
-    // (1500) darían 333, y la tenencia parecería una ganancia que no existió.
-    const cost = costInUsd(holding({
-      quantity: 1,
-      purchase_price: 500_000,
-      purchase_currency: 'ARS',
-      purchase_date: '2024-06-03',
-    }), RATES)
-
-    expect(cost).toBe(500)
+  it('el precio promedio sale en la moneda en la que cotiza la especie', () => {
+    const p = positionFromTrades([
+      trade({ quantity: 10, price: 1000 }),
+      trade({ quantity: 30, price: 2000 }),
+    ], RATES)
+    expect(averagePrice(p, 'accion')).toBe(1750)
   })
 
-  it('sin cotización de esa fecha no inventa el costo', () => {
-    const cost = costInUsd(holding({
-      purchase_currency: 'ARS',
-      purchase_date: '2010-01-01',
-    }), RATES)
+  it('vender la mitad se lleva la mitad del costo y deja la ganancia realizada', () => {
+    const p = positionFromTrades([
+      trade({ quantity: 10, price: 1400, trade_date: '2026-01-10' }), // costo 10 USD
+      trade({ side: 'venta', quantity: 5, price: 3000, trade_date: '2026-08-27' }), // cobra 15.000 ARS @1500 = 10 USD
+    ], RATES)
 
-    expect(cost).toBeNull()
-  })
-})
-
-describe('valuateHolding', () => {
-  it('valúa en dólares y en pesos, y calcula el rendimiento', () => {
-    const v = valuateHolding(holding(), 80000, 1500, RATES)
-
-    expect(v.valueUsd).toBe(40000)
-    expect(v.valueArs).toBe(60_000_000)
-    expect(v.costUsd).toBe(30000)
-    expect(v.returnUsd).toBe(10000)
-    expect(v.returnPercent).toBeCloseTo(33.33, 2)
-    expect(v.hasReturn).toBe(true)
+    expect(p.quantity).toBe(5)
+    expect(p.costUsd).toBe(5)
+    // Se vendió lo que costó 5 USD en 10 USD.
+    expect(p.realizedUsd).toBe(5)
   })
 
-  it('una pérdida se reporta como pérdida', () => {
-    const v = valuateHolding(holding(), 40000, 1500, RATES)
-
-    expect(v.returnUsd).toBe(-10000)
-    expect(v.returnPercent).toBeCloseTo(-33.33, 2)
+  it('una venta por más de lo que hay no deja la cantidad negativa', () => {
+    const p = positionFromTrades([
+      trade({ quantity: 10 }),
+      trade({ side: 'venta', quantity: 50, trade_date: '2026-08-27' }),
+    ], RATES)
+    expect(p.quantity).toBe(0)
+    expect(p.costUsd).toBe(0)
   })
 
-  it('sin costo convertible, valúa igual pero no muestra rendimiento', () => {
-    // La tenencia sigue sumando al patrimonio: lo que no se puede afirmar es
-    // cuánto rindió.
-    const v = valuateHolding(
-      holding({ purchase_currency: 'ARS', purchase_date: '2010-01-01' }),
-      80000, 1500, RATES,
-    )
+  it('el orden es por fecha, no por cómo llegaron', () => {
+    const venta = trade({ side: 'venta', quantity: 5, trade_date: '2026-08-27' })
+    const compra = trade({ quantity: 10, trade_date: '2026-01-10' })
+    expect(positionFromTrades([venta, compra], RATES).quantity).toBe(5)
+  })
 
-    expect(v.valueUsd).toBe(40000)
-    expect(v.hasReturn).toBe(false)
-    expect(v.returnPercent).toBe(0)
+  it('una compra en pesos sin cotización de su día no inventa un costo en dólares', () => {
+    const p = positionFromTrades([trade({ trade_date: '2020-01-01' })], RATES)
+    expect(p.quantity).toBe(10)
+    expect(p.costUsd).toBeNull()
+    expect(p.costArs).toBe(10_000)
   })
 })
 
-describe('resolvePriceUsd', () => {
-  it('usa el precio de la fuente automática', () => {
-    expect(resolvePriceUsd(holding(), new Map([['bitcoin', 80000]]))).toBe(80000)
-  })
+describe('resolveHoldingPrice', () => {
+  const quotes: PriceQuotes = {
+    cripto: { bitcoin: { priceUsd: 60_000, changePercent: 1.5 } },
+    accion: { GGAL: { priceArs: 6_000, changePercent: -2 } },
+    cedear: { AAPL: { priceArs: 15_000, changePercent: 0.4 } },
+  }
 
-  it('si la fuente falló, cae al precio manual antes que a nada', () => {
-    expect(resolvePriceUsd(holding({ manual_price: 75000 }), new Map())).toBe(75000)
-  })
-
-  it('sin fuente usa el precio manual', () => {
-    const h = holding({ price_source: null, manual_price: 120, kind: 'accion' })
-
-    expect(resolvePriceUsd(h, new Map())).toBe(120)
-  })
-
-  it('sin ninguno de los dos no hay precio', () => {
-    expect(resolvePriceUsd(holding({ price_source: null }), new Map())).toBeNull()
-  })
-})
-
-describe('portfolioTotals', () => {
-  it('suma el valor de todas y el rendimiento solo de las comparables', () => {
-    const conCosto = valuateHolding(holding(), 80000, 1500, RATES)
-    const sinCosto = valuateHolding(
-      holding({ id: 'h2', purchase_currency: 'ARS', purchase_date: '2010-01-01' }),
-      80000, 1500, RATES,
-    )
-
-    const totals = portfolioTotals([conCosto, sinCosto])
-
-    // Las dos suman al patrimonio...
-    expect(totals.valueUsd).toBe(80000)
-    // ...pero el rendimiento se calcula solo sobre la que tiene costo conocido.
-    expect(totals.costUsd).toBe(30000)
-    expect(totals.returnUsd).toBe(10000)
-    expect(totals.returnPercent).toBeCloseTo(33.33, 2)
-  })
-
-  it('cuenta las que no se pudieron valuar en vez de saltearlas en silencio', () => {
-    const totals = portfolioTotals([valuateHolding(holding(), 80000, 1500, RATES), null])
-
-    expect(totals.unpriced).toBe(1)
-    expect(totals.valueUsd).toBe(40000)
-  })
-
-  it('una cartera vacía no divide por cero', () => {
-    expect(portfolioTotals([])).toEqual({
-      valueUsd: 0, valueArs: 0, costUsd: 0, returnUsd: 0, returnPercent: 0, unpriced: 0,
+  it('una acción cotiza en pesos y se lleva a dólares con el dólar de hoy', () => {
+    expect(resolveHoldingPrice(holding(), quotes, 1500)).toEqual({
+      priceUsd: 4, priceArs: 6_000, changePercent: -2, automatic: true,
     })
+  })
+
+  it('un CEDEAR busca en su propia lista, aunque el ticker exista también como acción', () => {
+    const price = resolveHoldingPrice(holding({ kind: 'cedear', price_source: 'AAPL' }), quotes, 1500)
+    expect(price?.priceArs).toBe(15_000)
+    expect(resolveHoldingPrice(holding({ kind: 'cedear', price_source: 'GGAL' }), quotes, 1500)).toBeNull()
+  })
+
+  it('una cripto cotiza en dólares', () => {
+    const price = resolveHoldingPrice(holding({ kind: 'cripto', price_source: 'bitcoin' }), quotes, 1500)
+    expect(price?.priceArs).toBe(90_000_000)
+  })
+
+  it('si la fuente no la trae, usa el precio manual; sin ninguno, no inventa', () => {
+    const conManual = holding({ price_source: 'XXXX', manual_price: 3 })
+    expect(resolveHoldingPrice(conManual, quotes, 1500)).toEqual({
+      priceUsd: 3, priceArs: 4_500, changePercent: null, automatic: false,
+    })
+    expect(resolveHoldingPrice(holding({ price_source: 'XXXX' }), quotes, 1500)).toBeNull()
+  })
+
+  it('sin cotización del dólar no hay precio', () => {
+    expect(resolveHoldingPrice(holding(), quotes, 0)).toBeNull()
+  })
+})
+
+describe('valuatePosition y portfolioTotals', () => {
+  it('rinde en dólares contra lo que se pagó en dólares, y en pesos contra los pesos', () => {
+    const position = positionFromTrades([trade({ quantity: 10, price: 1400, trade_date: '2026-01-10' })], RATES)
+    // Hoy vale 3.000 ARS con el dólar a 1.500: 30.000 ARS = 20 USD. Costó 14.000 ARS = 10 USD.
+    const v = valuatePosition(position, { priceUsd: 2, priceArs: 3_000, changePercent: null, automatic: true })
+
+    expect(v.valueArs).toBe(30_000)
+    expect(v.returnUsd).toBe(10)
+    expect(v.returnPercent).toBe(100)
+    expect(v.returnArs).toBe(16_000)
+  })
+
+  it('el total solo mide rendimiento sobre lo que tiene costo conocido, y cuenta lo que no tiene precio', () => {
+    const conCosto = valuatePosition(
+      positionFromTrades([trade({ quantity: 10, price: 1400 })], RATES),
+      { priceUsd: 2, priceArs: 3_000, changePercent: null, automatic: true },
+    )
+    const sinCosto = valuatePosition(
+      positionFromTrades([trade({ trade_date: '2020-01-01' })], RATES),
+      { priceUsd: 2, priceArs: 3_000, changePercent: null, automatic: true },
+    )
+
+    const totals = portfolioTotals([conCosto, sinCosto, null])
+    expect(totals.valueUsd).toBe(40)
+    expect(totals.returnPercent).toBe(100)
+    expect(totals.unpriced).toBe(1)
+  })
+})
+
+describe('valueHoldings', () => {
+  it('arma cada especie con sus operaciones y deja afuera lo que ya se vendió entero', () => {
+    const quotes: PriceQuotes = { ...EMPTY_QUOTES, accion: { GGAL: { priceArs: 3_000, changePercent: null }, YPFD: { priceArs: 50_000, changePercent: null } } }
+    const valued = valueHoldings(
+      [holding(), holding({ id: 'h2', name: 'YPFD', price_source: 'YPFD' })],
+      [
+        trade({ holding_id: 'h1', quantity: 10 }),
+        trade({ holding_id: 'h2', quantity: 2 }),
+        trade({ holding_id: 'h2', side: 'venta', quantity: 2, trade_date: '2026-08-27' }),
+      ],
+      quotes,
+      1500,
+      RATES,
+    )
+
+    expect(valued.map(v => v.holding.id)).toEqual(['h1'])
+    expect(valued[0].valuation?.valueArs).toBe(30_000)
+  })
+})
+
+describe('portfolioWalletSummary', () => {
+  it('suma el efectivo y las especies una sola vez', () => {
+    const quotes: PriceQuotes = { ...EMPTY_QUOTES, accion: { GGAL: { priceArs: 3_000, changePercent: null } } }
+    const valued = valueHoldings([holding()], [trade({ quantity: 10 })], quotes, 1500, RATES)
+    const summary = portfolioWalletSummary(valued, 5_000)
+    expect(summary.valueArs).toBe(30_000)
+    expect(summary.totalArs).toBe(35_000)
   })
 })

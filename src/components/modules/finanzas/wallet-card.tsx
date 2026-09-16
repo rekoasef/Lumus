@@ -1,6 +1,7 @@
 'use client'
 
-import { Pencil, Trash2, Wallet, Building2, Smartphone, SlidersHorizontal, TrendingUp } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowRight, Pencil, Trash2, Wallet, Building2, Smartphone, SlidersHorizontal, TrendingUp } from 'lucide-react'
 import { CategoryIcon } from '@/lib/utils/category-icons'
 import type { Wallet as WalletType } from '@/types/finance.types'
 import { formatCurrency } from '@/lib/utils/format-currency'
@@ -22,6 +23,9 @@ const WALLET_LABELS: Record<string, string> = {
 
 const COPY = {
   balance:      'BALANCE',
+  cash:         'EFECTIVO',
+  portfolio:    'Inversión · acciones y cripto',
+  seeHoldings:  'Ver lo que tiene adentro',
   yield:        'Rendimiento',
   inUsd:        'En dólares',
   invested:     'Invertido',
@@ -44,6 +48,9 @@ interface WalletCardProps {
 
 export function WalletCard({ wallet, investment, onEdit, onAdjust, onDelete }: WalletCardProps) {
   const formattedBalance = formatCurrency(wallet.balance, wallet.currency, 'exact')
+  // En una cartera el saldo es solo el efectivo: lo que vale de verdad está en
+  // sus especies, que se valúan en Inversiones (`E2`).
+  const isPortfolio = wallet.type === 'inversion' && wallet.investment_mode === 'tenencias'
 
   return (
     <div className="lumus-glass group relative rounded-xl p-5 transition-all hover:border-white/15">
@@ -63,7 +70,7 @@ export function WalletCard({ wallet, investment, onEdit, onAdjust, onDelete }: W
               {wallet.name}
             </p>
             <p className="lumus-label mt-0.5 text-[0.6rem] text-[var(--text-muted)]">
-              {WALLET_LABELS[wallet.type]}
+              {isPortfolio ? COPY.portfolio : WALLET_LABELS[wallet.type]}
             </p>
           </div>
         </div>
@@ -95,7 +102,7 @@ export function WalletCard({ wallet, investment, onEdit, onAdjust, onDelete }: W
       </div>
 
       <div className="mt-5">
-        <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">{COPY.balance}</p>
+        <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">{isPortfolio ? COPY.cash : COPY.balance}</p>
         <p
           className="lumus-heading mt-1 text-2xl font-bold"
           style={{ color: wallet.balance >= 0 ? wallet.color : 'var(--danger)' }}
@@ -103,6 +110,15 @@ export function WalletCard({ wallet, investment, onEdit, onAdjust, onDelete }: W
           {formattedBalance}
         </p>
       </div>
+
+      {isPortfolio && (
+        <Link
+          href="/finanzas/inversiones"
+          className="mt-3 inline-flex items-center gap-1 text-[0.7rem] font-medium text-[var(--accent-lumus)] hover:underline"
+        >
+          {COPY.seeHoldings} <ArrowRight size={12} />
+        </Link>
+      )}
 
       {/* En una inversión el saldo solo no dice nada: lo que importa es qué
           parte de ese número es plata que pusiste y qué parte ganó sola. Y en

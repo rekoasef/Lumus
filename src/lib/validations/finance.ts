@@ -3,9 +3,13 @@ import { maxRepaidBeforeTracking } from '@/lib/finance/loans'
 
 // ——— Wallets ———
 
+export const INVESTMENT_MODES = ['saldo', 'tenencias'] as const
+
 export const createWalletSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido').max(100),
   type: z.enum(['efectivo', 'banco', 'virtual', 'inversion']),
+  /** Solo en inversiones: un saldo que se actualiza (`E1`) o acciones y cripto adentro (`E2`). */
+  investment_mode: z.enum(INVESTMENT_MODES).nullable().optional(),
   balance: z.number().min(0),
   currency: z.string().length(3),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
@@ -15,6 +19,7 @@ export const createWalletSchema = z.object({
 export const updateWalletSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   type: z.enum(['efectivo', 'banco', 'virtual', 'inversion']).optional(),
+  investment_mode: z.enum(INVESTMENT_MODES).nullable().optional(),
   currency: z.string().length(3).optional(),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   icon: z.string().max(50).nullable().optional(),
@@ -167,36 +172,48 @@ export const financeSummaryQuerySchema = z.object({
 
 export type FinanceSummaryQuery = z.infer<typeof financeSummaryQuerySchema>
 
-// ——— Tenencias (inversiones) — ver migración 00026 ———
+// ——— Tenencias (inversiones) — ver migraciones 00026 y 00033 ———
+
+export const HOLDING_KINDS = ['cripto', 'accion', 'cedear', 'otro'] as const
+
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD')
 
 /**
- * Una tenencia necesita un precio para poder valuarse: el de una fuente
- * automática (cripto) o uno cargado a mano. Sin ninguno de los dos no suma al
+ * Cargar una compra. Si la especie todavía no está en esa billetera se crea;
+ * si ya está, la compra se suma a sus operaciones (`E2`).
+ *
+ * Una especie necesita un precio para valuarse: el de una fuente automática
+ * (cripto, acción, CEDEAR) o uno cargado a mano. Sin ninguno no suma al
  * patrimonio, que es lo único que esta tabla vino a arreglar — por eso la base
  * también lo exige con un `check`.
  */
-const holdingBase = z.object({
-  name: z.string().min(1, 'El nombre es requerido').max(60),
-  kind: z.enum(['cripto', 'accion', 'otro']),
-  price_source: z.string().max(60).nullable().optional(),
+export const createPurchaseSchema = z.object({
+  wallet_id: z.string().uuid('Elegí la billetera'),
+  kind: z.enum(HOLDING_KINDS),
+  price_source: z.string().trim().max(60).nullable().optional(),
+  name: z.string().trim().min(1, 'El nombre es requerido').max(60),
+  manual_price: z.number().min(0).nullable().optional(),
   quantity: z.number().positive('La cantidad tiene que ser mayor a cero'),
-  purchase_price: z.number().min(0, 'El precio no puede ser negativo'),
-  purchase_currency: z.enum(['ARS', 'USD']),
-  purchase_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD'),
+  price: z.number().min(0, 'El precio no puede ser negativo'),
+  currency: z.enum(['ARS', 'USD']),
+  trade_date: isoDate,
+})
+  .refine(d => Boolean(d.price_source) || typeof d.manual_price === 'number', {
+    message: 'Elegí una especie con precio automático o cargá el precio actual a mano',
+    path: ['manual_price'],
+  })
+  .refine(d => d.kind !== 'otro' || typeof d.manual_price === 'number', {
+    message: 'Cargá el precio actual a mano',
+    path: ['manual_price'],
+  })
+
+/** Lo editable de una especie: el nombre y el precio manual. Qué es y dónde está no cambian. */
+export const updateHoldingSchema = z.object({
+  name: z.string().trim().min(1).max(60).optional(),
   manual_price: z.number().min(0).nullable().optional(),
 })
 
-const hasSomePrice = (data: { price_source?: string | null; manual_price?: number | null }) =>
-  Boolean(data.price_source) || typeof data.manual_price === 'number'
-
-export const createHoldingSchema = holdingBase.refine(hasSomePrice, {
-  message: 'Elegí una cripto o cargá el precio actual a mano',
-  path: ['manual_price'],
-})
-
-export const updateHoldingSchema = holdingBase.partial()
-
-export type CreateHoldingInput = z.infer<typeof createHoldingSchema>
+export type CreatePurchaseInput = z.infer<typeof createPurchaseSchema>
 export type UpdateHoldingInput = z.infer<typeof updateHoldingSchema>
 
 // ——— Préstamos ———

@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
 
     const { data: wallets } = await supabase
       .from('wallets')
-      .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, created_at, updated_at')
+      .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, investment_mode, created_at, updated_at')
       .in('id', [d.wallet_id, d.to_wallet_id!])
       .eq('user_id', user.id)
       .is('deleted_at', null)
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
 
   const { data: wallet } = await supabase
     .from('wallets')
-    .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, created_at, updated_at')
+    .select('id, name, type, balance, currency, color, icon, investment_baseline, investment_baseline_date, investment_mode, created_at, updated_at')
     .eq('id', d.wallet_id)
     .eq('user_id', user.id)
     .is('deleted_at', null)

@@ -1,6 +1,7 @@
 import type { LoanDirection } from '@/lib/finance/loans'
 
 export type WalletType = 'efectivo' | 'banco' | 'virtual' | 'inversion'
+export type InvestmentMode = 'saldo' | 'tenencias'
 /**
  * `ajuste` significa "me equivoqué al contar". `rendimiento` significa "esto
  * ganó o perdió solo". Están separados a propósito: mezclarlos es lo que hacía
@@ -25,6 +26,11 @@ export interface Wallet {
    */
   investment_baseline: number | null
   investment_baseline_date: string | null
+  /**
+   * Solo en las de inversión: `saldo` es un número que se actualiza (`E1`);
+   * `tenencias` tiene acciones y cripto adentro y su valor sale de ellas (`E2`).
+   */
+  investment_mode: InvestmentMode | null
   created_at: string
   updated_at: string
   deleted_at: string | null
