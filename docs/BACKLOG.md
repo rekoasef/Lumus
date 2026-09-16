@@ -4,7 +4,7 @@
 
 Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es un conjunto acotado de tickets que se toman **de a uno**, se cierran, se verifican y recién ahí se pasa al siguiente. Las rondas cerradas quedan abajo como historial, no se borran.
 
-- **Ronda 7 (`H1`–`H4`)** — **abierta el 2026-09-16**. Un mes para que Lumus salga a producción como SaaS y la gente pague. Cuatro ejes en orden: que no mienta ni pierda datos, ojos en producción, que el cobro no falle, que un desconocido sepa usarla. **Es la ronda activa.** El mismo día se sumaron `H5` (la landing) y `H6` (legal y operativo).
+- **Ronda 7 (`H1`–`H4`)** — **abierta el 2026-09-16**. Un mes para que Lumus salga a producción como SaaS y la gente pague. Cuatro ejes en orden: que no mienta ni pierda datos, ojos en producción, que el cobro no falle, que un desconocido sepa usarla. **Es la ronda activa.** El mismo día se sumaron `H5` (la landing) y `H6` (legal y operativo), y el 2026-09-17 `H7` (la app en el celular).
 
 > **El precio de `C8` se reemplazó el 2026-09-16**: 5 USD por mes cobrados en pesos (~7.800), con ajuste periódico. Hay detalles abiertos. Ver `docs/NEGOCIO.md` (costos, VPS descartada) y `docs/LANZAMIENTO.md` (plan completo: legal, soporte, marketing y seguimiento). **Antes del primer cobro, Vercel tiene que pasar a Pro**, porque el plan Hobby prohíbe el uso comercial.
 
@@ -187,6 +187,39 @@ Hoy `gestorlumus.site` lleva directo al login (`src/app/page.tsx`). Alguien que 
 - Hay un camino claro de la landing al registro (o a la lista de espera, si el tope está lleno).
 
 Ideas de contenido, la calculadora pública (*"¿cuánto perdieron tus pesos?"*, con la historia del blue de `D1`) y los canales: `docs/LANZAMIENTO.md`, sección 6.
+
+---
+
+## `H7` — La app pensada para el celular
+
+Estado: **pendiente — se arranca el 2026-09-18** · la barra de abajo ya está hecha (`216ddb2`)
+
+### Por qué
+
+El dueño espera que Lumus se use **más en el celular que en la computadora**, y los testers lo confirmaron con quejas concretas: el `+` de la barra quedaba corrido y los íconos eran chicos para el pulgar. La app se diseñó mirando la pantalla grande; hay que recorrerla entera pensando en 360-390 px.
+
+### Hecho (2026-09-17)
+
+- Barra de abajo con 5 lugares iguales y el `+` en el centro exacto (medido), íconos de 24 px, zonas táctiles de 64 px, Inversiones al menú "Más", "Cerrar sesión" ya no queda tapado.
+
+### Plan para el 2026-09-18 (autorizado por el dueño)
+
+1. **Crear una cuenta de prueba en producción** (`qa@gestorlumus.site` o similar) con la Admin API de Supabase (`service_role`, script en el scratchpad, **no** en el repo), con el mail confirmado y el onboarding hecho. Al registrarse recibe la prueba de 30 días.
+2. **Cargarle datos de ejemplo** que ejerciten todas las pantallas: 2-3 billeteras (una en USD), ~40 gastos e ingresos en dos meses, un presupuesto, un fijo, una meta, un préstamo. Nunca datos reales.
+3. **Recorrer todas las pantallas** con Playwright (`playwright-core` + el Chromium de `~/.cache/ms-playwright`), en 360×780 y 390×844, logueado con esa cuenta contra el dev server local (que usa la base de producción): panel, gastos (lista y filtros), el formulario de carga rápida, billeteras, inversiones, reportes (sin generar un informe: cuesta plata), fijos, préstamos, presupuestos, metas, mercado, categorías, perfil, `/suscripcion`.
+4. **Anotar y corregir** lo que se vea mal: desbordes, textos cortados, botones chicos (< 44 px), tablas que no entran, formularios incómodos con el teclado, modales que no scrollean. Criterio: se tiene que poder usar con una mano.
+5. **Borrar la cuenta de prueba al terminar** (borrar el usuario de `auth.users` borra en cascada sus datos) y verificar que no quede nada.
+
+### Cuidados
+
+- El dev server de Turbopack puede servir CSS viejo: `rm -rf .next` antes de levantarlo.
+- No generar informes de IA con la cuenta de prueba.
+- Mientras exista, la cuenta aparece en el panel de admin: es esperado.
+
+### Done cuando
+
+- Todas las pantallas se ven y se usan bien en 360 px, con capturas antes y después.
+- La cuenta de prueba ya no existe.
 
 ---
 
