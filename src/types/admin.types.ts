@@ -18,6 +18,7 @@ export interface AdminUserStats {
   lastSignInAt: string | null
   onboardingDone: boolean
   subscriptionStatus: string | null
+  subscriptionPaidUntil: string | null
   hasGrant: boolean
   grantReason: string | null
   grantExpiresAt: string | null

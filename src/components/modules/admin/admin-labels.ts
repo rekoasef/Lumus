@@ -10,6 +10,7 @@ export const ENGAGEMENT_LABELS: Record<EngagementLevel, { label: string; color: 
 
 export const ACCESS_LABELS: Record<AccessKind, string> = {
   subscription: 'Pagando',
+  paid_period: 'Canceló, con período pago',
   free_grant: 'Cortesía',
   none: 'Bloqueado',
 }

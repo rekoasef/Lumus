@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { confirm } from '@/components/shared/confirm-dialog'
 import { useSubscriptionCancel } from '@/hooks/use-profile'
-import { SUBSCRIPTION_PRICE_ARS, SUBSCRIPTION_CURRENCY } from '@/lib/billing/plan'
+import { CHECKOUT_ENABLED, SUBSCRIPTION_PRICE_ARS, SUBSCRIPTION_CURRENCY } from '@/lib/billing/plan'
 import { accessDaysLeft, accessEndingPhrase } from '@/lib/billing/access-ending'
+import { paidAccessEndsAt } from '@/lib/billing/access'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import { SectionHeading } from './section-heading'
 import type { BillingSubscription } from '@/types'
@@ -17,6 +19,9 @@ const COURTESY_DESCRIPTION = 'Tenés Lumus completo, sin costo y sin suscripció
 const FREE_LABEL = 'Gratis'
 const FREE_TITLE = 'Acceso gratis'
 const FREE_DESCRIPTION = 'Tenés Lumus completo, sin costo. Cuando termine, tus datos quedan guardados.'
+const ENDING_LABEL = 'No se renueva'
+const ENDING_DESCRIPTION = 'Tu suscripción no está activa, pero seguís entrando hasta que termine lo que pagaste. Tus datos quedan guardados.'
+const RESUBSCRIBE = 'Volver a suscribirme'
 
 interface SubscriptionCardProps {
   subscription: BillingSubscription | null
@@ -39,7 +44,7 @@ export function SubscriptionCard({ subscription, access }: SubscriptionCardProps
   async function handleCancel() {
     const confirmed = await confirm({
       title: 'Cancelar suscripción',
-      description: 'Vas a perder el acceso a Lumus. Podés volver a suscribirte cuando quieras.',
+      description: 'No se te va a volver a cobrar. Seguís entrando hasta que termine lo que ya pagaste, y podés volver a suscribirte cuando quieras.',
       confirmLabel: 'Cancelar suscripción',
       variant: 'danger',
     })
@@ -47,11 +52,10 @@ export function SubscriptionCard({ subscription, access }: SubscriptionCardProps
 
     const status = await cancelSubscription()
     if (status === 'cancelled') {
+      // Sigue entrando hasta que termine lo pagado: no hay que mandarlo a
+      // ningún lado, solo volver a leer el acceso para mostrar hasta cuándo.
       setCancelled(true)
-      setTimeout(() => {
-        router.push('/suscripcion')
-        router.refresh()
-      }, 2500)
+      setTimeout(() => router.refresh(), 1500)
     }
   }
 
@@ -89,6 +93,38 @@ export function SubscriptionCard({ subscription, access }: SubscriptionCardProps
     )
   }
 
+  if (access.kind === 'paid_period' && access.paidUntil) {
+    const endsAt = paidAccessEndsAt(access.paidUntil)
+    return (
+      <section>
+        <SectionHeading
+          index="02"
+          label="Suscripción"
+          action={
+            <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--warning)]">
+              <span className="size-1.5 rounded-full bg-[var(--warning)]" />
+              {ENDING_LABEL}
+            </span>
+          }
+        />
+
+        <div className="mt-6">
+          <p className="text-2xl font-semibold text-[var(--text-primary)]">Hasta el {formatDate(endsAt)}</p>
+          <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">{ENDING_DESCRIPTION}</p>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">{accessEndingPhrase(accessDaysLeft(endsAt))}</p>
+          {CHECKOUT_ENABLED && (
+            <Link
+              href="/suscripcion"
+              className="mt-4 inline-block text-xs font-medium text-[var(--accent-lumus)] hover:underline"
+            >
+              {RESUBSCRIBE}
+            </Link>
+          )}
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section>
       <SectionHeading
@@ -120,7 +156,7 @@ export function SubscriptionCard({ subscription, access }: SubscriptionCardProps
       <div className="mt-5">
         {cancelled ? (
           <p className="text-xs leading-relaxed text-[var(--accent-lumus)]">
-            Tu suscripción fue cancelada. Te vamos a redirigir en un momento.
+            Listo, cancelaste la suscripción. No se te va a volver a cobrar.
           </p>
         ) : isInternal ? (
           <p className="text-xs leading-relaxed text-[var(--text-muted)]">

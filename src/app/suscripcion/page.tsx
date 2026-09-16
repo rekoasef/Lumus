@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import { SubscribeButton } from '@/components/modules/billing/subscribe-button'
 import { CHECKOUT_ENABLED, SUBSCRIPTION_CURRENCY, SUBSCRIPTION_PRICE_ARS } from '@/lib/billing/plan'
-import { resolveAccessKind } from '@/lib/billing/access'
+import { firstChargeDate, paidAccessEndsAt, resolveAccessKind } from '@/lib/billing/access'
 import { accessDaysLeft, accessEndingPhrase, formatAccessDate } from '@/lib/billing/access-ending'
 import { SUPPORT_EMAIL } from '@/lib/contact'
 import { formatCurrency } from '@/lib/utils/format-currency'
@@ -20,8 +20,10 @@ const COPY = {
   eyebrowAccount: 'Tu cuenta',
   titleNew: 'Suscribite a Lumus',
   titleEnded: 'Tu acceso gratis terminó',
+  titlePaid: 'Tu suscripción no está activa',
   keptData: 'Todo lo que cargaste sigue guardado.',
-  chargeToday: 'Si te suscribís ahora, el primer cobro es hoy y los días gratis que te quedan no se suman.',
+  chargeToday: 'El primer cobro es hoy, y después cada mes.',
+  chargeLater: (date: string) => `No perdés lo que te queda: el primer cobro es el ${date}, y después cada mes.`,
   back: 'Volver a Lumus',
 }
 
@@ -34,11 +36,16 @@ export default async function SuscripcionPage() {
   // Se lee el grant aunque esté vencido: es lo que distingue "tu prueba
   // terminó" de alguien que nunca tuvo acceso.
   const [{ data: subscription }, { data: grant }] = await Promise.all([
-    supabase.from('billing_subscriptions').select('status').eq('user_id', user.id).maybeSingle(),
+    supabase.from('billing_subscriptions').select('status, paid_until').eq('user_id', user.id).maybeSingle(),
     supabase.from('free_access_grants').select('expires_at').eq('user_id', user.id).maybeSingle(),
   ])
 
-  const access = resolveAccessKind(subscription?.status ?? null, grant !== null, grant?.expires_at ?? null)
+  const access = resolveAccessKind({
+    subscriptionStatus: subscription?.status ?? null,
+    paidUntil: subscription?.paid_until ?? null,
+    hasGrant: grant !== null,
+    grantExpiresAt: grant?.expires_at ?? null,
+  })
 
   // Con una suscripción, o una cortesía sin fecha, no hay nada que pagar: sin
   // esto alguien con acceso gratis podría pagar una suscripción que no necesita.
@@ -46,17 +53,33 @@ export default async function SuscripcionPage() {
   if (access === 'free_grant' && !grant?.expires_at) redirect('/dashboard')
 
   const activeGrantEnds = access === 'free_grant' ? grant?.expires_at ?? null : null
+  const paidEnds = access === 'paid_period' && subscription?.paid_until
+    ? paidAccessEndsAt(subscription.paid_until)
+    : null
   const endedGrant = access === 'none' && grant?.expires_at ? grant.expires_at : null
+  const hasAccessNow = activeGrantEnds !== null || paidEnds !== null
+
+  // La misma cuenta que usa `create-subscription` para decirle a Mercado Pago
+  // cuándo empezar a cobrar.
+  const firstCharge = firstChargeDate({
+    grantExpiresAt: grant?.expires_at ?? null,
+    paidUntil: subscription?.paid_until ?? null,
+  })
 
   const isPending = subscription?.status === 'pending'
-  const statusMessage = subscription?.status && !isPending ? STATUS_MESSAGES[subscription.status] : null
+  // Con días por delante, "suscribite para volver a entrar" no es cierto: ya entra.
+  const statusMessage = subscription?.status && !isPending && !hasAccessNow
+    ? STATUS_MESSAGES[subscription.status]
+    : null
   const price = formatCurrency(SUBSCRIPTION_PRICE_ARS, SUBSCRIPTION_CURRENCY, 'rounded')
 
-  const title = activeGrantEnds
-    ? `Tu acceso gratis ${accessEndingPhrase(accessDaysLeft(activeGrantEnds))}`
-    : endedGrant
-      ? COPY.titleEnded
-      : COPY.titleNew
+  const title = paidEnds
+    ? COPY.titlePaid
+    : activeGrantEnds
+      ? `Tu acceso gratis ${accessEndingPhrase(accessDaysLeft(activeGrantEnds))}`
+      : endedGrant
+        ? COPY.titleEnded
+        : COPY.titleNew
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--bg-base)] px-4 py-12">
@@ -80,7 +103,7 @@ export default async function SuscripcionPage() {
               <span className="lumus-heading text-2xl font-semibold text-[#d8d1ff]">LUMUS</span>
             </div>
             <p className="lumus-label text-[#cfc6ff]">
-              {activeGrantEnds || endedGrant ? COPY.eyebrowAccount : COPY.eyebrowNew}
+              {hasAccessNow || endedGrant ? COPY.eyebrowAccount : COPY.eyebrowNew}
             </p>
             <h1 className="lumus-heading mt-4 text-3xl font-bold text-[var(--text-primary)]">
               {title}
@@ -89,6 +112,11 @@ export default async function SuscripcionPage() {
             {activeGrantEnds && (
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
                 Vence el {formatAccessDate(activeGrantEnds)}. {COPY.keptData}
+              </p>
+            )}
+            {paidEnds && (
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Tenés acceso hasta el {formatAccessDate(paidEnds)}. {COPY.keptData}
               </p>
             )}
             {endedGrant && (
@@ -110,9 +138,9 @@ export default async function SuscripcionPage() {
             </div>
           )}
 
-          {CHECKOUT_ENABLED && activeGrantEnds && (
+          {CHECKOUT_ENABLED && !isPending && (
             <p className="mb-4 text-center text-xs leading-relaxed text-[var(--text-muted)]">
-              {COPY.chargeToday}
+              {firstCharge ? COPY.chargeLater(formatAccessDate(firstCharge)) : COPY.chargeToday}
             </p>
           )}
 
@@ -131,7 +159,7 @@ export default async function SuscripcionPage() {
 
           <SubscribeButton pendingCheck={isPending} showSubscribe={CHECKOUT_ENABLED} />
 
-          {activeGrantEnds && (
+          {hasAccessNow && (
             <Link
               href="/dashboard"
               className="mt-2 block text-center text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:underline"

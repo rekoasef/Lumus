@@ -54,7 +54,12 @@ export function toUserRow(stats: AdminUserStats, now: Date): AdminUserRow {
   const lastSeenAt = latest(stats.lastSignInAt, stats.lastTransactionAt)
   return {
     ...stats,
-    access: resolveAccessKind(stats.subscriptionStatus, stats.hasGrant, stats.grantExpiresAt, now),
+    access: resolveAccessKind({
+      subscriptionStatus: stats.subscriptionStatus,
+      paidUntil: stats.subscriptionPaidUntil,
+      hasGrant: stats.hasGrant,
+      grantExpiresAt: stats.grantExpiresAt,
+    }, now),
     engagement: engagementLevel(lastSeenAt, now),
     lastSeenAt,
   }

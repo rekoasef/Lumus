@@ -26,6 +26,7 @@ function stats(overrides: Partial<AdminUserStats> = {}): AdminUserStats {
     lastSignInAt: null,
     onboardingDone: true,
     subscriptionStatus: null,
+    subscriptionPaidUntil: null,
     hasGrant: true,
     grantReason: 'beta tester',
     grantExpiresAt: null,

@@ -100,7 +100,14 @@ Hoy el dueño se entera de un problema **solo si alguien le escribe**. El primer
 
 ## `H3` — Que el cobro no falle
 
-Estado: **pendiente**
+Estado: **código hecho el 2026-09-17 (`00035`), con el cobro apagado · faltan las pruebas con tarjeta real** — detalle en `docs/BILLING.md`, sección *El cobro, listo para prender*
+
+- ✅ Días de gracia (3) y acceso hasta el fin de lo pagado, también al cancelar (`paid_until`).
+- ✅ Darse de baja y volver sin escribirle al dueño: sin perder días (`start_date`).
+- ✅ Webhook idempotente (consulta el estado actual a MP) e inmune a avisos de otros tipos.
+- ✅ Precio real (7.800) cargado.
+- ⏳ Probar con tarjeta real: `start_date`, cancelar, cambio de precio y `paused`.
+- ⏳ Qué pasa con los datos de quien se va (punto 4): sigue sin decidir.
 
 ### Por qué
 

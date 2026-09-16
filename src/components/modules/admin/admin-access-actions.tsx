@@ -30,8 +30,9 @@ export function AdminAccessActions({
   const busy = pending === `grant:${userId}`
   const now = new Date(nowIso)
 
-  // Quien paga no necesita nada de acá, y tocarle una cortesía encima confunde.
-  if (access === 'subscription') return null
+  // Quien paga (o todavía tiene días pagos) no necesita nada de acá, y tocarle
+  // una cortesía encima confunde.
+  if (access === 'subscription' || access === 'paid_period') return null
 
   async function apply(expiresAt: string | null, success: string) {
     try {

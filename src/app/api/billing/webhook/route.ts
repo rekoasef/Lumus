@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
+import { subscriptionUpdateFromMp } from '@/lib/billing/webhook-sync'
 
-interface MpPreapprovalStatus {
-  id: string
-  status: string // 'pending' | 'authorized' | 'paused' | 'cancelled'
-  next_payment_date?: string
-}
+/** El único tipo de aviso que este endpoint procesa. */
+const PREAPPROVAL_TOPIC = 'subscription_preapproval'
 
 // Formato de x-signature: "ts=1710000000000,v1=<hmac-sha256 hex>"
 function parseSignatureHeader(header: string): { ts: string; v1: string } | null {
@@ -49,7 +47,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Firma inválida' }, { status: 401 })
   }
 
+  // Mercado Pago manda otros avisos (cobros, pagos) a la misma URL si están
+  // prendidos en su panel. Tratar su id como el de una suscripción da 404, el
+  // endpoint responde error y MP reintenta para siempre: se aceptan y se
+  // ignoran. Sin `type` se procesa, como hasta ahora.
+  const topic = url.searchParams.get('type') ?? url.searchParams.get('topic')
+  if (topic && topic !== PREAPPROVAL_TOPIC) {
+    return NextResponse.json({ ok: true, ignored: topic })
+  }
+
   // No confiar en el payload del webhook — consultar el estado real a MP.
+  //
+  // Esto es también lo que lo hace idempotente y tolerante al desorden: un
+  // aviso repetido o que llega tarde no aplica "su" cambio, sino el estado que
+  // MP tiene ahora. Procesar el mismo aviso dos veces escribe lo mismo dos veces.
   const mpRes = await fetch(`https://api.mercadopago.com/preapproval/${dataId}`, {
     headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}` },
   })
@@ -58,16 +69,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No se pudo consultar el preapproval en MP' }, { status: 502 })
   }
 
-  const preapproval = await mpRes.json() as MpPreapprovalStatus
+  const preapproval = await mpRes.json() as { id: string; status: string; next_payment_date?: string | null }
 
   const supabase = createServiceClient()
   const { error } = await supabase
     .from('billing_subscriptions')
-    .update({
-      status: preapproval.status,
-      next_payment_date: preapproval.next_payment_date ?? null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(subscriptionUpdateFromMp(preapproval, new Date()))
     .eq('mp_preapproval_id', preapproval.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

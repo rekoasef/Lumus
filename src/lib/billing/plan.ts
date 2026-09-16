@@ -1,5 +1,9 @@
-// Único lugar a tocar para subir el precio antes de lanzar de verdad.
-export const SUBSCRIPTION_PRICE_ARS = 1000
+/**
+ * El precio decidido el 2026-09-16: el equivalente a 5 USD, cobrado en pesos, y
+ * revisado cada 6 meses (`docs/NEGOCIO.md`). Cambiarlo solo afecta a las
+ * suscripciones nuevas: el monto de las existentes vive en Mercado Pago.
+ */
+export const SUBSCRIPTION_PRICE_ARS = 7800
 export const SUBSCRIPTION_CURRENCY = 'ARS'
 export const SUBSCRIPTION_REASON = 'Lumus — suscripción mensual'
 export const SUBSCRIPTION_FREQUENCY_MONTHS = 1
@@ -23,25 +27,10 @@ export const ACCESS_ENDING_WARNING_DAYS = 7
  *
  * Primero se consiguen ~10 usuarios con un mes gratis, y recién después, el
  * mismo día, se hace todo junto: monotributo, Vercel Pro (Hobby prohíbe el uso
- * comercial), precio real en `SUBSCRIPTION_PRICE_ARS` y lo legal de `H6`.
+ * comercial) y lo legal de `H6`. El precio real ya está cargado.
  * Prender esto antes es cobrar en negro y desde un plan que no lo permite.
  *
  * Apagado, `/suscripcion` no muestra el botón de pago y la API rechaza el
  * checkout: la pantalla y la API tienen que decir lo mismo.
  */
 export const CHECKOUT_ENABLED = false
-
-/**
- * El precio decidido el 2026-09-16: el equivalente a 5 USD, cobrado en pesos, y
- * revisado cada 6 meses (`docs/NEGOCIO.md`). Es el que anuncia la landing
- * mientras el cobro está apagado. El día que se active el cobro,
- * `SUBSCRIPTION_PRICE_ARS` pasa a valer esto.
- */
-export const LIST_PRICE_ARS = 7800
-
-/**
- * El precio que se le muestra a alguien que todavía no paga. Con el cobro
- * prendido manda el que se cobra de verdad: la landing no puede anunciar un
- * número y el checkout cobrar otro.
- */
-export const DISPLAY_PRICE_ARS = CHECKOUT_ENABLED ? SUBSCRIPTION_PRICE_ARS : LIST_PRICE_ARS

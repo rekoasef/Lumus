@@ -7,7 +7,9 @@ import { cn } from '@/lib/utils'
 const LABELS = {
   calm: 'Acceso gratis',
   subscribe: 'Suscribirme',
+  resubscribe: 'Volver a suscribirme',
   write: 'Escribinos',
+  paidTitle: 'Tu suscripción no está activa',
 }
 
 interface AccessEndingBannerProps {
@@ -22,7 +24,8 @@ interface AccessEndingBannerProps {
  * que grita desde el día uno es un cartel que se aprende a ignorar.
  */
 export function AccessEndingBanner({ state }: AccessEndingBannerProps) {
-  const { daysLeft, endsOn, urgent } = state
+  const { daysLeft, endsOn, urgent, reason } = state
+  const paid = reason === 'paid'
 
   if (!urgent) {
     return (
@@ -47,10 +50,10 @@ export function AccessEndingBanner({ state }: AccessEndingBannerProps) {
       >
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[var(--text-primary)]">
-            Tu acceso gratis {accessEndingPhrase(daysLeft)}
+            {paid ? LABELS.paidTitle : `Tu acceso gratis ${accessEndingPhrase(daysLeft)}`}
           </p>
           <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-            Vence el {endsOn}. Todo lo que cargaste queda guardado.
+            {paid ? `Tenés acceso hasta el ${endsOn}.` : `Vence el ${endsOn}.`} Todo lo que cargaste queda guardado.
           </p>
         </div>
 
@@ -59,7 +62,7 @@ export function AccessEndingBanner({ state }: AccessEndingBannerProps) {
             href="/suscripcion"
             className="shrink-0 self-start rounded-full bg-[var(--accent-lumus)] px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-[#190f5d] transition-colors hover:bg-[var(--accent-hover)] sm:self-auto"
           >
-            {LABELS.subscribe}
+            {paid ? LABELS.resubscribe : LABELS.subscribe}
           </Link>
         ) : (
           <a

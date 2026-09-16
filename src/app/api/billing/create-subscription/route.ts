@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { firstChargeDate } from '@/lib/billing/access'
 import {
   SUBSCRIPTION_PRICE_ARS,
   SUBSCRIPTION_CURRENCY,
@@ -25,17 +26,32 @@ export async function POST() {
     return NextResponse.json({ error: 'Las suscripciones todavía no están abiertas' }, { status: 403 })
   }
 
-  const { data: existing } = await supabase
-    .from('billing_subscriptions')
-    .select('status')
-    .eq('user_id', user.id)
-    .maybeSingle()
+  const [{ data: existing }, { data: grant }] = await Promise.all([
+    supabase
+      .from('billing_subscriptions')
+      .select('status, paid_until')
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    supabase
+      .from('free_access_grants')
+      .select('expires_at')
+      .eq('user_id', user.id)
+      .maybeSingle(),
+  ])
 
   if (existing?.status === 'authorized') {
     return NextResponse.json({ error: 'Ya tenés una suscripción activa' }, { status: 400 })
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!.replace(/\/$/, '')
+
+  // Si le queda prueba gratis o un mes pago, el primer cobro espera a que
+  // termine: suscribirse antes no le hace perder días ni pagar dos veces.
+  // Mercado Pago lo recibe como `auto_recurring.start_date`.
+  const startDate = firstChargeDate({
+    grantExpiresAt: grant?.expires_at ?? null,
+    paidUntil: existing?.paid_until ?? null,
+  })
 
   const mpRes = await fetch('https://api.mercadopago.com/preapproval', {
     method: 'POST',
@@ -53,6 +69,7 @@ export async function POST() {
         frequency_type: 'months',
         transaction_amount: SUBSCRIPTION_PRICE_ARS,
         currency_id: SUBSCRIPTION_CURRENCY,
+        ...(startDate ? { start_date: startDate } : {}),
       },
     }),
   })

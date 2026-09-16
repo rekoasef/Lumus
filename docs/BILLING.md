@@ -10,7 +10,7 @@ Lumus se registra libre (email + código de verificación, ver flujo de auth ya 
 
 - **Procesador**: Mercado Pago Suscripciones (API `/preapproval`), cobro en ARS.
 - **Ambiente**: se usa Mercado Pago de **producción** directamente (no sandbox) — el entorno de test de MP no anda bien. Se prueba el flujo real con plata real.
-- **Precio de prueba**: **$1000 ARS/mes** en `src/lib/billing/plan.ts` (`SUBSCRIPTION_PRICE_ARS`). Arrancó en $10 pero Mercado Pago rechaza preapprovals por debajo de ~$15 ARS, así que se subió a $1000 solo para poder probar el flujo de punta a punta — **sigue siendo precio de prueba, no el real de lanzamiento**. Subir a precio real antes de lanzar (un solo lugar).
+- **Precio**: **$7.800 ARS/mes** (`SUBSCRIPTION_PRICE_ARS`, desde el 2026-09-17), el equivalente a 5 USD con ajuste cada 6 meses (`docs/NEGOCIO.md`). Antes fue $1000 de prueba: Mercado Pago rechaza preapprovals por debajo de ~$15 ARS. Cambiarlo solo afecta a las suscripciones nuevas.
 - **Cuenta cobradora de Mercado Pago** (dueña del `MERCADOPAGO_ACCESS_TOKEN`): `radevelopment02@gmail.com`. Si se rota el Access Token a otra cuenta/app, hay que reconfigurar el webhook en la app nueva (ver gotchas abajo).
 - **Cuenta propia (Rekoasef, `renzoasef02@gmail.com`)**: no se bloquea con código. Se marcó a mano por SQL en `billing_subscriptions` con `status='authorized'`, sin pasar por Mercado Pago. Sin modo admin en el código.
 - **Tabla nueva**: `billing_subscriptions` — no reusar la tabla `subscriptions`/`recurring_transactions` existente, que es un concepto de finanzas personales (vencimientos tipo Netflix) completamente distinto.
@@ -61,7 +61,40 @@ Lumus se registra libre (email + código de verificación, ver flujo de auth ya 
 - **`CHECKOUT_ENABLED = false`** en `plan.ts`: sin botón de pago en `/suscripcion`, y `create-subscription` responde 403. **Se prende el día que se active el cobro**, junto con el monotributo, Vercel Pro y el precio real (`docs/LANZAMIENTO.md`).
 - Con el cobro prendido, quien se suscribe durante la prueba **paga desde ese día**: los días gratis que le quedaban no se suman, y la pantalla lo dice. Pasarle a Mercado Pago una fecha de inicio (`auto_recurring.start_date`) evitaría eso, pero no está probado.
 
+## El cobro, listo para prender (2026-09-17)
+
+Todo lo de esta sección está hecho con el cobro **apagado** (`CHECKOUT_ENABLED = false`). Prenderlo es cambiar esa línea y deployar, el mismo día que el monotributo y Vercel Pro.
+
+### El acceso dura lo que se pagó (`00035`)
+
+- **`paid_until`** en `billing_subscriptions`: hasta cuándo está pago. Lo escribe **solo el webhook**, con el `next_payment_date` de MP mientras la suscripción está `authorized`, y **no se borra al cancelar** (`lib/billing/webhook-sync.ts`, testeado).
+- **La regla** (`resolveAccessKind`, `lib/billing/access.ts`): `authorized` entra; `cancelled`/`paused`/`pending` con `paid_until` vigente entran como `paid_period`, más **`PAYMENT_GRACE_DAYS` = 3** de gracia para que un rechazo transitorio no sea un portazo. La usan el proxy, el layout, `/suscripcion` y el panel de admin (que lee `subscription_paid_until` de `admin_user_stats`).
+- **Antes**: cancelar sacaba al usuario en el acto aunque tuviera 23 días pagos. Ahora sigue entrando, con un cartel en el dashboard y el estado en `/perfil` (*"No se renueva · hasta el X"*).
+- **El usuario ya no puede escribir su fila.** 00011 dejaba insertar y editar mientras estuviera `pending`; con `paid_until` en la tabla, eso era regalarse meses desde la consola. Se borraron las dos policies: la tabla queda de solo lectura para el usuario, como `free_access_grants`.
+
+### Suscribirse antes no hace perder días (`start_date`)
+
+`create-subscription` le manda a MP `auto_recurring.start_date` con lo que termine último entre la prueba gratis y el período pago (`firstChargeDate`). Suscribirse el día 10 de la prueba cobra el día 30; volver a suscribirse después de cancelar cobra cuando se acaba lo pagado. `/suscripcion` muestra esa fecha. Ejemplo: registro el 25/10 → primer cobro el 24/11 → después cada 24.
+
+### Webhook
+
+- **Idempotente y tolerante al desorden por diseño**: no aplica el contenido del aviso, consulta el estado actual a MP y escribe eso. El mismo aviso dos veces escribe lo mismo.
+- **Ignora avisos de otros tipos** (`type` distinto de `subscription_preapproval`) con 200: si alguien prende "pagos" en el panel de MP, antes daba 404 → 502 → reintentos infinitos.
+
+### Pruebas con tarjeta real (pendientes, las hace el dueño)
+
+Con el cobro prendido en un deploy de prueba o un rato en producción, con una cuenta de MP distinta a la cobradora:
+
+1. **`start_date`**: suscribirse con una cuenta que tenga prueba vigente. Ver en MP que el primer cobro figure en la fecha de fin de la prueba y que **no** haya un cobro hoy (MP podría hacer una validación chica de la tarjeta, que se devuelve: anotarlo si pasa).
+2. **Cancelar**: ver que la cuenta siga entrando, con el cartel, y que `paid_until` no se borre.
+3. **Cambio de precio**: con una suscripción activa a un monto bajo, `PUT /preapproval/{id}` con `auto_recurring.transaction_amount` nuevo. ¿MP pide autorización al usuario o cobra el monto nuevo sin más? Define cómo se hace el ajuste de cada 6 meses (`docs/LANZAMIENTO.md`, sección 4).
+4. **`paused`**: nunca se probó. Ver qué dispara MP y que la gracia funcione.
+
+**Límite conocido**: si alguien se suscribe durante la prueba y cancela antes del primer cobro, el webhook ya guardó `paid_until` = fin de la prueba, y le quedan los 3 días de gracia de regalo. No vale la pena complicarlo.
+
 ## Pendiente antes de un lanzamiento de verdad
 
-- [ ] Subir `SUBSCRIPTION_PRICE_ARS` (`src/lib/billing/plan.ts`) del precio de prueba ($1000 ARS) al precio real
+- [x] Subir `SUBSCRIPTION_PRICE_ARS` al precio real (7.800, 2026-09-17)
+- [ ] Las pruebas con tarjeta real de la sección de arriba
+- [ ] Prender `CHECKOUT_ENABLED` el mismo día que el monotributo y Vercel Pro
 - [ ] Probar el caso de suscripción `paused` (no probado, solo `authorized → cancelled`)

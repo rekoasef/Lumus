@@ -1,7 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { Check, Plus } from 'lucide-react'
-import { DISPLAY_PRICE_ARS, SUBSCRIPTION_CURRENCY, TRIAL_DAYS } from '@/lib/billing/plan'
+import { SUBSCRIPTION_PRICE_ARS, SUBSCRIPTION_CURRENCY, TRIAL_DAYS } from '@/lib/billing/plan'
 import { SUPPORT_EMAIL } from '@/lib/contact'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import { LivingOrb } from './living-orb'
@@ -42,7 +42,7 @@ export function StepsSection() {
 }
 
 export function PricingSection() {
-  const price = formatCurrency(DISPLAY_PRICE_ARS, SUBSCRIPTION_CURRENCY, 'rounded')
+  const price = formatCurrency(SUBSCRIPTION_PRICE_ARS, SUBSCRIPTION_CURRENCY, 'rounded')
 
   return (
     <section id="precio" className="scroll-mt-20 px-4 py-24 sm:py-32">

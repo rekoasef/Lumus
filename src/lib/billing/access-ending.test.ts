@@ -31,10 +31,10 @@ describe('accessEndingPhrase', () => {
 })
 
 describe('accessBannerState', () => {
-  const grant = (expiresAt: string | null) => ({ kind: 'free_grant' as const, grantExpiresAt: expiresAt })
+  const grant = (expiresAt: string | null) => ({ kind: 'free_grant' as const, grantExpiresAt: expiresAt, paidUntil: null })
 
   it('no se muestra sin acceso gratis con fecha', () => {
-    expect(accessBannerState({ kind: 'subscription', grantExpiresAt: null }, NOW)).toBeNull()
+    expect(accessBannerState({ kind: 'subscription', grantExpiresAt: null, paidUntil: null }, NOW)).toBeNull()
     expect(accessBannerState(grant(null), NOW)).toBeNull()
   })
 
@@ -42,6 +42,14 @@ describe('accessBannerState', () => {
     expect(accessBannerState(grant('2026-10-01T15:00:00Z'), NOW)).toMatchObject({ daysLeft: 15, urgent: false })
     expect(accessBannerState(grant('2026-09-23T15:00:00Z'), NOW)).toMatchObject({ daysLeft: 7, urgent: true })
     expect(accessBannerState(grant('2026-09-16T20:00:00Z'), NOW)).toMatchObject({ daysLeft: 0, urgent: true })
+  })
+
+  it('con una suscripción que no se renueva, avisa siempre y en la versión visible', () => {
+    const paid = (paidUntil: string) => ({ kind: 'paid_period' as const, grantExpiresAt: null, paidUntil })
+    // La fecha que se muestra incluye los 3 días de gracia.
+    expect(accessBannerState(paid('2026-10-10T15:00:00Z'), NOW)).toMatchObject({ reason: 'paid', daysLeft: 27, urgent: true, endsOn: '13 de octubre' })
+    // Pagado hasta ayer: en la gracia, el corte real es en dos días, no "ayer".
+    expect(accessBannerState(paid('2026-09-15T15:00:00Z'), NOW)).toMatchObject({ reason: 'paid', daysLeft: 2, endsOn: '18 de septiembre' })
   })
 
   it('muestra la fecha en castellano', () => {

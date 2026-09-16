@@ -1,7 +1,7 @@
 import { daysBetween } from '@/lib/notifications/due-recurring'
 import { todayInArgentina } from '@/lib/notifications/due-notification'
 import { ACCESS_ENDING_WARNING_DAYS } from './plan'
-import type { AccessStatus } from './access'
+import { paidAccessEndsAt, type AccessStatus } from './access'
 
 /**
  * El fin de un acceso gratis (la prueba de 30 días o una cortesía con fecha),
@@ -36,6 +36,8 @@ export function formatAccessDate(expiresAt: string): string {
 }
 
 export interface AccessBannerState {
+  /** `free`: prueba o cortesía con fecha. `paid`: suscripción que no se renueva, con días pagos. */
+  reason: 'free' | 'paid'
   daysLeft: number
   endsOn: string
   /** La última semana: el cartel se nota más y ofrece suscribirse. */
@@ -45,10 +47,24 @@ export interface AccessBannerState {
 /**
  * Qué muestra el cartel del dashboard. `null` = no se muestra.
  *
- * Solo aparece con un acceso gratis que tiene fecha. Una suscripción paga o una
- * cortesía sin vencimiento no tienen nada que avisar.
+ * Aparece con un acceso gratis que tiene fecha, y siempre (en su versión
+ * visible) con una suscripción que ya no se renueva: quien canceló o tuvo un
+ * pago rechazado tiene que saber hasta cuándo entra. Una suscripción activa o
+ * una cortesía sin vencimiento no tienen nada que avisar.
  */
 export function accessBannerState(access: AccessStatus, now: Date = new Date()): AccessBannerState | null {
+  if (access.kind === 'paid_period' && access.paidUntil) {
+    // La fecha que se muestra es la del corte real, gracia incluida: en los
+    // días de gracia, la de pago ya pasó y decir "hasta el 14" el 15 miente.
+    const endsAt = paidAccessEndsAt(access.paidUntil)
+    return {
+      reason: 'paid',
+      daysLeft: Math.max(accessDaysLeft(endsAt, now), 0),
+      endsOn: formatAccessDate(endsAt),
+      urgent: true,
+    }
+  }
+
   if (access.kind !== 'free_grant' || !access.grantExpiresAt) return null
 
   const daysLeft = accessDaysLeft(access.grantExpiresAt, now)
@@ -57,6 +73,7 @@ export function accessBannerState(access: AccessStatus, now: Date = new Date()):
   if (daysLeft < 0) return null
 
   return {
+    reason: 'free',
     daysLeft,
     endsOn: formatAccessDate(access.grantExpiresAt),
     urgent: daysLeft <= ACCESS_ENDING_WARNING_DAYS,

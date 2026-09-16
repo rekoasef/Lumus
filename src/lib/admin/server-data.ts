@@ -71,6 +71,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     lastSignInAt: row.last_sign_in_at ?? null,
     onboardingDone: row.onboarding_done,
     subscriptionStatus: row.subscription_status ?? null,
+    subscriptionPaidUntil: row.subscription_paid_until ?? null,
     // `grant_reason` es not null en la tabla: si viene nulo, es que no hay fila.
     hasGrant: row.grant_reason !== null,
     grantReason: row.grant_reason ?? null,

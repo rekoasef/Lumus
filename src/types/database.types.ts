@@ -110,6 +110,7 @@ export type Database = {
           id: string
           mp_preapproval_id: string | null
           next_payment_date: string | null
+          paid_until: string | null
           status: string
           updated_at: string | null
           user_id: string
@@ -121,6 +122,7 @@ export type Database = {
           id?: string
           mp_preapproval_id?: string | null
           next_payment_date?: string | null
+          paid_until?: string | null
           status?: string
           updated_at?: string | null
           user_id: string
@@ -132,6 +134,7 @@ export type Database = {
           id?: string
           mp_preapproval_id?: string | null
           next_payment_date?: string | null
+          paid_until?: string | null
           status?: string
           updated_at?: string | null
           user_id?: string
@@ -1098,6 +1101,7 @@ export type Database = {
           onboarding_done: boolean
           recurring: number
           reports: number
+          subscription_paid_until: string
           subscription_status: string
           transactions: number
           transactions_30d: number
