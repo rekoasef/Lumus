@@ -5,6 +5,7 @@ import { IconPicker } from './icon-picker'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { X } from 'lucide-react'
 import { createWalletSchema, type CreateWalletInput } from '@/lib/validations/finance'
+import { PORTFOLIO_WALLETS_ENABLED } from '@/lib/finance/feature-flags'
 import type { Wallet } from '@/types/finance.types'
 
 const WALLET_TYPES = [
@@ -115,7 +116,10 @@ export function WalletForm({ onSave, onClose, initial, preset }: WalletFormProps
                 </button>
               ))}
             </div>
-            {watch('type') === 'inversion' && (
+            {/* Sin carteras a la vista, una billetera de inversión es siempre
+                "con saldo": preguntar por un modo con una sola opción posible
+                es hacer elegir sin opción. */}
+            {PORTFOLIO_WALLETS_ENABLED && watch('type') === 'inversion' && (
               <div className="mt-2 grid gap-2">
                 {INVESTMENT_MODES.map(mode => {
                   const active = (watch('investment_mode') ?? 'saldo') === mode.value

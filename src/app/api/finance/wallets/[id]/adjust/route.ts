@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { adjustWalletSchema } from '@/lib/validations/finance'
 import { splitBalanceChange, isNegligible, type InvestmentEvent } from '@/lib/finance/investment'
+import { isPortfolioWallet } from '@/lib/finance/feature-flags'
 
 /** Las columnas de una billetera que la UI necesita. Nunca `*`. */
 const WALLET_COLUMNS =
@@ -40,8 +41,10 @@ export async function POST(
   // El movimiento solo significa algo en una inversión **con saldo**: en el
   // resto de las billeteras un cambio de saldo es siempre una corrección. En una
   // cartera de tenencias el saldo es el efectivo, y lo que rinde son las
-  // especies, no ese número (`E2`).
-  const isInvestment = wallet.type === 'inversion' && wallet.investment_mode !== 'tenencias'
+  // especies, no ese número (`E2`). Con las carteras escondidas no hay ninguna,
+  // así que la misma función decide acá y en la pantalla: si el formulario
+  // pregunta por el aporte, la API tiene que registrarlo.
+  const isInvestment = wallet.type === 'inversion' && !isPortfolioWallet(wallet)
   const movement = isInvestment ? (result.data.movement ?? 0) : 0
 
   const current_balance = Number(wallet.balance)

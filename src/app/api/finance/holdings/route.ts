@@ -4,6 +4,7 @@ import { createPurchaseSchema } from '@/lib/validations/finance'
 import { CRYPTO_OPTIONS, isCryptoId } from '@/lib/finance/crypto-prices'
 import { HOLDING_SELECT, TRADE_SELECT, toHolding, toTrade } from '@/lib/finance/portfolio-data'
 import { todayInArgentina } from '@/lib/notifications/due-notification'
+import { PORTFOLIO_WALLETS_ENABLED } from '@/lib/finance/feature-flags'
 
 // POST /api/finance/holdings — cargar una compra
 //
@@ -13,6 +14,13 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+  // Con las carteras escondidas nada puede entrar: una especie cargada ahora no
+  // se vería en ninguna pantalla pero sí sumaría al patrimonio. Las rutas que
+  // borran siguen abiertas a propósito, para poder limpiar.
+  if (!PORTFOLIO_WALLETS_ENABLED) {
+    return NextResponse.json({ error: 'Las carteras no están disponibles' }, { status: 404 })
+  }
 
   const parsed = createPurchaseSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) {

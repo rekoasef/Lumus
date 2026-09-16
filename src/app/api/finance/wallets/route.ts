@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createWalletSchema } from '@/lib/validations/finance'
+import { effectiveInvestmentMode } from '@/lib/finance/feature-flags'
 
 export async function GET() {
   const supabase = await createClient()
@@ -38,7 +39,9 @@ export async function POST(req: NextRequest) {
   // rendimiento que se calcule sería el saldo entero — ver
   // `lib/finance/investment.ts`. Una cartera de tenencias no la necesita: su
   // rendimiento sale de cada especie contra lo que se pagó (`E2`).
-  const investmentMode = result.data.type === 'inversion' ? (result.data.investment_mode ?? 'saldo') : null
+  const investmentMode = result.data.type === 'inversion'
+    ? effectiveInvestmentMode(result.data.investment_mode)
+    : null
   const isInvestment = investmentMode === 'saldo'
 
   const { data, error } = await supabase

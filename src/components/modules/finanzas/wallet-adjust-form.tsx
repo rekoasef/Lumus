@@ -5,6 +5,7 @@ import { X, SlidersHorizontal, TrendingUp, ArrowDownLeft, ArrowUpRight, Minus, A
 import type { Wallet } from '@/types/finance.types'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import { splitBalanceChange, isNegligible } from '@/lib/finance/investment'
+import { isPortfolioWallet } from '@/lib/finance/feature-flags'
 
 /** Qué pasó con la plata, además de lo que haya rendido. */
 type MovementKind = 'nada' | 'aporte' | 'retiro'
@@ -104,8 +105,9 @@ interface WalletAdjustFormProps {
 }
 
 export function WalletAdjustForm({ wallet, wallets, onAdjust, onClose }: WalletAdjustFormProps) {
-  // Solo las inversiones con saldo preguntan por aportes y rendimiento (ver la API).
-  const isInvestment = wallet.type === 'inversion' && wallet.investment_mode !== 'tenencias'
+  // Solo las inversiones con saldo preguntan por aportes y rendimiento (ver la API,
+  // que decide con esta misma función).
+  const isInvestment = wallet.type === 'inversion' && !isPortfolioWallet(wallet)
 
   const [newBalance, setNewBalance] = useState<string>(String(wallet.balance))
   const [note, setNote] = useState('')

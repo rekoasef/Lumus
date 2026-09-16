@@ -16,6 +16,7 @@ import { WalletForm } from './wallet-form'
 import { FinanzasPageHeader, FinanzasPageShell } from './finanzas-page-header'
 import { useWallets, type AdjustBalanceResult } from '@/hooks/use-wallets'
 import { useInvestmentReturns } from '@/hooks/use-investment-returns'
+import { PORTFOLIO_WALLETS_ENABLED, isPortfolioWallet } from '@/lib/finance/feature-flags'
 
 interface InversionesViewProps {
   /** Todas las billeteras: el ajuste de una inversión necesita la contraparte del aporte. */
@@ -50,9 +51,10 @@ export function InversionesView({
 
   const investmentReturns = useInvestmentReturns(wallets, investmentEvents, rateHistory)
   // Dos modos de billetera de inversión (`E2`): las que tienen especies adentro y
-  // las que son un saldo que se actualiza.
-  const portfolioWallets = wallets.filter(w => w.type === 'inversion' && w.investment_mode === 'tenencias')
-  const balanceWallets = wallets.filter(w => w.type === 'inversion' && w.investment_mode !== 'tenencias')
+  // las que son un saldo que se actualiza. Con la feature escondida no hay
+  // carteras y todas las de inversión caen del lado del saldo.
+  const portfolioWallets = wallets.filter(isPortfolioWallet)
+  const balanceWallets = wallets.filter(w => w.type === 'inversion' && !isPortfolioWallet(w))
 
   async function handleCreatePortfolio(input: CreateWalletInput) {
     try {
@@ -101,28 +103,34 @@ export function InversionesView({
     <FinanzasPageShell>
       <FinanzasPageHeader
         title="Inversiones"
-        description="Tus carteras con acciones y cripto, y lo que tiene saldo, en un solo lugar."
+        description={PORTFOLIO_WALLETS_ENABLED
+          ? 'Tus carteras con acciones y cripto, y lo que tiene saldo, en un solo lugar.'
+          : 'Lo que tiene saldo y rinde, en un solo lugar.'}
       />
 
       <div className="space-y-8">
         {/* Las carteras van arriba: es lo que se viene a mirar todos los días,
             porque los precios se mueven solos. */}
-        <PortfolioSection
-          wallets={portfolioWallets}
-          holdings={holdings}
-          trades={trades}
-          quotes={quotes}
-          quotesFetchedAt={quotesFetchedAt}
-          rates={rates}
-          rateHistory={rateHistory}
-          onCreatePortfolio={() => setCreatingPortfolio(true)}
-          onAdjustCash={setAdjustingWallet}
-        />
+        {PORTFOLIO_WALLETS_ENABLED && (
+          <PortfolioSection
+            wallets={portfolioWallets}
+            holdings={holdings}
+            trades={trades}
+            quotes={quotes}
+            quotesFetchedAt={quotesFetchedAt}
+            rates={rates}
+            rateHistory={rateHistory}
+            onCreatePortfolio={() => setCreatingPortfolio(true)}
+            onAdjustCash={setAdjustingWallet}
+          />
+        )}
 
-        {/* Si no hay ninguna billetera de saldo, la sección no aparece: su
-            estado vacío le explicaría a alguien con un broker cómo marcar una
-            billetera, que es justo lo que no necesita. */}
-        {balanceWallets.length > 0 && (
+        {/* Con carteras a la vista y ninguna billetera de saldo, la sección no
+            aparece: su estado vacío le explicaría a alguien con un broker cómo
+            marcar una billetera, que es justo lo que no necesita. Sin carteras
+            es la única sección de la pantalla, así que va siempre — su vacío es
+            lo único que explica de qué se trata. */}
+        {(!PORTFOLIO_WALLETS_ENABLED || balanceWallets.length > 0) && (
           <InvestmentWalletsSection
             wallets={balanceWallets}
             events={investmentEvents}

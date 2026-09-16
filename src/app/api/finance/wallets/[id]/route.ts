@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { updateWalletSchema } from '@/lib/validations/finance'
+import { effectiveInvestmentMode } from '@/lib/finance/feature-flags'
 
 export async function PATCH(
   req: NextRequest,
@@ -34,7 +35,7 @@ export async function PATCH(
 
   const newType = result.data.type ?? current.type
   const newMode = newType === 'inversion'
-    ? (result.data.investment_mode ?? current.investment_mode ?? 'saldo')
+    ? effectiveInvestmentMode(result.data.investment_mode ?? current.investment_mode)
     : null
 
   // Una billetera con especies adentro no puede dejar de ser cartera: sus

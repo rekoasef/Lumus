@@ -6,6 +6,7 @@ import { CategoryIcon } from '@/lib/utils/category-icons'
 import type { Wallet as WalletType } from '@/types/finance.types'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import type { InvestmentReturn, InvestmentReturnUsd } from '@/lib/finance/investment'
+import { isPortfolioWallet } from '@/lib/finance/feature-flags'
 
 const WALLET_ICONS: Record<string, React.ReactNode> = {
   efectivo:  <Wallet size={18} />,
@@ -49,8 +50,9 @@ interface WalletCardProps {
 export function WalletCard({ wallet, investment, onEdit, onAdjust, onDelete }: WalletCardProps) {
   const formattedBalance = formatCurrency(wallet.balance, wallet.currency, 'exact')
   // En una cartera el saldo es solo el efectivo: lo que vale de verdad está en
-  // sus especies, que se valúan en Inversiones (`E2`).
-  const isPortfolio = wallet.type === 'inversion' && wallet.investment_mode === 'tenencias'
+  // sus especies, que se valúan en Inversiones (`E2`). Con la feature escondida
+  // no hay carteras y la billetera se muestra como cualquier inversión.
+  const isPortfolio = isPortfolioWallet(wallet)
 
   return (
     <div className="lumus-glass group relative rounded-xl p-5 transition-all hover:border-white/15">

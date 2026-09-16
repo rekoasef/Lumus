@@ -149,7 +149,9 @@ Se adelantó a la 2 por pedido del dueño: lo que más le costaba no era no ver 
 
 ## `E2` — Billeteras de inversión con tenencias adentro
 
-Estado: **parte 1 implementada (2026-09-15), sin commit ni deploy · parte 2 pendiente**
+Estado: **parte 1 implementada (2026-09-15) y ESCONDIDA DE LA UI (2026-09-16) · parte 2 en pausa**
+
+> La pantalla no convenció al dueño y se apagó con un flag antes de que la vieran los testers. El código quedó entero. Ver *Escondida en la UI* al final del ticket.
 
 ### Por qué
 
@@ -234,6 +236,30 @@ El rendimiento en dólares valúa cada compra con el dólar **de su día**, como
 ### Lo que queda para la parte 2
 
 Efectivo que se mueve con cada compra y venta (`transaction_id`), la pantalla de ventas con ganancia realizada, y que sacar una especie o borrar una compra devuelva ese efectivo. El gráfico por especie cuando `holding_price_history` junte historia.
+
+### Escondida en la UI (2026-09-16)
+
+**Por qué.** El dueño la probó en pantalla y la UI no lo convenció. Decisión suya: esconderla y volver más adelante, en vez de mostrarla a medio gusto a los testers o gastar la sesión rediseñándola sin saber todavía qué quiere.
+
+**Cómo.** Un flag, `PORTFOLIO_WALLETS_ENABLED` en `src/lib/finance/feature-flags.ts`. Ponerlo en `true` devuelve la feature entera; no hay nada que reescribir ni migración que revertir.
+
+El flag no es cosmético: **el server decide con la misma función que la pantalla.** Si solo se escondiera la UI, la API seguiría creando carteras y especies que no se ven en ningún lado pero sí suman al patrimonio.
+
+| Dónde | Con el flag apagado |
+|---|---|
+| `isPortfolioWallet()` | Ninguna billetera es cartera. La usan la pantalla de inversiones, la card, el ajuste de saldo **y la API de ajuste** — si el formulario pregunta por el aporte, la API tiene que registrarlo |
+| `effectiveInvestmentMode()` | Toda billetera de inversión se guarda en modo `saldo`, venga del form o de un POST directo |
+| `inversiones-view` | Sin sección de carteras. La de billeteras con saldo vuelve a mostrarse siempre, con su estado vacío: es la única de la pantalla |
+| `wallet-form` | Sin elección de modo: con una sola opción posible, preguntar es hacer elegir sin opción |
+| `POST /api/finance/holdings` | 404. Las rutas que **borran** siguen abiertas a propósito, para poder limpiar |
+
+**Lo que sigue vivo y no molesta:** el modelo, la migración `00033` (ya en prod, no se revierte), las API routes de lectura y borrado, y los 20 tests de `holdings`, `market`, `price-snapshot` y `feature-flags`. Con cero tenencias el server no consulta ninguna API de precios (`getPriceQuotes` no pide nada sin especies) ni escribe historia (`recordHoldingPrices` corta en cero), así que esconderla no cuesta ni una llamada externa.
+
+`isPortfolioWallet` tiene test contra el flag y no contra `true`/`false`: el día que se prenda, el test tiene que pasar sin tocarlo.
+
+**Dato:** la única cartera que existía era la billetera `prueba` que creó el dueño ese día (saldo 0, sin especies ni movimientos). Se borró con soft delete el 2026-09-16. En producción **no queda ninguna billetera en modo `tenencias`**.
+
+**Al retomar:** la parte 2 no arranca hasta que la UI de la parte 1 convenza. Lo primero es rediseñar la pantalla, no seguir sumando funcionalidad abajo.
 
 ---
 
