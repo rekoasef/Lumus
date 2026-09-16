@@ -297,9 +297,10 @@ Ver `docs/ISSUES_PENDIENTES.md` para detalle. Todo el backlog técnico de esta r
 
 Ordenado por impacto, asumiendo que el producto es "app de finanzas con paywall":
 
-1. **Precio real del plan** — hoy `SUBSCRIPTION_PRICE_ARS = 1000` es precio de prueba (`src/lib/billing/plan.ts`).
-2. **Probar el caso `paused`** de una suscripción — solo se validó `authorized → cancelled`. Ojo que `billing_subscriptions` está en 0 filas, así que hoy no hay ninguna suscripción real contra la que probar.
-3. **Feedback del beta tester** — la razón de ser de `B5`. Es la primera vez que alguien que no escribió el código va a usar la app.
+1. **Precio real del plan** — hoy `SUBSCRIPTION_PRICE_ARS = 1000` es precio de prueba (`src/lib/billing/plan.ts`). **El precio está en revisión desde el 2026-09-16** (`docs/NEGOCIO.md`).
+2. **Vercel a Pro antes del primer cobro** — el proyecto está en Hobby, que prohíbe el uso comercial. Costos completos y la comparación con una VPS en `docs/NEGOCIO.md`.
+3. **Probar el caso `paused`** de una suscripción — solo se validó `authorized → cancelled`. Ojo que `billing_subscriptions` está en 0 filas, así que hoy no hay ninguna suscripción real contra la que probar.
+4. **Feedback del beta tester** — la razón de ser de `B5`. Es la primera vez que alguien que no escribió el código va a usar la app.
 
 Edición de perfil, que figuraba acá, se cerró.
 

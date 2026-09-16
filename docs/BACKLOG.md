@@ -4,7 +4,9 @@
 
 Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es un conjunto acotado de tickets que se toman **de a uno**, se cierran, se verifican y recién ahí se pasa al siguiente. Las rondas cerradas quedan abajo como historial, no se borran.
 
-- **Ronda 7 (`H1`–`H4`)** — **abierta el 2026-09-16**. Un mes para que Lumus salga a producción como SaaS y la gente pague. Cuatro ejes en orden: que no mienta ni pierda datos, ojos en producción, que el cobro no falle, que un desconocido sepa usarla. **Es la ronda activa.**
+- **Ronda 7 (`H1`–`H4`)** — **abierta el 2026-09-16**. Un mes para que Lumus salga a producción como SaaS y la gente pague. Cuatro ejes en orden: que no mienta ni pierda datos, ojos en producción, que el cobro no falle, que un desconocido sepa usarla. **Es la ronda activa.** El mismo día se sumaron `H5` (la landing) y `H6` (legal y operativo).
+
+> **El precio de `C8` se reemplazó el 2026-09-16**: 5 USD por mes cobrados en pesos (~7.800), con ajuste periódico. Hay detalles abiertos. Ver `docs/NEGOCIO.md` (costos, VPS descartada) y `docs/LANZAMIENTO.md` (plan completo: legal, soporte, marketing y seguimiento). **Antes del primer cobro, Vercel tiene que pasar a Pro**, porque el plan Hobby prohíbe el uso comercial.
 
 - **Ronda 6 (`G1`, `E2`)** — **abierta el 2026-09-15**. El panel de admin que `B4` descartó con dos usuarios, y billeteras de inversión con tenencias adentro (una cuenta de broker con varias acciones). `E2` quedó **escondida con un flag** el 2026-09-16: la UI no convenció.
 
@@ -139,6 +141,63 @@ Todo lo que sabemos de "alguien que no la construyó" viene de **una sola person
 
 - Alguien que nunca vio Lumus carga su primer gasto sin preguntar nada.
 - Los textos de la UI no usan ninguna palabra que venga del esquema de la base.
+
+---
+
+## `H5` — La landing
+
+Estado: **pendiente** — decidido hacerla el 2026-09-16
+
+### Por qué
+
+Hoy `gestorlumus.site` lleva directo al login (`src/app/page.tsx`). Alguien que llega por un link no tiene forma de saber qué es Lumus, cuánto sale ni por qué le conviene. Sin landing, el marketing no tiene adónde mandar a la gente, y **el cuello de botella de Lumus es la distribución, no el producto** (`C8`).
+
+### Alcance
+
+1. **El mensaje**: el diferencial no es *"controlá tus gastos"*, sino que **Lumus sabe que tus pesos se devalúan** (`D1`–`D4`).
+2. **El precio** visible, con los lugares de fundador que quedan. Depende de cerrar `docs/NEGOCIO.md`.
+3. **Dónde vive**: el dueño pensó en un subdominio. Lo común es al revés: la landing en el dominio principal y la app en `app.gestorlumus.site`. Se decide al arrancar.
+
+### Done cuando
+
+- Un desconocido entiende en la primera pantalla qué es Lumus y por qué es distinto.
+- Hay un camino claro de la landing al registro (o a la lista de espera, si el tope está lleno).
+
+Ideas de contenido, la calculadora pública (*"¿cuánto perdieron tus pesos?"*, con la historia del blue de `D1`) y los canales: `docs/LANZAMIENTO.md`, sección 6.
+
+---
+
+## `H6` — Legal y operativo: poder cobrar en serio
+
+Estado: **pendiente** — abierto el 2026-09-16
+
+### Por qué
+
+Cobrarle a gente en Argentina trae obligaciones que no son opcionales: defensa del consumidor, datos personales y facturación. Además, la infraestructura actual está en planes que no permiten, o no aguantan, uso comercial. El detalle y las fuentes están en `docs/LANZAMIENTO.md`, sección 3.
+
+### Alcance
+
+**Código:**
+
+1. **Términos y condiciones** y **política de privacidad** como páginas públicas, más el aviso de que Lumus no es asesoramiento financiero.
+2. **Aceptación en el registro**: checkbox que guarda versión y fecha. Es una migración. Si los términos cambian, se pide aceptar de nuevo.
+3. **Botón de arrepentimiento** (10 días hábiles, sin login) y **botón de baja** visibles. Leer la Disposición 954/2025 antes de implementar.
+4. **Aviso de aumento de precio** con 30 días de anticipación, que diga que el usuario se puede dar de baja sin costo. Es un tipo nuevo en el motor de avisos (`C4`/`C5`).
+5. **Soporte visible** (`gestorlumus@gmail.com`) en la app, los mails y los términos.
+
+**Fuera del código (el dueño):**
+
+6. Consulta con un **contador**: categoría de monotributo, cómo se factura un servicio digital, y **factura C por cada cobro, automatizada**.
+7. Inscribir la base en el **Registro Nacional de Bases de Datos** de la AAIP (TAD).
+8. **Vercel a Pro** (Hobby prohíbe el uso comercial) y **Supabase a Pro** (backups, contraseñas filtradas, pausa por inactividad).
+9. Si se puede, que un abogado revise los términos.
+
+### Done cuando
+
+- Nadie se registra sin haber aceptado una versión concreta de los términos, y queda guardado cuál.
+- Arrepentirse y darse de baja se hacen sin escribirle al dueño.
+- Cada cobro genera su factura sin trabajo manual.
+- Vercel y Supabase están en planes que permiten cobrar.
 
 ---
 
@@ -1539,6 +1598,8 @@ Es lo único que separa a Lumus de poder cobrar. `SUBSCRIPTION_PRICE_ARS = 1000`
 **No depende de ningún otro ticket. Dependía de una decisión del usuario**, que era el precio — **ya está tomada** (2026-08-27, abajo). A partir de acá es solo trabajo.
 
 ### El precio, decidido el 2026-08-27
+
+> **En revisión desde el 2026-09-16** — ver `docs/NEGOCIO.md`. El congelamiento en pesos deja el ingreso a merced de la inflación. Se propuso atar el precio a ~5 USD y darles a los fundadores un porcentaje de descuento en vez de un monto fijo. Nada decidido todavía, y la tabla de abajo es la que estaba.
 
 | Cohorte | Mensual | Anual | Nota |
 |---|---|---|---|

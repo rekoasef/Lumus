@@ -46,7 +46,7 @@ Ver setup completo en `docs/TOOLS_AND_SKILLS.md`.
 ## Antes de escribir cualquier código
 
 1. Leer `docs/FINANZAS.md` si la tarea involucra el módulo de finanzas
-2. Leer `docs/BILLING.md` si la tarea involucra el paywall de Mercado Pago
+2. Leer `docs/BILLING.md` si la tarea involucra el paywall de Mercado Pago, `docs/NEGOCIO.md` si involucra precio o costos de infraestructura, y `docs/LANZAMIENTO.md` si involucra términos, soporte, landing o marketing
 3. Para el schema real, no uses `docs/SCHEMA.md` (quedó desactualizado, describe módulos que ya no existen) — mirá directamente `supabase/migrations/` o `src/types/database.types.ts` (se regenera con `supabase gen types typescript --linked`)
 4. Consultar `docs/ARQUITECTURA.md` para saber dónde va cada archivo
 5. Respetar el design system de `docs/DESIGN_SYSTEM.md`
