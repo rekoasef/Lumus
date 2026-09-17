@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { LEGAL_PATHS } from '@/lib/legal/owner'
 
@@ -17,7 +16,6 @@ const LABELS = {
 } as const
 
 export function AcceptTermsForm({ version }: { version: string }) {
-  const router = useRouter()
   const [checked, setChecked] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,8 +31,10 @@ export function AcceptTermsForm({ version }: { version: string }) {
       })
       const data = await res.json() as { error?: string }
       if (!res.ok) throw new Error(data.error ?? LABELS.genericError)
-      router.replace('/dashboard')
-      router.refresh()
+      // Navegación completa y no `router.replace`: en producción el router del
+      // cliente tenía cacheado que /dashboard redirigía acá (de antes de
+      // aceptar), y la persona quedaba en esta pantalla aunque ya había aceptado.
+      window.location.assign('/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : LABELS.genericError)
       setSending(false)
