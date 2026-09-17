@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { firstChargeDate } from '@/lib/billing/access'
+import { cancelSubscriptionFor } from '@/lib/billing/cancel'
+import { reconcilePendingSubscription } from '@/lib/billing/reconcile'
 import {
   SUBSCRIPTION_PRICE_ARS,
   SUBSCRIPTION_CURRENCY,
@@ -26,12 +28,14 @@ export async function POST() {
     return NextResponse.json({ error: 'Las suscripciones todavía no están abiertas' }, { status: 403 })
   }
 
-  const [{ data: existing }, { data: grant }] = await Promise.all([
-    supabase
-      .from('billing_subscriptions')
-      .select('status, paid_until')
-      .eq('user_id', user.id)
-      .maybeSingle(),
+  // service_role: el usuario ya no puede escribir su fila (00035), y de paso
+  // se pone al día con Mercado Pago antes de decidir nada. Sin esto, alguien
+  // que pagó y cuyo webhook se perdió arrancaría un segundo checkout —y un
+  // segundo cobro— desde una pantalla que le dice que no está suscripto.
+  const serviceClient = createServiceClient()
+
+  const [existing, { data: grant }] = await Promise.all([
+    reconcilePendingSubscription(serviceClient, user.id),
     supabase
       .from('free_access_grants')
       .select('expires_at')
@@ -41,6 +45,13 @@ export async function POST() {
 
   if (existing?.status === 'authorized') {
     return NextResponse.json({ error: 'Ya tenés una suscripción activa' }, { status: 400 })
+  }
+
+  // Un checkout anterior sin terminar sigue siendo un link que puede cobrar:
+  // si queda vivo, alguien que abandonó y volvió a empezar puede terminar con
+  // dos suscripciones activas. Se cancela antes de crear la nueva.
+  if (existing?.status === 'pending' && existing.mp_preapproval_id) {
+    await cancelSubscriptionFor(serviceClient, user.id)
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!.replace(/\/$/, '')
@@ -81,9 +92,11 @@ export async function POST() {
 
   const preapproval = await mpRes.json() as MpPreapprovalResponse
 
-  // service_role: el usuario puede reintentar el checkout aunque su fila
-  // esté 'cancelled'/'paused' (ya validamos arriba que no esté 'authorized').
-  const serviceClient = createServiceClient()
+  // El usuario puede reintentar el checkout aunque su fila esté
+  // 'cancelled'/'paused' (ya validamos arriba que no esté 'authorized').
+  //
+  // `updated_at` es la hora de arranque de este checkout: de ahí sale cuánto
+  // tiene sentido esperar la confirmación (`lib/billing/checkout.ts`).
   const { error } = await serviceClient
     .from('billing_subscriptions')
     .upsert({
@@ -92,6 +105,7 @@ export async function POST() {
       status: 'pending',
       amount: SUBSCRIPTION_PRICE_ARS,
       currency: SUBSCRIPTION_CURRENCY,
+      updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

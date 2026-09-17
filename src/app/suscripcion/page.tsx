@@ -5,15 +5,21 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { SubscribeButton } from '@/components/modules/billing/subscribe-button'
 import { CHECKOUT_ENABLED, SUBSCRIPTION_CURRENCY, SUBSCRIPTION_PRICE_ARS } from '@/lib/billing/plan'
 import { firstChargeDate, paidAccessEndsAt, resolveAccessKind } from '@/lib/billing/access'
+import { isAwaitingPayment } from '@/lib/billing/checkout'
+import { reconcilePendingSubscription } from '@/lib/billing/reconcile'
 import { accessDaysLeft, accessEndingPhrase, formatAccessDate } from '@/lib/billing/access-ending'
 import { SUPPORT_EMAIL } from '@/lib/contact'
 import { formatCurrency } from '@/lib/utils/format-currency'
 
 const STATUS_MESSAGES: Record<string, string> = {
-  pending: 'Tu pago está pendiente de confirmación. Si ya pagaste, puede tardar unos minutos en reflejarse.',
+  // `pending` acá es un checkout que se abrió y no terminó: mientras el pago
+  // puede estar en curso, la pantalla muestra el cartel de espera y este texto
+  // no aparece.
+  pending: 'Empezaste un pago y no se completó. Podés intentarlo de nuevo.',
   paused: 'Tu suscripción está pausada. Reactivala para volver a usar Lumus.',
   cancelled: 'Tu suscripción fue cancelada. Suscribite de nuevo para volver a entrar.',
 }
@@ -36,10 +42,14 @@ export default async function SuscripcionPage() {
 
   if (!user) redirect('/login')
 
+  // La suscripción se lee después de preguntarle a Mercado Pago: si el pago
+  // salió y el webhook no llegó, esta pantalla era el final del camino ("
+  // esperando la confirmación" para siempre) con la plata ya cobrada.
+  //
   // Se lee el grant aunque esté vencido: es lo que distingue "tu prueba
   // terminó" de alguien que nunca tuvo acceso.
-  const [{ data: subscription }, { data: grant }] = await Promise.all([
-    supabase.from('billing_subscriptions').select('status, paid_until').eq('user_id', user.id).maybeSingle(),
+  const [subscription, { data: grant }] = await Promise.all([
+    reconcilePendingSubscription(createServiceClient(), user.id),
     supabase.from('free_access_grants').select('expires_at').eq('user_id', user.id).maybeSingle(),
   ])
 
@@ -69,7 +79,13 @@ export default async function SuscripcionPage() {
     paidUntil: subscription?.paid_until ?? null,
   })
 
-  const isPending = subscription?.status === 'pending'
+  // Un checkout abierto y no pagado deja la fila en `pending` para siempre.
+  // Solo se espera la confirmación mientras el intento es reciente; después,
+  // la pantalla vuelve a ofrecer suscribirse. Ver `lib/billing/checkout.ts`.
+  const isPending = isAwaitingPayment({
+    status: subscription?.status ?? null,
+    startedAt: subscription?.updated_at ?? null,
+  })
   // Con días por delante, "suscribite para volver a entrar" no es cierto: ya entra.
   const statusMessage = subscription?.status && !isPending && !hasAccessNow
     ? STATUS_MESSAGES[subscription.status]
