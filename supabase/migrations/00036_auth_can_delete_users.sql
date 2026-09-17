@@ -1,0 +1,25 @@
+-- ============================================================
+-- MIGRATION 00036 — QUE SE PUEDA BORRAR UNA CUENTA
+-- ============================================================
+-- Borrar un usuario desde Supabase Auth (`auth.admin.deleteUser`, o el botón
+-- del dashboard) fallaba con "Database error deleting user" para cualquiera
+-- que tuviera **al menos un movimiento**. Encontrado el 2026-09-17 al querer
+-- borrar la cuenta de prueba de `H7`, y confirmado con tres cuentas
+-- descartables: sin datos se borra, con una billetera se borra, con una
+-- billetera y un movimiento falla.
+--
+-- La causa: Auth borra con el rol `supabase_auth_admin`. El borrado baja en
+-- cascada a `transactions`, su trigger (`trg_transactions_recompute_balance`)
+-- llama a `recompute_wallet_balance`, y 00017 le había sacado EXECUTE a
+-- PUBLIC sin dárselo a ese rol. Permiso denegado, y el borrado entero se
+-- revierte.
+--
+-- Importa por `H6`: el derecho de supresión de la Ley 25.326 necesita que
+-- borrar una cuenta funcione, y hacerlo a mano por SQL no es un proceso.
+--
+-- Se da el permiso solo a `supabase_auth_admin`, que es un rol interno de
+-- Supabase (no entra por PostgREST). La función ya valida contra `auth.uid()`
+-- cuando hay un JWT detrás (00017); acá no lo hay.
+-- ============================================================
+
+grant execute on function recompute_wallet_balance(uuid) to supabase_auth_admin;

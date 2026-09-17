@@ -230,7 +230,7 @@ Se hizo el mismo día, con la cuenta `qa@gestorlumus.site` (5 billeteras, 38 mov
 
 **Un bug de datos que salió de mirar las pantallas, no de diseño.** Un gasto de US$ 120 en "Ocio" aparecía como $ 120 en Presupuestos (0 %) y como $ 185.280 en el panel (741 %). La API, la pantalla, el informe de IA y el aviso diario sumaban crudo a propósito ("para que el uso no se mueva con el dólar"); el panel convertía con el dólar de hoy. Decisión del dueño: **el blue del día del gasto**, que es correcto y además no se mueve con el dólar. Ver `lib/finance/budget-spend.ts` (11 tests) y `budget-spend-data.ts`, que lee paginado. Verificado con la cuenta de prueba: API, pantalla y panel dicen lo mismo ($ 183.480 = 120 × 1.529, el blue del 08/09).
 
-**Otro, para `H6`: borrar un usuario desde la API de Auth falla** (`Database error deleting user`). Como `postgres` el mismo borrado funciona, así que la cuenta de prueba se borró por SQL. Hipótesis sin confirmar: al borrar en cascada los movimientos, el trigger de saldo llama a `recompute_wallet_balance`, y `supabase_auth_admin` no tiene `EXECUTE` sobre esa función desde `00017`. Importa porque el derecho de supresión de la Ley 25.326 necesita que borrar una cuenta funcione.
+**Otro, arreglado el mismo día: borrar un usuario desde la API de Auth fallaba** (`Database error deleting user`) para cualquiera con al menos un movimiento. Tres cuentas descartables lo confirmaron: sin datos se borraba, con una billetera también, con una billetera y un movimiento no. Auth borra con el rol `supabase_auth_admin`; la cascada llega a `transactions`, su trigger llama a `recompute_wallet_balance`, y `00017` le había sacado `EXECUTE` a `public` sin dárselo a ese rol. Migración `00036`. Después se borró por Auth una cuenta con datos en casi todas las tablas (préstamo con movimientos, fijo, presupuesto, meta con billetera, inversión, avisos, feedback) y no quedó nada huérfano.
 
 **Visto y no tocado:**
 
@@ -264,6 +264,8 @@ Estado: **pendiente** — abierto el 2026-09-16
 Cobrarle a gente en Argentina trae obligaciones que no son opcionales: defensa del consumidor, datos personales y facturación. Además, la infraestructura actual está en planes que no permiten, o no aguantan, uso comercial. El detalle y las fuentes están en `docs/LANZAMIENTO.md`, sección 3.
 
 ### Alcance
+
+**Ya hecho:** borrar una cuenta desde Supabase Auth funciona (`00036`, ver `H7`). Es la base del derecho de supresión; falta el camino para que el usuario lo pida.
 
 **Código:**
 
