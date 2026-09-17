@@ -66,7 +66,7 @@ export function RecurringTransactionForm({
         <div className="flex items-center justify-between px-5 pt-3 pb-4 sm:px-6 sm:pt-5">
           <div>
             <h2 className="lumus-heading text-lg font-semibold text-[var(--text-primary)]">
-              {initial ? 'Editar recurrente' : 'Nueva recurrente'}
+              {initial ? 'Editar fijo' : 'Nuevo fijo'}
             </h2>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">Sueldo, alquiler, servicios…</p>
           </div>

@@ -76,7 +76,7 @@ export function BilleterasView({
       })
     } catch (e) {
       // El diálogo queda abierto a propósito: lo cargado sigue ahí para corregir.
-      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar el balance')
+      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar el saldo')
       return
     }
 
@@ -91,13 +91,13 @@ export function BilleterasView({
     }
 
     setAdjustingWallet(null)
-    toast.success('Balance actualizado')
+    toast.success('Saldo actualizado')
   }
 
   async function handleDeleteWallet(id: string) {
     const ok = await confirm({
       title: 'Eliminar billetera',
-      description: 'Las transacciones asociadas quedarán sin billetera asignada. Esta acción no se puede deshacer.',
+      description: 'La billetera deja de verse y su saldo deja de sumar. Los movimientos que ya cargaste siguen en tu historial.',
       confirmLabel: 'Eliminar',
     })
     if (!ok) return

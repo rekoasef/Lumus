@@ -31,7 +31,7 @@ const LABELS = {
   emptyHint: 'Creá una billetera para tu broker o exchange y cargá adentro lo que compraste.',
   create: 'Crear cartera',
   add: 'Agregar compra',
-  adjustCash: 'Ajustar efectivo',
+  adjustCash: 'Corregir efectivo',
   total: 'Vale hoy',
   cash: 'Efectivo',
   performance: 'Rendimiento en dólares',

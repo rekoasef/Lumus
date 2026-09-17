@@ -60,14 +60,14 @@ export function RecurringTransactionList({
     try {
       if (editing) {
         await update(editing.id, data)
-        toast.success('Recurrente actualizada')
+        toast.success('Fijo actualizado')
       } else {
         await create(data)
-        toast.success('Recurrente creada')
+        toast.success('Fijo creado')
       }
     } catch (e) {
       // El formulario queda abierto con lo cargado, para corregir y reintentar.
-      toast.error(e instanceof Error ? e.message : 'No se pudo guardar la recurrente')
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar el fijo')
       return
     }
     setShowForm(false)
@@ -75,12 +75,12 @@ export function RecurringTransactionList({
   }
 
   async function handleDelete(id: string) {
-    const ok = await confirm({ description: '¿Eliminar esta transacción recurrente?' })
+    const ok = await confirm({ description: '¿Eliminar este fijo? Los movimientos que ya registró quedan.' })
     if (!ok) return
     try {
       await remove(id)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo eliminar la recurrente')
+      toast.error(e instanceof Error ? e.message : 'No se pudo eliminar el fijo')
       return
     }
     toast.success('Eliminada')
@@ -105,7 +105,7 @@ export function RecurringTransactionList({
       toast.error(e instanceof Error ? e.message : 'No se pudo registrar')
       return
     }
-    toast.success('Transacción registrada')
+    toast.success('Movimiento registrado')
   }
 
   const active   = recurring.filter(r => r.active)
@@ -128,7 +128,7 @@ export function RecurringTransactionList({
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h2 className="lumus-heading text-xl font-semibold text-[var(--text-primary)]">
-            Fijos y recurrentes
+            Tus fijos
           </h2>
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">
             Sueldo, alquiler, servicios, cuotas y suscripciones
@@ -248,7 +248,7 @@ function RecurringCard({
       {/* Info */}
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 text-sm font-medium break-words text-[var(--text-primary)]">
-          {r.description ?? (isGasto ? 'Gasto recurrente' : 'Ingreso recurrente')}
+          {r.description ?? (isGasto ? 'Gasto fijo' : 'Ingreso fijo')}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
           <span className="rounded-full border border-white/[0.08] px-1.5 py-px text-[0.6rem] font-medium text-[var(--text-muted)]">

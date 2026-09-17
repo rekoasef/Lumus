@@ -83,7 +83,7 @@ export function InversionesView({
       })
     } catch (e) {
       // El diálogo queda abierto a propósito: lo cargado sigue ahí para corregir.
-      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar el balance')
+      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar el saldo')
       return
     }
 
@@ -96,7 +96,7 @@ export function InversionesView({
     }
 
     setAdjustingWallet(null)
-    toast.success('Balance actualizado')
+    toast.success('Saldo actualizado')
   }
 
   return (

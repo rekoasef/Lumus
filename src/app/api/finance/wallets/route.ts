@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
       wallet_id:       data.id,
       type:            'ajuste',
       amount:          initialBalance,
-      description:     'Balance inicial',
+      description:     'Saldo inicial',
       date:            today,
       category_id:     null,
       deleted_at:      null,

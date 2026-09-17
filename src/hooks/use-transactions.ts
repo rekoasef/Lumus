@@ -113,7 +113,7 @@ export function useTransactions(callbacks?: UseTransactionsCallbacks) {
         // el desembolso de un préstamo, ahí está la única pista de qué hacer.
         const body = await res.json().catch(() => null) as { error?: unknown } | null
         throw new Error(
-          typeof body?.error === 'string' ? body.error : 'Error al eliminar la transacción',
+          typeof body?.error === 'string' ? body.error : 'No se pudo eliminar el movimiento',
         )
       }
       const { wallet } = await res.json() as { wallet?: WalletBalanceUpdate }

@@ -89,7 +89,7 @@ export async function POST(
   // Calcular el balance que el trigger conoce (suma de transacciones).
   // Este `case` tiene que coincidir con el de `recompute_wallet_balance`
   // (migración 00028): si se desincronizan, la diferencia se materializa como
-  // un "Balance inicial" que nadie cargó.
+  // un "Saldo inicial" que nadie cargó.
   const { data: txRows } = await supabase
     .from('transactions')
     .select('type, amount')
@@ -112,7 +112,7 @@ export async function POST(
       wallet_id:       id,
       type:            'ajuste',
       amount:          implicit,
-      description:     'Balance inicial',
+      description:     'Saldo inicial',
       date:            (wallet.created_at ?? today).slice(0, 10),
       category_id:     null,
       deleted_at:      null,
@@ -121,7 +121,7 @@ export async function POST(
 
   // ── Billetera común: un ajuste y listo ──
   if (!isInvestment) {
-    const description = note ? `Ajuste de balance: ${note}` : 'Ajuste de balance'
+    const description = note ? `Corrección de saldo: ${note}` : 'Corrección de saldo'
 
     const { error: txError } = await supabase.from('transactions').insert({
       user_id:     user.id,

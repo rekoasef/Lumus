@@ -11,7 +11,7 @@ import type { Wallet } from '@/types/finance.types'
 const WALLET_TYPES = [
   { value: 'efectivo',  label: 'Efectivo' },
   { value: 'banco',     label: 'Banco' },
-  { value: 'virtual',   label: 'Virtual' },
+  { value: 'virtual',   label: 'Billetera virtual' },
   { value: 'inversion', label: 'Inversión' },
 ] as const
 
@@ -168,7 +168,7 @@ export function WalletForm({ onSave, onClose, initial, preset }: WalletFormProps
 
           {!initial && (
             <div>
-              <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">BALANCE INICIAL</label>
+              <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">SALDO INICIAL</label>
               <input
                 {...register('balance', { valueAsNumber: true })}
                 type="number"

@@ -29,10 +29,10 @@ function roundCents(amount: number): number {
 }
 
 const COPY = {
-  title:            'Ajustar balance',
+  title:            'Corregir saldo',
   investmentTitle:  'Actualizar inversión',
-  currentBalance:   'Balance actual',
-  newBalanceLabel:  'BALANCE REAL',
+  currentBalance:   'Saldo actual',
+  newBalanceLabel:  'SALDO REAL',
   newBalanceInvest: 'SALDO NUEVO',
   // El error que hacía esta ayuda necesaria: cargar el aporte y dejar el saldo
   // como estaba, con lo que la plata que entró se guardaba como pérdida.
@@ -65,7 +65,7 @@ const COPY = {
   staleGain:        'una ganancia',
   staleFix:         'Usar ese saldo',
   cancel:           'Cancelar',
-  confirm:          'Confirmar ajuste',
+  confirm:          'Confirmar corrección',
   confirmInvest:    'Guardar',
   saving:           'Guardando...',
 } as const
@@ -386,7 +386,7 @@ export function WalletAdjustForm({ wallet, wallets, onAdjust, onClose }: WalletA
             }`}>
               <div className="flex items-center justify-between">
                 <span className="text-xs">
-                  {diff > 0 ? 'Ajuste positivo de saldo' : 'Ajuste negativo de saldo'}
+                  {diff > 0 ? 'Se suma al saldo' : 'Se resta del saldo'}
                 </span>
                 <span className="lumus-heading font-bold">
                   {diff > 0 ? '+' : ''}{fmt(diff)}

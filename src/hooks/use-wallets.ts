@@ -121,7 +121,7 @@ export function useWallets(initialWallets: Wallet[]) {
       if (!res.ok) {
         const detail = await res.json().catch(() => null) as { error?: unknown } | null
         throw new Error(
-          typeof detail?.error === 'string' ? detail.error : 'Error al ajustar el balance',
+          typeof detail?.error === 'string' ? detail.error : 'No se pudo corregir el saldo',
         )
       }
       // Un aporte toca dos billeteras: la inversión y la de donde salió la

@@ -57,7 +57,7 @@ export function MergeCategoryDialog({
   const total = preview ? preview.transactions + preview.recurring + preview.budgets : 0
   const parts = preview
     ? [
-        preview.transactions > 0 && plural(preview.transactions, 'transacción', 'transacciones'),
+        preview.transactions > 0 && plural(preview.transactions, 'movimiento', 'movimientos'),
         preview.recurring > 0 && plural(preview.recurring, 'vencimiento', 'vencimientos'),
         preview.budgets > 0 && plural(preview.budgets, 'presupuesto', 'presupuestos'),
       ].filter(Boolean) as string[]

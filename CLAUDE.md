@@ -112,6 +112,20 @@ Si se agrega una nueva feature de IA:
 
 ---
 
+## Vocabulario de la UI
+
+La UI no usa palabras del esquema. Decidido el 2026-09-17 (`H4`):
+
+| En la base | En pantalla |
+|---|---|
+| `balance` | saldo |
+| `ajuste` | corrección de saldo |
+| `recurring_transactions` / recurrente | fijo |
+| `transactions` / transacción | movimiento |
+| `virtual` | billetera virtual |
+
+---
+
 ## Convenciones de naming
 
 | Elemento | Convención | Ejemplo |

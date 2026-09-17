@@ -18,12 +18,12 @@ const WALLET_ICONS: Record<string, React.ReactNode> = {
 const WALLET_LABELS: Record<string, string> = {
   efectivo:  'Efectivo',
   banco:     'Banco',
-  virtual:   'Virtual',
+  virtual:   'Billetera virtual',
   inversion: 'Inversión',
 }
 
 const COPY = {
-  balance:      'BALANCE',
+  balance:      'SALDO',
   cash:         'EFECTIVO',
   portfolio:    'Inversión · acciones y cripto',
   seeHoldings:  'Ver lo que tiene adentro',
@@ -81,8 +81,8 @@ export function WalletCard({ wallet, investment, onEdit, onAdjust, onDelete }: W
           <button
             onClick={() => onAdjust(wallet)}
             className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] can-hover:size-7 can-hover:rounded-md hover:bg-[var(--accent-muted)] hover:text-[var(--accent-lumus)]"
-            aria-label="Ajustar balance"
-            title="Ajustar balance"
+            aria-label="Corregir saldo"
+            title="Corregir saldo"
           >
             <SlidersHorizontal size={16} />
           </button>

@@ -385,7 +385,7 @@ export function ReportsDashboard({
                 size={14}
                 style={{ color: balancePositive ? 'var(--success)' : 'var(--danger)' }}
               />
-              <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">BALANCE</p>
+              <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">TE QUEDÓ</p>
             </div>
             <p
               className="lumus-heading mt-2 text-xl font-bold break-words sm:text-2xl"

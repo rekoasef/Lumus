@@ -14,7 +14,7 @@ interface TransactionItemProps {
 
 /** Los tipos que no son gasto ni ingreso muestran su propio signo y etiqueta. */
 const LABELS = {
-  ajuste:        'Ajuste',
+  ajuste:        'Corrección de saldo',
   transferencia: 'Transferencia',
   gain:          'Rendimiento',
   loss:          'Pérdida',

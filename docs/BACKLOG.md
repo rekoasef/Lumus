@@ -131,7 +131,7 @@ El paywall funciona: alguien paga y entra (`docs/BILLING.md`, probado en producc
 
 ## `H4` — Que un desconocido sepa usarla
 
-Estado: **empezado el 2026-09-17** — onboarding nuevo y primeros pasos hechos · faltan los textos (2) y probarlo con gente (4)
+Estado: **empezado el 2026-09-17** — onboarding, primeros pasos y textos hechos · falta probarlo con gente (4)
 
 ### Hecho (2026-09-17)
 
@@ -139,6 +139,7 @@ Estado: **empezado el 2026-09-17** — onboarding nuevo y primeros pasos hechos 
 - **Primeros pasos en el panel** (`first-steps-card`, regla en `lib/onboarding/first-steps.ts` con tests): billetera, primer gasto, gastos en 3 días distintos, un presupuesto e instalar la app (solo en el celular; en Android con el botón nativo, en iPhone con instrucciones). Se oculta al completarse o con la X.
 - **Fecha de nacimiento, ocupación y texto libre salen del perfil** (decisión del dueño). El ingreso mensual queda. Las columnas y la tabla `user_life_summary` se borraron con `00039`, aplicada después del deploy del código (los 3 perfiles existentes los tenían cargados; el dueño decidió borrarlos igual).
 - Probado con build de producción y una cuenta nueva (borrada): los tres pasos guardan lo que dicen y el panel muestra 2 de 5.
+- **Textos sin palabras del esquema**: "balance" → *saldo*, "ajuste" → *corrección de saldo*, "recurrente" → *fijo* (como la navegación), "transacción" → *movimiento*, "Virtual" → *Billetera virtual*, y el balance de Reportes → *Te quedó*. Las descripciones que el sistema ya había guardado ("Balance inicial", "Ajuste de balance…") se renombraron con `00040`, sin tocar la nota de cada persona. Los textos de borrar un fijo y una billetera ahora dicen lo que pasa de verdad (la billetera se esconde; los movimientos quedan).
 
 ### Por qué
 
