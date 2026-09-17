@@ -5,11 +5,10 @@ import { motion } from 'framer-motion'
 interface ProfileHeaderProps {
   name: string
   email: string
-  occupation: string | null
   createdAt: string
 }
 
-export function ProfileHeader({ name, email, occupation, createdAt }: ProfileHeaderProps) {
+export function ProfileHeader({ name, email, createdAt }: ProfileHeaderProps) {
   const displayName = name || 'Sin nombre'
   const initial = displayName[0]?.toUpperCase() ?? '?'
   const memberSince = new Date(createdAt).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
@@ -46,12 +45,6 @@ export function ProfileHeader({ name, email, occupation, createdAt }: ProfileHea
 
         <div className="mt-4 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-sm text-[var(--text-secondary)]">
           <span>{email}</span>
-          {occupation && (
-            <>
-              <span className="text-[var(--text-muted)]">·</span>
-              <span>{occupation}</span>
-            </>
-          )}
           <span className="text-[var(--text-muted)]">·</span>
           <span className="lumus-label text-[0.65rem] text-[var(--text-muted)]">Desde {memberSince}</span>
         </div>

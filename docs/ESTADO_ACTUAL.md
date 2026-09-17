@@ -260,7 +260,7 @@ Todo lo demás (`context-builder.ts`, `model-selector.ts`, `web-search.ts`, cach
 | `npm run build` | Compila |
 | `npm run backup` | Genera el backup cifrado y verifica contra producción |
 
-Producción (`www.gestorlumus.site`) está sincronizada con `main`. El deploy es manual (`vercel --prod --yes`); ver la advertencia de abajo.
+Producción (`www.gestorlumus.site`) está sincronizada con `main`. **Cada push a `main` se deploya solo** (Vercel conectado a GitHub; corregido el 2026-09-17, antes se creía manual). Ver la advertencia de abajo.
 
 > **La base y el código deployado tienen que moverse juntos.** El 2026-08-20 quedaron desfasados unos minutos —se borró la fila de facturación falsa mientras producción todavía corría el código viejo— y eso dejó al dueño fuera de su propia app hasta el deploy siguiente. Si una tarea toca el gate de acceso, deployar en el mismo tramo.
 

@@ -19,17 +19,12 @@ export default async function PerfilPage() {
 
   if (!user) return null
 
-  const [{ data: profile }, { data: summary }, { data: subscription }, access] = await Promise.all([
+  const [{ data: profile }, { data: subscription }, access] = await Promise.all([
     supabase
       .from('user_profiles')
-      .select('name, occupation, monthly_salary, birth_date')
+      .select('name, monthly_salary')
       .eq('user_id', user.id)
       .single(),
-    supabase
-      .from('user_life_summary')
-      .select('content')
-      .eq('user_id', user.id)
-      .maybeSingle(),
     supabase
       .from('billing_subscriptions')
       .select('id, user_id, mp_preapproval_id, status, amount, currency, next_payment_date, created_at, updated_at')
@@ -47,7 +42,7 @@ export default async function PerfilPage() {
   // estado real, sin tener que saber que "sin fila" significa algo.
   const notificationPreferences = allChannelsFor(indexPreferences(preferenceRows ?? []), user.id)
 
-  const resolvedProfile = profile ?? { name: '', occupation: null, birth_date: null, monthly_salary: null }
+  const resolvedProfile = profile ?? { name: '', monthly_salary: null }
 
   return (
     <div className="min-h-screen px-5 py-10 lg:px-12 lg:py-16">
@@ -55,7 +50,6 @@ export default async function PerfilPage() {
         <ProfileHeader
           name={resolvedProfile.name}
           email={user.email!}
-          occupation={resolvedProfile.occupation}
           createdAt={user.created_at}
         />
 
@@ -81,10 +75,7 @@ export default async function PerfilPage() {
 
         <div className="mt-2 divide-y divide-white/[0.06]">
           <div className="py-10">
-            <ProfileForm
-              initialProfile={resolvedProfile}
-              initialSummary={summary?.content ?? ''}
-            />
+            <ProfileForm initialProfile={resolvedProfile} />
           </div>
           <div className="py-10">
             <SubscriptionCard

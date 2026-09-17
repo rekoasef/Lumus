@@ -1,3 +1,5 @@
+import { FirstStepsCard } from '@/components/modules/dashboard/first-steps-card'
+import { firstSteps } from '@/lib/onboarding/first-steps'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -262,13 +264,27 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [profileRes, dashboardData] = await Promise.all([
+  const [profileRes, dashboardData, expenseDaysRes, budgetCountRes] = await Promise.all([
     supabase
       .from('user_profiles')
       .select('name')
       .eq('user_id', user.id)
       .single(),
     getDashboardData(supabase, user.id),
+    // Para los primeros pasos alcanza con saber si hubo gastos en 3 días
+    // distintos: las fechas más recientes, no todo el historial.
+    supabase
+      .from('transactions')
+      .select('date')
+      .eq('user_id', user.id)
+      .eq('type', 'gasto')
+      .is('deleted_at', null)
+      .order('date', { ascending: false })
+      .limit(60),
+    supabase
+      .from('budgets')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id),
   ])
 
   const { wallets, recentTransactions, monthSummary, categories, budgets, recurring, goals, rates, rateHistory, holdingsArs, loans } = dashboardData
@@ -276,6 +292,11 @@ export default async function DashboardPage() {
   const hasForeignCurrency = wallets.some(w => (w.currency ?? 'ARS') !== 'ARS')
 
   const firstName = (profileRes.data?.name ?? 'Usuario').split(' ')[0]
+  const onboardingSteps = firstSteps({
+    walletCount: wallets.length,
+    expenseDates: (expenseDaysRes.data ?? []).map(r => r.date),
+    budgetCount: budgetCountRes.count ?? 0,
+  })
   const date = getFormattedDate()
   const today = new Date()
   const daysElapsed = Math.max(1, today.getDate())
@@ -411,6 +432,7 @@ export default async function DashboardPage() {
   return (
     <div className="relative min-h-screen space-y-4 px-3 py-5 sm:space-y-6 sm:px-5 sm:py-8 lg:px-12 lg:py-12">
       <DailyGreeting firstName={firstName} />
+      <FirstStepsCard steps={onboardingSteps} />
       <DashboardHero firstName={firstName} date={date} />
 
       <section className="mx-auto grid max-w-[1120px] grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">

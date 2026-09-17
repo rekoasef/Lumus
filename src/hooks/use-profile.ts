@@ -6,12 +6,10 @@ import type { UpdateProfileInput } from '@/lib/validations/profile'
 
 interface UpdateProfileResult {
   profile: Profile
-  life_summary: string | null
 }
 
-export function useProfile(initialProfile: Profile, initialSummary: string) {
+export function useProfile(initialProfile: Profile) {
   const [profile, setProfile] = useState<Profile>(initialProfile)
-  const [summary, setSummary] = useState(initialSummary)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,9 +24,7 @@ export function useProfile(initialProfile: Profile, initialSummary: string) {
       })
       const data = await res.json() as UpdateProfileResult | { error: string }
       if (!res.ok) throw new Error('error' in data ? String(data.error) : 'Error al guardar los cambios')
-      const { profile: updated, life_summary } = data as UpdateProfileResult
-      setProfile(updated)
-      if (life_summary !== null) setSummary(life_summary)
+      setProfile((data as UpdateProfileResult).profile)
       return true
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
@@ -38,7 +34,7 @@ export function useProfile(initialProfile: Profile, initialSummary: string) {
     }
   }, [])
 
-  return { profile, summary, saving, error, updateProfile }
+  return { profile, saving, error, updateProfile }
 }
 
 export function useSubscriptionCancel() {

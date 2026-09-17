@@ -10,14 +10,13 @@ import type { Profile } from '@/types'
 
 interface ProfileFormProps {
   initialProfile: Profile
-  initialSummary: string
 }
 
 const fieldClass =
   'w-full rounded-md border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors focus:border-[var(--accent-lumus)] focus:outline-none'
 
-export function ProfileForm({ initialProfile, initialSummary }: ProfileFormProps) {
-  const { profile, summary, saving, error, updateProfile } = useProfile(initialProfile, initialSummary)
+export function ProfileForm({ initialProfile }: ProfileFormProps) {
+  const { profile, saving, error, updateProfile } = useProfile(initialProfile)
 
   const {
     register,
@@ -28,10 +27,7 @@ export function ProfileForm({ initialProfile, initialSummary }: ProfileFormProps
     resolver: zodResolver(updateProfileSchema),
     defaultValues: {
       name: profile.name,
-      occupation: profile.occupation,
-      birth_date: profile.birth_date,
       monthly_salary: profile.monthly_salary,
-      life_summary: summary,
     },
   })
 
@@ -56,20 +52,6 @@ export function ProfileForm({ initialProfile, initialSummary }: ProfileFormProps
           </div>
 
           <div>
-            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">Ocupación</label>
-            <input
-              {...register('occupation')}
-              placeholder="Ej: Desarrollador"
-              className={fieldClass}
-            />
-          </div>
-
-          <div>
-            <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">Fecha de nacimiento</label>
-            <input {...register('birth_date')} type="date" className={fieldClass} />
-          </div>
-
-          <div>
             <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">Ingreso mensual</label>
             <input
               {...register('monthly_salary', { valueAsNumber: true })}
@@ -79,17 +61,6 @@ export function ProfileForm({ initialProfile, initialSummary }: ProfileFormProps
               className={fieldClass}
             />
           </div>
-        </div>
-
-        <div>
-          <label className="lumus-label mb-1.5 block text-[0.65rem] text-[var(--text-muted)]">Contale a Lumus sobre vos</label>
-          <textarea
-            {...register('life_summary')}
-            rows={5}
-            placeholder="Tus metas, tu estilo de vida, lo que quieras mejorar..."
-            className={`${fieldClass} resize-none leading-6`}
-          />
-          <p className="mt-1.5 text-xs text-[var(--text-muted)]">Es un espacio libre — queda guardado para vos, no se comparte ni se analiza automáticamente.</p>
         </div>
 
         {error && (

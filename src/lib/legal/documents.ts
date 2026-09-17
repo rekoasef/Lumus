@@ -167,7 +167,7 @@ export const PRIVACY: LegalDocument = {
       paragraphs: ['Solo los necesarios para que Lumus funcione:'],
       bullets: [
         'Cuenta: correo electrónico y contraseña (guardada cifrada: nadie puede leerla, tampoco nosotros).',
-        'Perfil: nombre y, si los completás, fecha de nacimiento, ocupación, ingreso mensual y el texto libre sobre vos.',
+        'Perfil: nombre y, si lo completás, tu ingreso mensual.',
         'Tus finanzas: billeteras, movimientos, categorías, presupuestos, pagos fijos, metas, préstamos e inversiones que cargás.',
         'Pagos: el estado y el identificador de tu suscripción de Mercado Pago. Los datos de tu tarjeta los guarda Mercado Pago, no Lumus.',
         'Uso: cuándo creaste la cuenta y entraste por última vez, y los mensajes que nos mandás desde la aplicación.',

@@ -20,7 +20,7 @@ Este es el backlog vivo del proyecto. Se organiza en **rondas**: cada ronda es u
 
 > Ojo con las letras: los `D1`, `F1`, `S1` de `docs/ISSUES_PENDIENTES.md` son de un esquema viejo y cerrado, sin relación con las rondas 3 y 5 de acá.
 
-> **El deploy es manual** (`vercel --prod --yes`) y la base y el código deployado tienen que moverse juntos. El 2026-08-20 quedaron desfasados unos minutos y eso dejó al dueño fuera de su propia app hasta el deploy siguiente. Si un ticket toca el gate de acceso o una migración, deployar en el mismo tramo.
+> **Cada push a `main` se deploya solo a producción** (Vercel está conectado a GitHub; hasta el 2026-09-17 se creía que era manual, y los `vercel --prod` solo duplicaban). La base y el código deployado tienen que moverse juntos: **una migración que el código necesita se aplica antes del push**. El 2026-08-20 quedaron desfasados unos minutos y eso dejó al dueño fuera de su propia app hasta el deploy siguiente. Si un ticket toca el gate de acceso o una migración, deployar en el mismo tramo.
 
 
 ---
@@ -131,7 +131,14 @@ El paywall funciona: alguien paga y entra (`docs/BILLING.md`, probado en producc
 
 ## `H4` — Que un desconocido sepa usarla
 
-Estado: **pendiente**
+Estado: **empezado el 2026-09-17** — onboarding nuevo y primeros pasos hechos · faltan los textos (2) y probarlo con gente (4)
+
+### Hecho (2026-09-17)
+
+- **Onboarding nuevo**: nombre → primera billetera (cuatro tarjetas: efectivo, banco, Mercado Pago, dólares, con el saldo de hoy) → primer gasto (monto y categoría con chips), con "Lo hago después" en los dos últimos. Antes pedía fecha de nacimiento, ocupación, ingreso y un texto libre que **nadie leía** (el texto era del chat de IA, borrado en agosto), y no creaba billetera: la persona terminaba en un panel donde el `+` decía "Primero creá una billetera". El nombre marca el onboarding como hecho en el primer paso, porque el proxy rebota las API de quien no lo terminó.
+- **Primeros pasos en el panel** (`first-steps-card`, regla en `lib/onboarding/first-steps.ts` con tests): billetera, primer gasto, gastos en 3 días distintos, un presupuesto e instalar la app (solo en el celular; en Android con el botón nativo, en iPhone con instrucciones). Se oculta al completarse o con la X.
+- **Fecha de nacimiento, ocupación y texto libre salen del perfil** (decisión del dueño). El ingreso mensual queda. Las columnas y la tabla `user_life_summary` se borran en una migración aparte, después del deploy.
+- Probado con build de producción y una cuenta nueva (borrada): los tres pasos guardan lo que dicen y el panel muestra 2 de 5.
 
 ### Por qué
 

@@ -4,10 +4,7 @@ import { z } from 'zod'
 
 export const updateProfileSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido').max(100),
-  occupation: z.string().max(100).nullable().optional(),
-  birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD').nullable().optional(),
   monthly_salary: z.number().min(0).nullable().optional(),
-  life_summary: z.string().max(4000).nullable().optional(),
 })
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
