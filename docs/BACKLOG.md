@@ -66,13 +66,13 @@ Lo que lo hace un ticket y no un arreglo suelto: **ese bug ya se había arreglad
 1. **Recorrer cada camino donde se mueve plata** preguntando lo mismo: si la API rechaza, ¿qué ve el usuario? Quedan préstamos (pagar, editar, borrar), ajuste de billeteras, aportes a metas desde otras pantallas.
 2. **Qué pasa si se corta la conexión en el medio.** Hoy un `fetch` caído y un rechazo del servidor se ven igual. No lo son: uno se reintenta, el otro se corrige.
 3. **Doble envío.** Un doble toque en "Guardar" con la red lenta, ¿carga el gasto dos veces? Hay que mirarlo antes que alguien lo descubra con su plata.
-4. **El backup** (`npm run backup`) nunca se probó restaurando. Un backup que no se restauró no es un backup.
+4. ~~**El backup** nunca se probó restaurando.~~ **Hecho**: se probó el 2026-08-20 y de nuevo el 2026-09-17 con el schema actual (restauración limpia, conteos y sumas idénticos a producción). La prueba del 09-17 encontró que **los triggers de `auth.users` no estaban en el backup** — ver `docs/BACKUP.md`. Repetir después de cada cambio grande de schema.
 
 ### Done cuando
 
 - Ninguna pantalla afirma que guardó sin haberlo confirmado, y todo rechazo muestra el motivo del servidor.
 - Un doble toque no duplica un movimiento.
-- Se restauró un backup a una base limpia y los números cierran.
+- ✅ Se restauró un backup a una base limpia y los números cierran (2026-09-17).
 
 ---
 

@@ -30,8 +30,9 @@ Abrir esa carpeta en el Explorador de Windows y **subir el archivo a Google Driv
 
 | Respalda | No respalda |
 |---|---|
-| Estructura de `public`: tablas, índices, funciones, triggers, 16 policies de RLS | Configuración de Auth (SMTP, templates, providers) |
-| Datos de las 14 tablas de `public` | Variables de entorno y secretos |
+| Estructura de `public`: tablas, índices, funciones, triggers, 28 policies de RLS | Configuración de Auth (SMTP, templates, providers) |
+| **Los triggers sobre `auth.users`** (prueba gratis al registrarse y aceptación de términos), en la sección 3 del archivo | |
+| Datos de las 26 tablas de `public` | Variables de entorno y secretos |
 | `auth.users` y `auth.identities` | Sesiones activas, refresh tokens, logs de auditoría |
 
 Lo que no se respalda o está en `supabase/migrations/` y `supabase/templates/` (versionado en git), o es config que se rehace a mano en el dashboard.
@@ -107,6 +108,31 @@ psql ... -c "select count(*) from auth.users"
 ## Cadencia
 
 Manual, semanal, por decisión explícita. Si en algún momento se automatiza (GitHub Actions con cron, por ejemplo), hay que meter la password de la base y la passphrase como secrets del repo — evaluar si vale la pena antes de hacerlo.
+
+---
+
+## Prueba de restauración — 2026-09-17
+
+Se repitió la prueba después de todo lo que cambió el schema (préstamos, panel de admin, carteras, lo legal): backup nuevo, restaurado en un PostgreSQL 17.9 local levantado aparte (base `lumus_restore`, puerto 55432), con los stubs de `auth` que en Supabase crea GoTrue.
+
+Resultado: `psql -v ON_ERROR_STOP=1` terminó en **exit 0, sin errores**, y coincide con producción:
+
+| Verificación | Resultado |
+|---|---|
+| Filas de las 26 tablas de `public` | Idéntico a producción (diff vacío), 2.433 movimientos |
+| Policies de RLS, triggers y funciones de `public` | 28, 3 y 17 — igual que producción |
+| Usuarios de `auth` | 3 |
+| Billeteras activas y saldo en pesos | 12 y $4.970.159,54 — igual que producción |
+| Movimientos con usuario válido / con categoría (join real) | 2.433 y 1.962 — igual que producción |
+| Total de gastos | $33.565.266,73 — igual que producción |
+| Registro simulado en la base restaurada | Recibió la prueba gratis (vence a 30 días) y quedó la aceptación de términos |
+
+### Dos cosas que rompían y se arreglaron gracias a esta prueba
+
+1. **Los triggers de `auth.users` no estaban en el backup.** Ningún dump de `public` los trae, y son los que dan la prueba de 30 días a quien se registra (00034) y guardan la versión de términos aceptada (00037). Un proyecto restaurado dejaba entrar gente **sin prueba y sin constancia**, y no se notaba hasta que alguien se registraba. Ahora el script los lee de la base y los escribe en la sección 3; si no los puede leer, **aborta** en vez de dejar un backup que parece completo.
+2. **`search_path` vacío.** `pg_dump` lo deja en `''` y `pg_get_triggerdef` nombra la función sin schema, así que los `CREATE TRIGGER` fallaban con *function does not exist*. El archivo ahora fija `set search_path = public, pg_catalog;` antes de esa sección.
+
+Las dos fallas eran silenciosas, igual que las de la prueba anterior. **Es la tercera vez que esta prueba encuentra algo que solo se habría visto el día del desastre: repetirla después de cada cambio grande de schema no es opcional.**
 
 ---
 

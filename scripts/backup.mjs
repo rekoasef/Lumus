@@ -159,8 +159,8 @@ try {
   const header = [
     `-- Backup de Lumus — ${new Date().toISOString()}`,
     `-- Proyecto Supabase: ${ref}`,
-    '-- Contiene: datos de auth.users/auth.identities y el schema public',
-    '-- (estructura + datos), en ese orden.',
+    '-- Contiene: datos de auth.users/auth.identities, el schema public',
+    '-- (estructura + datos) y los triggers sobre auth.users, en ese orden.',
     '--',
     '-- El orden importa: las tablas de public tienen FK contra auth.users, asi',
     '-- que los usuarios tienen que existir antes de insertar sus datos.',
@@ -172,6 +172,23 @@ try {
   // pg_dump emite `CREATE SCHEMA public;` a secas, que falla en cualquier base
   // donde `public` ya exista — o sea, en todas, incluido un proyecto Supabase
   // recien creado. Sin esto la restauracion se corta en la primera linea util.
+  // Los triggers sobre `auth.users` no los trae ningun dump de `public`, y son
+  // los que le dan la prueba gratis a quien se registra (00034) y guardan la
+  // version de terminos que acepto (00037). Sin ellos, un proyecto restaurado
+  // deja entrar gente sin prueba y sin constancia — y no se nota hasta que
+  // alguien se registra. Se descubrio probando una restauracion el 2026-09-17.
+  log('  Leyendo los triggers de auth.users...')
+  const triggerSql = spawnSync('psql', [...pgArgs, '-t', '-A', '-c',
+    `select string_agg(format('drop trigger if exists %I on auth.users;%s;', t.tgname, pg_get_triggerdef(t.oid)), E'\n')
+     from pg_trigger t join pg_class c on c.oid = t.tgrelid
+     where not t.tgisinternal and c.relname = 'users' and c.relnamespace = 'auth'::regnamespace`],
+    { env: pgEnv, encoding: 'utf8' }).stdout.trim()
+
+  if (!triggerSql) {
+    console.error('\n  No se pudieron leer los triggers de auth.users. Se aborta: un backup sin ellos parece completo y no lo esta.\n')
+    process.exit(1)
+  }
+
   const publicSql = readFileSync(tmpPublic, 'utf8')
     .replace(/^CREATE SCHEMA public;$/m, 'CREATE SCHEMA IF NOT EXISTS public;')
   const authSql = readFileSync(tmpAuth, 'utf8')
@@ -179,7 +196,14 @@ try {
     plainPath,
     header +
     '-- ===== 1) USUARIOS (auth) =====\n\n' + authSql +
-    '\n\n-- ===== 2) SCHEMA PUBLIC (estructura + datos) =====\n\n' + publicSql
+    '\n\n-- ===== 2) SCHEMA PUBLIC (estructura + datos) =====\n\n' + publicSql +
+    '\n\n-- ===== 3) TRIGGERS SOBRE auth.users =====\n' +
+    '-- Van al final: llaman a funciones del schema public, que se crean arriba.\n' +
+    '-- El search_path explicito no es decorativo: pg_dump lo deja vacio y\n' +
+    '-- pg_get_triggerdef nombra la funcion sin schema, asi que sin esta linea\n' +
+    '-- los triggers fallan con "function does not exist" (visto el 2026-09-17).\n\n' +
+    "set search_path = public, pg_catalog;\n\n" +
+    triggerSql + '\n'
   )
 } finally {
   cleanup()

@@ -93,6 +93,15 @@ Aplica igual a la prueba y a una cortesía con fecha (por ejemplo, un tester con
 - Lumus guarda datos personales **y financieros** de terceros. Hay que **inscribir la base en el Registro Nacional de Bases de Datos** de la AAIP (trámite por TAD) y mantener la inscripción al día.
 - Hace falta una **política de privacidad**: qué se guarda, para qué, con quién se comparte y cómo pedir el acceso o el borrado. Los proveedores que tocan datos son Supabase, Vercel, Resend, Anthropic (los informes), Mercado Pago y Sentry.
 
+### Decisiones del dueño (2026-09-17)
+
+Las tomó con los números y los riesgos sobre la mesa; **no volver a plantearlas salvo que cambie la escala**:
+
+- **El monotributo espera.** Los primeros meses cobra sin facturar. Su razonamiento: con ~300 mil por mes (40 usuarios) ARCA no se pone a mirar, y si algún día un cliente pide factura —que es rarísimo— le devuelve la plata o le da meses gratis. Se inscribe cuando los ingresos estén más cerca de los 500 mil por mes. Lo que sí conviene: **preguntarle al contador** si por estar en relación de dependencia paga solo el impuesto integrado, porque cambia el número y es gratis averiguarlo.
+  - Riesgos avisados una vez: Mercado Pago informa los cobros a ARCA y puede retener (esas retenciones no se recuperan sin inscripción); inscribirse después deja esos meses sin comprobante y no se pueden facturar con fecha vieja; y un cliente que pide factura y no la recibe puede reclamar en Defensa del Consumidor o denunciarlo en ARCA. Los términos **ya no prometen factura**, así que no hay incumplimiento del propio contrato.
+- **Vercel se queda en Hobby hasta que llegue el mail.** Paga Pro cuando Vercel se lo pida. Riesgo avisado: no siempre avisan antes de limitar, y el corte caería con gente pagando; son 10 minutos de trámite para volver.
+- **La VPS sigue descartada** (sección 3 de `docs/NEGOCIO.md`).
+
 ### Facturación (monotributo)
 
 - Un monotributista tiene que emitir **factura C por cada venta o servicio**, sin importar el monto. No facturar bien es causal de exclusión del régimen.
