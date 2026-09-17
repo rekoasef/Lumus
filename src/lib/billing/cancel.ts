@@ -6,6 +6,9 @@ interface MpPreapprovalResponse {
   status: string
 }
 
+/** Los estados de Mercado Pago que todavía pueden terminar en un cobro. */
+const CANCELLABLE = new Set(['authorized', 'pending'])
+
 export type CancelResult =
   | { kind: 'cancelled'; status: string }
   /** No había nada que cancelar: prueba gratis, cortesía, o ya cancelada. */
@@ -30,7 +33,10 @@ export async function cancelSubscriptionFor(service: SupabaseClient<Database>, u
     .maybeSingle()
 
   if (readError) return { kind: 'error', message: readError.message }
-  if (!subscription || subscription.status !== 'authorized' || !subscription.mp_preapproval_id) {
+  // `pending` también: es un checkout que la persona empezó y no terminó. Si
+  // se deja vivo, puede completarlo más tarde desde el link de Mercado Pago y
+  // empezar a pagar después de haberse dado de baja (o de borrar la cuenta).
+  if (!subscription || !CANCELLABLE.has(subscription.status) || !subscription.mp_preapproval_id) {
     return { kind: 'nothing_to_cancel' }
   }
 
@@ -44,7 +50,14 @@ export async function cancelSubscriptionFor(service: SupabaseClient<Database>, u
   })
 
   if (!mpRes.ok) {
-    return { kind: 'error', message: `Mercado Pago: ${await mpRes.text()}` }
+    const body = await mpRes.text()
+    // Una pendiente que MP no deja cancelar suele ser un checkout vencido, que
+    // ya no puede cobrar. No puede frenar una baja ni un borrado de cuenta.
+    if (subscription.status === 'pending') {
+      console.warn('[baja] MP no canceló una suscripción pendiente; se sigue igual', mpRes.status, body)
+      return { kind: 'nothing_to_cancel' }
+    }
+    return { kind: 'error', message: `Mercado Pago: ${body}` }
   }
 
   const preapproval = await mpRes.json() as MpPreapprovalResponse

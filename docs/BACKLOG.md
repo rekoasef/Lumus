@@ -314,6 +314,8 @@ Cobrarle a gente en Argentina trae obligaciones que no son opcionales: defensa d
 - El domicilio figura como "Armstrong, provincia de Santa Fe": un abogado puede pedir la dirección completa.
 - **Los textos no mencionan facturas** (decisión del dueño, mismo día): todavía no está inscripto y las facturas no se van a mandar por mail. El primer cobro (su novia, ~7.800) no se factura. Cuando se inscriba, volver a escribirlo en `documents.ts`.
 
+**Eliminar la cuenta desde el perfil** (pedido del dueño, mismo día): sección 06 del perfil, y en `/suscripcion` para quien ya no tiene acceso (el proxy exime `/api/account/`). Pide la contraseña (verificada en el servidor) y escribir `ELIMINAR`. Orden: cancela en Mercado Pago —si falla, no borra nada—, deja la constancia en `consumer_requests` (`status = resuelta`, sobrevive al borrado), borra el usuario por Auth (cascada, `00036`), manda la constancia y avisa al dueño. Las cuentas admin no se pueden borrar desde ahí. Probado con build de producción: contraseña mala 403, frase mala 400, borrado real con movimientos incluidos, y la sesión queda cerrada. Los textos legales ahora ofrecen este camino (sin subir `TERMS_VERSION`: agrega un derecho, no una obligación).
+
 **Falta:** el aviso de aumento (punto 4, cuando haya un primer ajuste), la revisión de un abogado, y lo de afuera del código (6–9).
 
 ---

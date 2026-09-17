@@ -1,4 +1,6 @@
 import { LegalLinks } from '@/components/shared/legal-links'
+import { DeleteAccountSection } from '@/components/modules/profile/delete-account-section'
+import { isAdmin } from '@/lib/admin/access'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import Image from 'next/image'
@@ -169,6 +171,11 @@ export default async function SuscripcionPage() {
             </Link>
           )}
         </div>
+        {!hasAccessNow && (
+          <div className="lumus-glass mt-6 rounded-3xl p-6">
+            <DeleteAccountSection isAdmin={isAdmin(user.id)} />
+          </div>
+        )}
         <LegalLinks className="mt-6 px-2" />
       </div>
     </div>

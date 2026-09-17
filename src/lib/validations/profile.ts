@@ -24,3 +24,13 @@ export const changePasswordSchema = z.object({
 })
 
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>
+
+/** Frase que hay que escribir para eliminar la cuenta: frena el toque sin querer. */
+export const DELETE_ACCOUNT_PHRASE = 'ELIMINAR'
+
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1, 'Ingresá tu contraseña'),
+  confirmation: z.literal(DELETE_ACCOUNT_PHRASE, { error: `Escribí ${DELETE_ACCOUNT_PHRASE} para confirmar` }),
+})
+
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>

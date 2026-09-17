@@ -91,6 +91,7 @@ Con el cobro prendido en un deploy de prueba o un rato en producción, con una c
 4. **`paused`**: nunca se probó. Ver qué dispara MP y que la gracia funcione.
 
 **Límite conocido**: si alguien se suscribe durante la prueba y cancela antes del primer cobro, el webhook ya guardó `paid_until` = fin de la prueba, y le quedan los 3 días de gracia de regalo. No vale la pena complicarlo.
+- **Baja durante la prueba**: suscribirse con prueba vigente, darse de baja antes de que termine, y confirmar en MP que la suscripción quedó cancelada y **nunca** se cobró. Es lo que la app promete a quien usa 23 días y se va. La baja y el borrado de cuenta cancelan también las suscripciones `pending` (checkout empezado y no terminado).
 
 ## Pendiente antes de un lanzamiento de verdad
 

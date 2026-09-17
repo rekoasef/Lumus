@@ -95,7 +95,9 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    if (!pathname.startsWith('/suscripcion') && !isBillingApiRoute && !isAcceptPath && !pathname.startsWith('/api/legal/')) {
+    if (!pathname.startsWith('/suscripcion') && !isBillingApiRoute && !isAcceptPath && !pathname.startsWith('/api/legal/') && !pathname.startsWith('/api/account/')) {
+      // Borrar la cuenta no puede depender de estar al día: quien dejó de pagar
+      // tiene el mismo derecho a que se borren sus datos (se ofrece en /suscripcion).
       // Suscripción activa o acceso de cortesía vigente — ver lib/billing/access
       if (!(await hasAccess(supabase, user.id))) {
         const url = request.nextUrl.clone()

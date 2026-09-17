@@ -1,4 +1,5 @@
 import { LegalSection } from '@/components/modules/profile/legal-section'
+import { DeleteAccountSection } from '@/components/modules/profile/delete-account-section'
 import Link from 'next/link'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
@@ -99,6 +100,9 @@ export default async function PerfilPage() {
           </div>
           <div className="py-10">
             <LegalSection />
+          </div>
+          <div className="py-10">
+            <DeleteAccountSection isAdmin={isAdmin(user.id)} />
           </div>
         </div>
       </div>

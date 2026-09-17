@@ -5,7 +5,7 @@ import { SectionHeading } from './section-heading'
 const LABELS = {
   heading: 'Legal y soporte',
   support: `¿Dudas o problemas? Escribinos a ${LEGAL_OWNER.email}: respondemos dentro de las 48 horas hábiles.`,
-  deletion: `Para ver, corregir o borrar tus datos, escribinos desde el mail de tu cuenta. Borramos la cuenta y todo lo que cargaste dentro de los ${DATA_DELETION_BUSINESS_DAYS} días hábiles.`,
+  deletion: `Para ver o corregir tus datos, escribinos desde el mail de tu cuenta (respondemos dentro de los ${DATA_DELETION_BUSINESS_DAYS} días hábiles). Para borrarlos todos, eliminá la cuenta acá abajo.`,
 } as const
 
 export function LegalSection() {

@@ -112,7 +112,7 @@ export const TERMS: LegalDocument = {
       title: '10. Tus datos cuando te vas',
       paragraphs: [
         'Si terminás la prueba sin suscribirte o te das de baja, tu cuenta y tus datos quedan guardados para que puedas volver cuando quieras y encontrar todo como estaba.',
-        `Si preferís que los borremos, escribinos a ${LEGAL_OWNER.email} desde el correo de tu cuenta: borramos la cuenta y todo lo que cargaste dentro de los ${DATA_DELETION_BUSINESS_DAYS} días hábiles.`,
+        `Si preferís que los borremos, podés eliminar la cuenta vos mismo desde tu perfil, con tu contraseña: se cancela la suscripción y se borra todo en el momento. También podés escribirnos a ${LEGAL_OWNER.email} desde el correo de tu cuenta, y lo hacemos dentro de los ${DATA_DELETION_BUSINESS_DAYS} días hábiles.`,
       ],
     },
     {
@@ -198,13 +198,13 @@ export const PRIVACY: LegalDocument = {
     {
       title: '5. Cuánto tiempo los guardamos',
       paragraphs: [
-        `Mientras tu cuenta exista, aunque no tengas una suscripción activa, para que puedas volver. Si nos pedís que los borremos, eliminamos la cuenta y todos sus datos dentro de los ${DATA_DELETION_BUSINESS_DAYS} días hábiles. Las copias de seguridad cifradas se renuevan periódicamente.`,
+        `Mientras tu cuenta exista, aunque no tengas una suscripción activa, para que puedas volver. Si eliminás la cuenta desde tu perfil, se borra con todos sus datos en el momento; si nos lo pedís por correo, dentro de los ${DATA_DELETION_BUSINESS_DAYS} días hábiles. Las copias de seguridad cifradas se renuevan periódicamente.`,
       ],
     },
     {
       title: '6. Tus derechos',
       paragraphs: [
-        `Podés pedir ver los datos que tenemos de vos (te respondemos dentro de los ${DATA_ACCESS_DAYS} días corridos), corregirlos o borrarlos (dentro de los ${DATA_DELETION_BUSINESS_DAYS} días hábiles), escribiendo a ${LEGAL_OWNER.email} desde el correo de tu cuenta. Muchos los podés corregir o borrar vos mismo desde la aplicación.`,
+        `Podés pedir ver los datos que tenemos de vos (te respondemos dentro de los ${DATA_ACCESS_DAYS} días corridos), corregirlos o borrarlos (dentro de los ${DATA_DELETION_BUSINESS_DAYS} días hábiles), escribiendo a ${LEGAL_OWNER.email} desde el correo de tu cuenta. Muchos los podés corregir vos mismo desde la aplicación, y podés eliminar la cuenta entera con todos sus datos desde tu perfil.`,
         'El titular de los datos personales tiene la facultad de ejercer el derecho de acceso a los mismos en forma gratuita a intervalos no inferiores a seis meses, salvo que se acredite un interés legítimo al efecto conforme lo establecido en el artículo 14, inciso 3 de la Ley N° 25.326.',
         'La Agencia de Acceso a la Información Pública, en su carácter de Órgano de Control de la Ley N° 25.326, tiene la atribución de atender las denuncias y reclamos que interpongan quienes resulten afectados en sus derechos por incumplimiento de las normas vigentes en materia de protección de datos personales.',
       ],
