@@ -17,6 +17,7 @@ import { DashboardHero } from '@/components/modules/dashboard/dashboard-hero'
 import { DailyGreeting } from '@/components/modules/dashboard/daily-greeting'
 import type { FinanceSummaryRow, RecurringRepeatType, TransactionType } from '@/types/finance.types'
 import { getExchangeRates, convertToARS } from '@/lib/finance/exchange-rates'
+import { fetchSpentByCategory } from '@/lib/finance/budget-spend-data'
 import { countSummary, sumSummary, totalsByCategory } from '@/lib/finance/summary'
 import { budgetUsage, monthlyRecurringAmount, savingGoalProgress } from '@/lib/finance/rules'
 import { purchasingPowerChange, rateOn, type DailyRate } from '@/lib/finance/purchasing-power'
@@ -213,12 +214,12 @@ async function getDashboardData(supabase: Awaited<ReturnType<typeof createClient
     wallet_ids: (goal.saving_goal_wallets ?? []).map(w => w.wallet_id),
   })) as SavingGoalSummary[]
 
-  // Gasto del mes por categoría, en ARS, del mismo agregado que los KPIs
-  const spentByCategory = totalsByCategory(monthSummary, 'gasto', (amount, currency) => convertToARS(amount, currency, rates))
-    .reduce<Record<string, number>>((acc, row) => {
-      if (row.categoryId) acc[row.categoryId] = row.total
-      return acc
-    }, {})
+  // Lo gastado contra cada presupuesto: el mismo cálculo que la pantalla de
+  // presupuestos (dólares al blue del día del gasto), para que las dos digan
+  // el mismo porcentaje.
+  const spentByCategory = await fetchSpentByCategory(
+    supabase, userId, rawBudgets.map(b => b.category_id), monthStart, monthEnd,
+  )
 
   const budgets = rawBudgets.map(b => ({
     ...b,

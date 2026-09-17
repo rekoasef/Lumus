@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createBudgetSchema } from '@/lib/validations/finance'
+import { fetchSpentByCategory } from '@/lib/finance/budget-spend-data'
 
 async function fetchBudgetsWithSpent(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -20,26 +21,9 @@ async function fetchBudgetsWithSpent(
 
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
   const monthEnd   = new Date(year, month, 0).toISOString().slice(0, 10)
-  const categoryIds = (budgets ?? []).map(b => b.category_id)
-  let spentByCategory: Record<string, number> = {}
-
-  if (categoryIds.length) {
-    const { data: tx } = await supabase
-      .from('transactions')
-      .select('category_id, amount')
-      .eq('user_id', userId)
-      .eq('type', 'gasto')
-      .is('deleted_at', null)
-      .in('category_id', categoryIds)
-      .gte('date', monthStart)
-      .lte('date', monthEnd)
-
-    spentByCategory = (tx ?? []).reduce<Record<string, number>>((acc, t) => {
-      if (!t.category_id) return acc
-      acc[t.category_id] = (acc[t.category_id] ?? 0) + Number(t.amount)
-      return acc
-    }, {})
-  }
+  const spentByCategory = await fetchSpentByCategory(
+    supabase, userId, (budgets ?? []).map(b => b.category_id), monthStart, monthEnd,
+  )
 
   return (budgets ?? []).map(b => ({ ...b, spent: spentByCategory[b.category_id] ?? 0 }))
 }
@@ -145,17 +129,16 @@ export async function POST(req: NextRequest) {
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
   const monthEnd   = new Date(year, month, 0).toISOString().slice(0, 10)
 
-  const { data: spentTx } = await supabase
-    .from('transactions')
-    .select('amount')
-    .eq('user_id', user.id)
-    .eq('type', 'gasto')
-    .eq('category_id', category_id)
-    .is('deleted_at', null)
-    .gte('date', monthStart)
-    .lte('date', monthEnd)
-
-  const spent = (spentTx ?? []).reduce((sum, t) => sum + Number(t.amount), 0)
+  // El presupuesto ya se guardó: si falla la cuenta del gasto no se contesta
+  // error, porque el usuario reintentaría y chocaría con el duplicado. La
+  // pantalla lo vuelve a leer al cambiar de mes.
+  let spent = 0
+  try {
+    const spentByCategory = await fetchSpentByCategory(supabase, user.id, [category_id], monthStart, monthEnd)
+    spent = spentByCategory[category_id] ?? 0
+  } catch (e) {
+    console.error('[presupuestos] no se pudo calcular el gasto del presupuesto nuevo', e)
+  }
 
   return NextResponse.json({ budget: { ...data, spent } }, { status: 201 })
 }

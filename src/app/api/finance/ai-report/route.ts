@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/server'
 import { MAX_REPORT_REGENERATIONS, regenerationState } from '@/lib/finance/report-limits'
 import { convertToARS, getExchangeRates } from '@/lib/finance/exchange-rates'
 import { budgetUsage, monthlyRecurringAmount, savingGoalProgress, savingsRate } from '@/lib/finance/rules'
-import { rawTotalsByCategory, sumSummary, totalsByCategory } from '@/lib/finance/summary'
+import { sumSummary, totalsByCategory } from '@/lib/finance/summary'
+import { fetchSpentByCategory } from '@/lib/finance/budget-spend-data'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import type { FinanceSummaryRow, RecurringRepeatType } from '@/types/finance.types'
 
@@ -81,12 +82,14 @@ async function buildMonthContext(
     .map(row => `  - ${categoryNames.get(row.categoryId ?? '') ?? 'Sin categoría'}: ${money(row.total)}`)
     .join('\n') || '  - Sin gastos registrados'
 
-  // Presupuestos. Se comparan contra el gasto SIN convertir porque un
-  // presupuesto se define en pesos y contra pesos se mide — mismo criterio que
-  // la pantalla de finanzas, para que los dos números coincidan.
+  // Presupuestos. El gasto sale del mismo cálculo que la pantalla de
+  // presupuestos (dólares al blue del día del gasto), para que el informe no
+  // diga un porcentaje distinto del que el usuario ve.
   type BudgetRow = { amount: number; category_id: string | null; category: { name: string } | null }
-  const spentByCategory = rawTotalsByCategory(summary, 'gasto')
   const budgets = (budgetsRes.data ?? []) as unknown as BudgetRow[]
+  const spentByCategory = await fetchSpentByCategory(
+    supabase, userId, budgets.flatMap(b => (b.category_id ? [b.category_id] : [])), monthStart, monthEnd,
+  )
   const budgetLines = budgets.length > 0
     ? budgets
         .map(b => {

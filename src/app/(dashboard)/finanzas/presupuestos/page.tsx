@@ -2,9 +2,9 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { PresupuestosView } from '@/components/modules/finanzas/presupuestos-view'
 import { getWalletsAndCategories } from '@/lib/finance/server-data'
-import { rawTotalsByCategory } from '@/lib/finance/summary'
+import { fetchSpentByCategory } from '@/lib/finance/budget-spend-data'
 import { localDateStr } from '@/lib/utils/format-date'
-import type { Budget, FinanceSummaryRow } from '@/types/finance.types'
+import type { Budget } from '@/types/finance.types'
 
 export default async function PresupuestosPage() {
   const supabase = await createClient()
@@ -17,7 +17,7 @@ export default async function PresupuestosPage() {
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
   const monthEnd = localDateStr(new Date(year, month, 0))
 
-  const [{ categories }, budgetsRes, summaryRes] = await Promise.all([
+  const [{ categories }, budgetsRes] = await Promise.all([
     getWalletsAndCategories(user.id),
     supabase
       .from('budgets')
@@ -26,14 +26,12 @@ export default async function PresupuestosPage() {
       .eq('month', month)
       .eq('year', year)
       .order('created_at', { ascending: true }),
-    // Lo gastado por categoría sale del mismo agregado que los KPIs del mes,
-    // no de una segunda consulta de filas.
-    supabase.rpc('get_finance_summary', { p_from: monthStart, p_to: monthEnd }),
   ])
 
-  const spentByCategory = rawTotalsByCategory(
-    (summaryRes.data ?? []) as unknown as FinanceSummaryRow[],
-    'gasto',
+  // Mismo cálculo que la API, el panel y el aviso diario: los gastos en
+  // dólares, al blue del día en que se hicieron.
+  const spentByCategory = await fetchSpentByCategory(
+    supabase, user.id, (budgetsRes.data ?? []).map(b => b.category_id), monthStart, monthEnd,
   )
 
   const budgets = (budgetsRes.data ?? []).map(b => ({

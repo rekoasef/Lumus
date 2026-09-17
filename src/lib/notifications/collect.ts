@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
 import type { NewNotification } from '@/types/notifications.types'
 import { getExchangeRates, convertToARS } from '@/lib/finance/exchange-rates'
+import { fetchBudgetSpendRows, sumBudgetSpend } from '@/lib/finance/budget-spend-data'
 import { selectDueNotices, DUE_SOON_DAYS, type RecurringDue } from './due-recurring'
 import { buildLoanDueNotification, selectLoanDueNotices, type LoanDue } from './due-loans'
 import { buildDueNotification } from './due-notification'
@@ -168,32 +169,22 @@ export async function collectBudgetNotices(
   const monthStart = `${period}-01`
   const monthEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10)
 
-  // Mismo criterio que `/api/finance/budgets`: los presupuestos se definen en
-  // ARS y el gasto se suma crudo, sin convertir monedas.
-  const { data: tx, error: txError } = await supabase
-    .from('transactions')
-    .select('user_id, category_id, amount')
-    .eq('type', 'gasto')
-    .is('deleted_at', null)
-    .in('category_id', budgets.map(b => b.category_id))
-    .gte('date', monthStart)
-    .lte('date', monthEnd)
-
-  if (txError) throw new Error(`gastos del mes: ${txError.message}`)
-
-  const spent = new Map<string, number>()
-  for (const row of tx ?? []) {
-    if (!row.category_id) continue
-    const key = `${row.user_id}::${row.category_id}`
-    spent.set(key, (spent.get(key) ?? 0) + Number(row.amount))
-  }
+  // Mismo cálculo que las pantallas: los gastos en dólares, al blue del día
+  // en que se hicieron. Sumados crudos, US$ 120 contaban como $ 120 y el
+  // aviso de presupuesto pasado no salía nunca.
+  const rows = await fetchBudgetSpendRows(supabase, {
+    from: monthStart,
+    to: monthEnd,
+    categoryIds: [...new Set(budgets.map(b => b.category_id))],
+  })
+  const spent = await sumBudgetSpend(supabase, rows, monthStart, r => `${r.user_id}::${r.category_id}`)
 
   const withSpend: BudgetWithSpend[] = budgets.map(budget => ({
     user_id: budget.user_id,
     category_id: budget.category_id,
     category_name: budget.finance_categories?.name ?? 'Sin categoría',
     amount: Number(budget.amount),
-    spent: spent.get(`${budget.user_id}::${budget.category_id}`) ?? 0,
+    spent: spent[`${budget.user_id}::${budget.category_id}`] ?? 0,
   }))
 
   return selectBudgetNotices(withSpend, period)

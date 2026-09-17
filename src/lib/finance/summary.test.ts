@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NO_CATEGORY, countSummary, rawTotalsByCategory, sumSummary, totalsByCategory } from './summary'
+import { NO_CATEGORY, countSummary, sumSummary, totalsByCategory } from './summary'
 import type { FinanceSummaryRow } from '@/types/finance.types'
 
 /** Cotización fija: un dólar vale mil pesos. Alcanza para ver si convirtió o no. */
@@ -105,30 +105,5 @@ describe('totalsByCategory', () => {
       row({ type: 'gasto', category_id: 'comida', total: 1000, tx_count: 1 }),
     ]
     expect(totalsByCategory(rows, 'gasto', toARS).map(t => t.categoryId)).toEqual(['comida'])
-  })
-})
-
-describe('rawTotalsByCategory', () => {
-  // Los presupuestos se definen en pesos, así que se comparan contra el total
-  // crudo y no contra uno convertido con la cotización de hoy: si no, el uso de
-  // un presupuesto cambiaría solo porque se movió el dólar.
-  it('no convierte monedas', () => {
-    const rows = [
-      row({ category_id: 'comida', total: 5000, currency: 'ARS' }),
-      row({ category_id: 'comida', total: 10, currency: 'USD' }),
-    ]
-    expect(rawTotalsByCategory(rows, 'gasto')).toEqual({ comida: 5010 })
-  })
-
-  it('deja afuera lo que no tiene categoría', () => {
-    const rows = [
-      row({ category_id: null, total: 4000 }),
-      row({ category_id: 'comida', total: 1000 }),
-    ]
-    expect(rawTotalsByCategory(rows, 'gasto')).toEqual({ comida: 1000 })
-  })
-
-  it('sin filas devuelve un objeto vacío', () => {
-    expect(rawTotalsByCategory([], 'gasto')).toEqual({})
   })
 })

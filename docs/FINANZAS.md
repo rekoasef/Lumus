@@ -46,7 +46,9 @@ Verde — `#22c55e`
 - Se ven en la pestaña **Inversiones**, arriba de las tenencias con unidades, con el historial de cuánto fue rindiendo (gráfico del acumulado + detalle). El gráfico solo tiene puntos donde hubo un rendimiento registrado: entre dos actualizaciones la app no sabe qué pasó
 
 ### Presupuestos
-- Límite mensual por categoría
+- Límite mensual por categoría, en pesos
+- **Un gasto en dólares cuenta al blue del día en que se hizo** (`src/lib/finance/budget-spend.ts`, con tests). No con el de hoy: así el uso de un presupuesto no se mueve solo porque se movió el dólar. Hasta el 2026-09-17 se sumaba crudo (US$ 120 = $ 120) y el panel, que sí convertía, mostraba otro porcentaje para el mismo presupuesto
+- La pantalla, su API, el panel, el informe de IA y el aviso diario leen el gasto con `fetchSpentByCategory` / `fetchBudgetSpendRows` (`budget-spend-data.ts`), paginado. **No sumar gastos contra un presupuesto a mano**
 - Si el mes actual/futuro no tiene presupuestos propios, se autocopian los del mes más reciente que sí tenga (con aviso visual de "copiado")
 - Delete físico (a propósito — nada más referencia esta tabla para mostrar historial)
 

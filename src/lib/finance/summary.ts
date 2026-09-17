@@ -59,12 +59,3 @@ export function totalsByCategory(rows: FinanceSummaryRow[], type: TransactionTyp
 
 /** Clave de agrupación de los movimientos sin categoría. */
 export const NO_CATEGORY = '__none__'
-
-/** Suma cruda por categoría, sin convertir monedas — para presupuestos, que se definen en ARS. */
-export function rawTotalsByCategory(rows: FinanceSummaryRow[], type: TransactionType): Record<string, number> {
-  return rows.reduce<Record<string, number>>((acc, row) => {
-    if (row.type !== type || !row.category_id) return acc
-    acc[row.category_id] = (acc[row.category_id] ?? 0) + Number(row.total)
-    return acc
-  }, {})
-}
