@@ -83,7 +83,14 @@ export function MovimientosView({
   })
 
   const [reportOpen, setReportOpen] = useState(false)
-  const { report, generating, error: reportError, prevMonthLabel, generate } = useFinanceReport()
+  const {
+    report,
+    generating,
+    error: reportError,
+    monthLabel: reportMonthLabel,
+    available: reportAvailable,
+    generate,
+  } = useFinanceReport()
 
   // Gastos/ingresos del mes convertidos a ARS — las billeteras pueden estar
   // en distinta moneda (ARS/USD) y no se pueden sumar montos crudos entre sí
@@ -104,9 +111,11 @@ export function MovimientosView({
 
   return (
     <FinanzasPageShell>
-      {/* Banner de informe mensual — aparece cuando no hay informe del mes anterior */}
-      {report === null && (
-        <MonthlyReportBanner monthLabel={prevMonthLabel} onOpen={() => setReportOpen(true)} />
+      {/* Banner de informe mensual — solo cuando el mes cerrado se puede
+          analizar de verdad: la cuenta ya existía y tiene movimientos.
+          Ver `lib/finance/report-availability.ts`. */}
+      {report === null && reportAvailable && (
+        <MonthlyReportBanner monthLabel={reportMonthLabel} onOpen={() => setReportOpen(true)} />
       )}
 
       <header className="mb-6 sm:mb-10">
@@ -216,7 +225,7 @@ export function MovimientosView({
           report={report ?? null}
           generating={generating}
           error={reportError}
-          monthLabel={prevMonthLabel}
+          monthLabel={reportMonthLabel}
           onGenerate={generate}
           onClose={() => setReportOpen(false)}
         />

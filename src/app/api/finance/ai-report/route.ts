@@ -7,6 +7,12 @@ import { convertToARS, getExchangeRates } from '@/lib/finance/exchange-rates'
 import { budgetUsage, monthlyRecurringAmount, savingGoalProgress, savingsRate } from '@/lib/finance/rules'
 import { sumSummary, totalsByCategory } from '@/lib/finance/summary'
 import { fetchSpentByCategory } from '@/lib/finance/budget-spend-data'
+import {
+  REPORT_BLOCK_MESSAGES,
+  reportBlock,
+  reportableMonth,
+  type ReportBlock,
+} from '@/lib/finance/report-availability'
 import { formatCurrency } from '@/lib/utils/format-currency'
 import type { FinanceSummaryRow, RecurringRepeatType } from '@/types/finance.types'
 
@@ -14,6 +20,54 @@ const bodySchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/, 'Formato YYYY-MM requerido'),
   regenerate: z.boolean().optional().default(false),
 })
+
+/** El primer y el último día de un mes `YYYY-MM`, en `YYYY-MM-DD`. */
+function monthBounds(month: string): { start: string; end: string } {
+  const [y, m] = month.split('-').map(Number)
+  // El último día sale en UTC para que no dependa del huso del servidor.
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  return { start: `${month}-01`, end: `${month}-${String(lastDay).padStart(2, '0')}` }
+}
+
+/**
+ * Cuántos movimientos tiene el mes. Se cuentan en SQL (`head: true` no trae
+ * ninguna fila): alcanza con saber si hay cero o no.
+ *
+ * Mismo criterio que el aviso por mail (`collectMonthlyReportNotices`): todo
+ * movimiento no borrado con fecha dentro del mes.
+ */
+async function countMovements(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  month: string,
+): Promise<number> {
+  const { start, end } = monthBounds(month)
+  const { count } = await supabase
+    .from('transactions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .is('deleted_at', null)
+    .gte('date', start)
+    .lte('date', end)
+
+  return count ?? 0
+}
+
+/**
+ * Si se puede pedir el informe de un mes, con los datos que hacen falta para
+ * decidirlo. La regla vive en `report-availability.ts`, con tests.
+ */
+async function resolveBlock(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  user: { id: string; created_at: string },
+  month: string,
+): Promise<ReportBlock | null> {
+  return reportBlock({
+    month,
+    accountCreatedAt: user.created_at,
+    movements: await countMovements(supabase, user.id, month),
+  })
+}
 
 /** Todo lo que llega al prompt ya está en pesos y sin centavos. */
 const money = (amount: number) => formatCurrency(amount, 'ARS', 'rounded')
@@ -24,10 +78,8 @@ async function buildMonthContext(
   month: string,
 ): Promise<string> {
   const [y, m] = month.split('-').map(Number)
-  const monthStart = `${month}-01`
   // Inclusivo: `get_finance_summary` filtra con `date <= p_to`, no con `<`.
-  // El último día sale en UTC para que no dependa del huso del servidor.
-  const monthEnd = `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`
+  const { start: monthStart, end: monthEnd } = monthBounds(month)
 
   const monthLabel = new Date(y, m - 1, 1).toLocaleString('es-AR', { month: 'long', year: 'numeric' })
 
@@ -202,25 +254,40 @@ ${walletLines}
 `.trim()
 }
 
-// GET /api/finance/ai-report?month=YYYY-MM
+// GET /api/finance/ai-report[?month=YYYY-MM]
+//
+// Sin `month` contesta por el último mes cerrado. Que el mes lo elija el
+// servidor y no el navegador no es un detalle: el reloj del teléfono puede
+// estar en otro huso (o mal puesto), y de ahí salía la pantalla ofreciendo un
+// mes que no correspondía.
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  const month = req.nextUrl.searchParams.get('month')
-  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+  const requested = req.nextUrl.searchParams.get('month')
+  if (requested && !/^\d{4}-\d{2}$/.test(requested)) {
     return NextResponse.json({ error: 'Mes inválido' }, { status: 400 })
   }
+  const month = requested ?? reportableMonth()
 
-  const { data: report } = await supabase
-    .from('finance_reports')
-    .select('id, user_id, month, content, created_at')
-    .eq('user_id', user.id)
-    .eq('month', month)
-    .maybeSingle()
+  const [{ data: report }, block] = await Promise.all([
+    supabase
+      .from('finance_reports')
+      .select('id, user_id, month, content, created_at')
+      .eq('user_id', user.id)
+      .eq('month', month)
+      .maybeSingle(),
+    resolveBlock(supabase, { id: user.id, created_at: user.created_at }, month),
+  ])
 
-  return NextResponse.json({ report: report ?? null })
+  return NextResponse.json({
+    month,
+    report: report ?? null,
+    // Un informe ya generado se sigue mostrando aunque hoy no se pudiera pedir.
+    available: block === null,
+    reason: block,
+  })
 }
 
 // POST /api/finance/ai-report  { month: 'YYYY-MM' }
@@ -258,6 +325,14 @@ export async function POST(req: NextRequest) {
       },
       { status: 409 },
     )
+  }
+
+  // El último control antes de gastar plata. La pantalla ya no ofrece un mes
+  // que no corresponde, pero el botón no es la única forma de llegar acá: sin
+  // esto, un POST a mano genera el informe de un mes anterior a la cuenta.
+  const block = await resolveBlock(supabase, { id: user.id, created_at: user.created_at }, month)
+  if (block) {
+    return NextResponse.json({ error: REPORT_BLOCK_MESSAGES[block], reason: block }, { status: 400 })
   }
 
   const [y, m] = month.split('-').map(Number)
