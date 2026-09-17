@@ -137,7 +137,7 @@ Estado: **empezado el 2026-09-17** — onboarding nuevo y primeros pasos hechos 
 
 - **Onboarding nuevo**: nombre → primera billetera (cuatro tarjetas: efectivo, banco, Mercado Pago, dólares, con el saldo de hoy) → primer gasto (monto y categoría con chips), con "Lo hago después" en los dos últimos. Antes pedía fecha de nacimiento, ocupación, ingreso y un texto libre que **nadie leía** (el texto era del chat de IA, borrado en agosto), y no creaba billetera: la persona terminaba en un panel donde el `+` decía "Primero creá una billetera". El nombre marca el onboarding como hecho en el primer paso, porque el proxy rebota las API de quien no lo terminó.
 - **Primeros pasos en el panel** (`first-steps-card`, regla en `lib/onboarding/first-steps.ts` con tests): billetera, primer gasto, gastos en 3 días distintos, un presupuesto e instalar la app (solo en el celular; en Android con el botón nativo, en iPhone con instrucciones). Se oculta al completarse o con la X.
-- **Fecha de nacimiento, ocupación y texto libre salen del perfil** (decisión del dueño). El ingreso mensual queda. Las columnas y la tabla `user_life_summary` se borran en una migración aparte, después del deploy.
+- **Fecha de nacimiento, ocupación y texto libre salen del perfil** (decisión del dueño). El ingreso mensual queda. Las columnas y la tabla `user_life_summary` se borraron con `00039`, aplicada después del deploy del código (los 3 perfiles existentes los tenían cargados; el dueño decidió borrarlos igual).
 - Probado con build de producción y una cuenta nueva (borrada): los tres pasos guardan lo que dicen y el panel muestra 2 de 5.
 
 ### Por qué

@@ -946,35 +946,10 @@ export type Database = {
         }
         Relationships: []
       }
-      user_life_summary: {
-        Row: {
-          content: string
-          created_at: string | null
-          id: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string | null
-          id?: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string | null
-          id?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       user_profiles: {
         Row: {
           activity_level: string
           avatar_url: string | null
-          birth_date: string | null
           created_at: string | null
           daily_calorie_goal: number | null
           daily_protein_goal: number | null
@@ -983,7 +958,6 @@ export type Database = {
           id: string
           monthly_salary: number | null
           name: string
-          occupation: string | null
           onboarding_done: boolean | null
           timezone: string | null
           trains: boolean
@@ -994,7 +968,6 @@ export type Database = {
         Insert: {
           activity_level?: string
           avatar_url?: string | null
-          birth_date?: string | null
           created_at?: string | null
           daily_calorie_goal?: number | null
           daily_protein_goal?: number | null
@@ -1003,7 +976,6 @@ export type Database = {
           id?: string
           monthly_salary?: number | null
           name: string
-          occupation?: string | null
           onboarding_done?: boolean | null
           timezone?: string | null
           trains?: boolean
@@ -1014,7 +986,6 @@ export type Database = {
         Update: {
           activity_level?: string
           avatar_url?: string | null
-          birth_date?: string | null
           created_at?: string | null
           daily_calorie_goal?: number | null
           daily_protein_goal?: number | null
@@ -1023,7 +994,6 @@ export type Database = {
           id?: string
           monthly_salary?: number | null
           name?: string
-          occupation?: string | null
           onboarding_done?: boolean | null
           timezone?: string | null
           trains?: boolean
