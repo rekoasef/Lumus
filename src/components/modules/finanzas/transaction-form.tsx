@@ -75,7 +75,7 @@ export function TransactionForm({
   const destWallets = wallets.filter(w => w.id !== watchedWalletId)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="lumus-glass w-full max-w-md rounded-t-3xl rounded-b-none sm:rounded-2xl flex flex-col max-h-[94svh] sm:max-h-[90vh]">
 
         {/* Drag handle — solo mobile */}

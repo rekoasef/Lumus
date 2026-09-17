@@ -147,6 +147,9 @@ export function BottomNav() {
         )}
       </AnimatePresence>
 
+      {/* z-50: por debajo de las hojas de los formularios (z-[60]), que se abren
+          desde las páginas y quedaban tapadas por esta barra con el botón de
+          guardar abajo de todo. */}
       <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-white/[0.075] bg-[#111018]/90 backdrop-blur-2xl safe-area-pb lg:hidden">
         {MOBILE_PRIMARY.slice(0, 2).map(dest => (
           <NavTab key={dest.href} {...dest} active={isActiveHref(pathname, dest.href)} />

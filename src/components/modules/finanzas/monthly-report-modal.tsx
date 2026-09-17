@@ -23,7 +23,7 @@ export function MonthlyReportModal({
   onClose,
 }: MonthlyReportModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="lumus-glass flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl">
 
         {/* Header */}

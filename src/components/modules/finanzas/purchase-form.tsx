@@ -125,7 +125,7 @@ export function PurchaseForm({ wallet, saving, onSave, onClose }: PurchaseFormPr
   const hint = 'mt-1.5 text-[0.65rem] text-[var(--text-muted)]'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="lumus-glass flex max-h-[94svh] w-full max-w-md flex-col rounded-t-3xl sm:rounded-2xl">
         <div className="flex items-center justify-between px-5 pt-5 pb-4 sm:px-6">
           <div>

@@ -57,9 +57,11 @@ export default function RootLayout({
     <html lang="es" className={`${geistSans.variable} ${geistMono.variable} ${hankenGrotesk.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-[var(--bg-base)] text-[var(--text-primary)]">
         {children}
+        {/* Arriba y no abajo: en el celular, abajo tapaban la barra y el botón
+            de guardar de las hojas mientras duraba el aviso. */}
         <Toaster
           theme="dark"
-          position="bottom-right"
+          position="top-center"
           toastOptions={{
             style: {
               background: '#16161f',

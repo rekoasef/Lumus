@@ -16,7 +16,6 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { DashboardHero } from '@/components/modules/dashboard/dashboard-hero'
-import { DailyGreeting } from '@/components/modules/dashboard/daily-greeting'
 import type { FinanceSummaryRow, RecurringRepeatType, TransactionType } from '@/types/finance.types'
 import { getExchangeRates, convertToARS } from '@/lib/finance/exchange-rates'
 import { fetchSpentByCategory } from '@/lib/finance/budget-spend-data'
@@ -431,7 +430,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="relative min-h-screen space-y-4 px-3 py-5 sm:space-y-6 sm:px-5 sm:py-8 lg:px-12 lg:py-12">
-      <DailyGreeting firstName={firstName} />
       <FirstStepsCard steps={onboardingSteps} />
       <DashboardHero firstName={firstName} date={date} />
 

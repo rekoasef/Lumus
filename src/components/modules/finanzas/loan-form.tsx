@@ -133,8 +133,8 @@ export function LoanForm({ wallets, categories, onSave, onClose, initial }: Loan
       : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="lumus-glass max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl p-5 sm:rounded-2xl sm:p-6">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="lumus-glass max-h-[92svh] pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:pb-6 w-full max-w-md overflow-y-auto rounded-t-2xl p-5 sm:rounded-2xl sm:p-6">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="lumus-heading text-xl font-semibold text-[var(--text-primary)]">
             {initial ? 'Editar préstamo' : 'Nuevo préstamo'}
