@@ -20,6 +20,10 @@ import {
  *
  * Si cambia algo que importa, subir `TERMS_VERSION`: todos van a tener que
  * aceptar de nuevo.
+ *
+ * No menciona facturas a propósito (decisión del dueño, 2026-09-17): todavía
+ * no está inscripto y no se mandan por mail. Cuando se facture, volver a
+ * decirlo acá.
  */
 
 export interface LegalSection {
@@ -81,7 +85,7 @@ export const TERMS: LegalDocument = {
       title: '6. Precio y forma de pago',
       paragraphs: [
         `La suscripción cuesta ${PRICE} por mes, en pesos argentinos, e incluye todas las funciones. Se paga por Mercado Pago con débito automático mensual: los datos de tu tarjeta los maneja Mercado Pago y Lumus nunca los ve.`,
-        'Si te suscribís durante la prueba gratis, el primer cobro se hace el día que la prueba termina, y después cada mes. Por cada cobro se emite la factura correspondiente.',
+        'Si te suscribís durante la prueba gratis, el primer cobro se hace el día que la prueba termina, y después cada mes.',
         `Si un cobro falla, conservás el acceso ${PAYMENT_GRACE_DAYS} días más mientras Mercado Pago lo reintenta.`,
       ],
     },
@@ -173,7 +177,7 @@ export const PRIVACY: LegalDocument = {
     {
       title: '3. Para qué los usamos',
       paragraphs: [
-        'Para prestarte el servicio: mostrarte tus números, generar los informes que pedís, mandarte los avisos que elegiste, cobrar la suscripción, emitir la factura y responder tus consultas.',
+        'Para prestarte el servicio: mostrarte tus números, generar los informes que pedís, mandarte los avisos que elegiste, cobrar la suscripción y responder tus consultas.',
         'Para mejorar Lumus miramos cantidades de uso (por ejemplo, cuántos movimientos se cargan por mes), nunca los montos ni lo que escribís en ellos. No vendemos tus datos, no los usamos para publicidad y no los compartimos con nadie para otros fines.',
       ],
     },
@@ -194,7 +198,7 @@ export const PRIVACY: LegalDocument = {
     {
       title: '5. Cuánto tiempo los guardamos',
       paragraphs: [
-        `Mientras tu cuenta exista, aunque no tengas una suscripción activa, para que puedas volver. Si nos pedís que los borremos, eliminamos la cuenta y todos sus datos dentro de los ${DATA_DELETION_BUSINESS_DAYS} días hábiles. Las copias de seguridad cifradas se renuevan periódicamente, y las facturas se conservan por el plazo que exige la ley impositiva.`,
+        `Mientras tu cuenta exista, aunque no tengas una suscripción activa, para que puedas volver. Si nos pedís que los borremos, eliminamos la cuenta y todos sus datos dentro de los ${DATA_DELETION_BUSINESS_DAYS} días hábiles. Las copias de seguridad cifradas se renuevan periódicamente.`,
       ],
     },
     {

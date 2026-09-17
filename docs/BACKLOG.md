@@ -312,6 +312,7 @@ Cobrarle a gente en Argentina trae obligaciones que no son opcionales: defensa d
 - Borrado a pedido por mail, en 5 días hábiles (art. 16, Ley 25.326). El borrado real se hace con `auth.admin.deleteUser` (anda desde `00036`).
 - La baja no reintegra períodos parciales; el arrepentimiento sí, y el reintegro es manual desde Mercado Pago.
 - El domicilio figura como "Armstrong, provincia de Santa Fe": un abogado puede pedir la dirección completa.
+- **Los textos no mencionan facturas** (decisión del dueño, mismo día): todavía no está inscripto y las facturas no se van a mandar por mail. El primer cobro (su novia, ~7.800) no se factura. Cuando se inscriba, volver a escribirlo en `documents.ts`.
 
 **Falta:** el aviso de aumento (punto 4, cuando haya un primer ajuste), la revisión de un abogado, y lo de afuera del código (6–9).
 
