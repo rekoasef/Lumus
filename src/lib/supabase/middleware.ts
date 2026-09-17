@@ -4,6 +4,8 @@ import type { Database } from '@/types/database.types'
 import { hasAccess } from '@/lib/billing/access'
 import { getOnboardingStatus } from '@/lib/auth/onboarding'
 import { isAdmin } from '@/lib/admin/access'
+import { getTermsStatus } from '@/lib/legal/acceptance'
+import { LEGAL_PATHS } from '@/lib/legal/owner'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -42,7 +44,18 @@ export async function updateSession(request: NextRequest) {
   // `/` es la landing: la ve cualquiera, y la propia página manda a la app a
   // quien ya tiene sesión. Va por igualdad exacta y no con `startsWith`, que
   // abriría todas las rutas.
-  const openPaths = ['/baja']
+  //
+  // Lo legal también: la ley pide que los términos y los botones de
+  // arrepentimiento y de baja se puedan usar sin cuenta y sin login.
+  const openPaths = [
+    '/baja',
+    LEGAL_PATHS.terms,
+    LEGAL_PATHS.privacy,
+    LEGAL_PATHS.withdrawal,
+    LEGAL_PATHS.cancellation,
+    '/solicitudes',
+    '/api/consumer-requests',
+  ]
   if (pathname === '/' || openPaths.some(p => pathname.startsWith(p))) {
     return supabaseResponse
   }
@@ -72,7 +85,17 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    if (!pathname.startsWith('/suscripcion') && !isBillingApiRoute) {
+    // Los términos van antes que el cobro: nadie paga sin haberlos aceptado.
+    // Solo en páginas; las API siguen andando para no romper una pantalla
+    // abierta en el momento en que cambia la versión.
+    const isAcceptPath = pathname.startsWith(LEGAL_PATHS.accept)
+    if (!isApiRoute && !isAcceptPath && (await getTermsStatus(supabase, user.id)) === 'pending') {
+      const url = request.nextUrl.clone()
+      url.pathname = LEGAL_PATHS.accept
+      return NextResponse.redirect(url)
+    }
+
+    if (!pathname.startsWith('/suscripcion') && !isBillingApiRoute && !isAcceptPath && !pathname.startsWith('/api/legal/')) {
       // Suscripción activa o acceso de cortesía vigente — ver lib/billing/access
       if (!(await hasAccess(supabase, user.id))) {
         const url = request.nextUrl.clone()

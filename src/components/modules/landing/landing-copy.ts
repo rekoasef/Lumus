@@ -158,7 +158,7 @@ export const FINAL_CTA = {
 
 export const FOOTER = {
   tagline: 'Gestor de gastos con IA, hecho en Argentina.',
-  support: 'Soporte',
   login: 'Ingresar',
   register: 'Crear cuenta',
+  disclaimer: 'Lumus no es asesoramiento financiero ni recomienda inversiones.',
 }

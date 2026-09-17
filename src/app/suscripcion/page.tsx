@@ -1,3 +1,4 @@
+import { LegalLinks } from '@/components/shared/legal-links'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import Image from 'next/image'
@@ -168,6 +169,7 @@ export default async function SuscripcionPage() {
             </Link>
           )}
         </div>
+        <LegalLinks className="mt-6 px-2" />
       </div>
     </div>
   )

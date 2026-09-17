@@ -1,4 +1,5 @@
 import { AuthBrandPanel, AuthBrandMark } from '@/components/shared/auth-brand'
+import { LegalLinks } from '@/components/shared/legal-links'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,6 +18,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="relative w-full max-w-md">
           <AuthBrandMark />
           {children}
+          <LegalLinks className="mt-8 px-2" />
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { LegalSection } from '@/components/modules/profile/legal-section'
 import Link from 'next/link'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
@@ -95,6 +96,9 @@ export default async function PerfilPage() {
           </div>
           <div className="py-10">
             <NotificationPreferences initial={notificationPreferences} />
+          </div>
+          <div className="py-10">
+            <LegalSection />
           </div>
         </div>
       </div>

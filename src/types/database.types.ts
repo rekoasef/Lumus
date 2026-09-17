@@ -179,6 +179,54 @@ export type Database = {
           },
         ]
       }
+      consumer_requests: {
+        Row: {
+          code: string
+          confirm_expires_at: string | null
+          confirm_token_hash: string | null
+          confirmed_at: string | null
+          created_at: string
+          email: string
+          id: string
+          kind: string
+          outcome: string | null
+          reason: string | null
+          resolved_at: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          code: string
+          confirm_expires_at?: string | null
+          confirm_token_hash?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          kind: string
+          outcome?: string | null
+          reason?: string | null
+          resolved_at?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          code?: string
+          confirm_expires_at?: string | null
+          confirm_token_hash?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          kind?: string
+          outcome?: string | null
+          reason?: string | null
+          resolved_at?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       exchange_rate_history: {
         Row: {
           created_at: string
@@ -441,6 +489,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      legal_acceptances: {
+        Row: {
+          accepted_at: string
+          document: string
+          id: string
+          source: string
+          user_id: string
+          version: string
+        }
+        Insert: {
+          accepted_at?: string
+          document: string
+          id?: string
+          source: string
+          user_id: string
+          version: string
+        }
+        Update: {
+          accepted_at?: string
+          document?: string
+          id?: string
+          source?: string
+          user_id?: string
+          version?: string
+        }
+        Relationships: []
       }
       loans: {
         Row: {
@@ -1110,6 +1185,7 @@ export type Database = {
           wealth_analyses: number
         }[]
       }
+      find_user_id_by_email: { Args: { p_email: string }; Returns: string }
       get_finance_summary: {
         Args: { p_from?: string; p_to?: string }
         Returns: {

@@ -257,7 +257,7 @@ Capturas antes/después en el scratchpad de la sesión (no van al repo: tienen d
 
 ## `H6` — Legal y operativo: poder cobrar en serio
 
-Estado: **pendiente** — abierto el 2026-09-16
+Estado: **código hecho el 2026-09-17 (puntos 1, 2, 3 y 5)** · falta el aviso de aumento (4) y todo lo que no es código (6–9)
 
 ### Por qué
 
@@ -288,6 +288,32 @@ Cobrarle a gente en Argentina trae obligaciones que no son opcionales: defensa d
 - Arrepentirse y darse de baja se hacen sin escribirle al dueño.
 - Cada cobro genera su factura sin trabajo manual.
 - Vercel y Supabase están en planes que permiten cobrar.
+
+### Resultado (2026-09-17)
+
+**Datos del prestador**: Renzo David Asef, CUIT 20-44288970-9, Armstrong (Santa Fe). Persona humana: la razón social es el nombre. Viven en `src/lib/legal/owner.ts`.
+
+| Pieza | Qué |
+|---|---|
+| `/terminos` y `/privacidad` | Textos en `lib/legal/documents.ts`, con el precio, la prueba y los plazos leídos de las mismas constantes que usa la app. Incluyen el aviso de "no es asesoramiento financiero", el texto obligatorio de la AAIP y los proveedores que tocan datos |
+| `00037` | `legal_acceptances` (versión y fecha) y `consumer_requests` (solicitudes con código). Un trigger copia la versión aceptada en el alta; como el de invitaciones, **no puede tirar** |
+| Registro | Checkbox obligatorio; la versión viaja en los metadatos del `signUp` |
+| Proxy | Quien no aceptó `TERMS_VERSION` va a `/aceptar-terminos` antes que al cobro. **Al deployar, el dueño y los testers lo ven una vez** |
+| `/arrepentimiento` y `/baja-del-servicio` | Sin login (Disposición 954/2025). Dan el código en el momento. Si el mail es de una cuenta, mandan un link de confirmación (72 h) —la validación de identidad que permite la Disposición 3/2026—; si no, no mandan nada, y la respuesta es la misma para no revelar quién tiene cuenta. Máximo 3 por hora por mail |
+| `/solicitudes/confirmar` | Solo lee el token; la baja la ejecuta un botón (POST), para que un antivirus que abre los links no dé de baja a nadie. Cancela en Mercado Pago con `lib/billing/cancel.ts` (la misma función que la baja del perfil), manda la constancia y avisa al dueño. En un arrepentimiento con cobro, el mail al dueño dice **REINTEGRAR** y cuántos días hábiles pasaron |
+| `00038` | `find_user_id_by_email`, solo `service_role` |
+| Links legales | `LegalLinks` en la landing, login/registro, `/suscripcion`, las páginas legales y una sección nueva del perfil. Incluye el link de Defensa del Consumidor |
+
+**Probado** contra la base de producción con cuentas descartables (ya borradas): aceptación por trigger y por pantalla, gate del proxy, confirmación, doble confirmación, link vencido, falla de Mercado Pago (vuelve a "recibida"), límite por hora y datos inválidos. Los mails no se probaron de verdad (el servidor corrió sin clave de Resend a propósito): **probar una solicitud real después del deploy**.
+
+**Decisiones que tomó el texto y conviene que el dueño confirme:**
+
+- Los datos de quien se va **se guardan** hasta que pida borrarlos (era el punto abierto de `H3`).
+- Borrado a pedido por mail, en 5 días hábiles (art. 16, Ley 25.326). El borrado real se hace con `auth.admin.deleteUser` (anda desde `00036`).
+- La baja no reintegra períodos parciales; el arrepentimiento sí, y el reintegro es manual desde Mercado Pago.
+- El domicilio figura como "Armstrong, provincia de Santa Fe": un abogado puede pedir la dirección completa.
+
+**Falta:** el aviso de aumento (punto 4, cuando haya un primer ajuste), la revisión de un abogado, y lo de afuera del código (6–9).
 
 ---
 

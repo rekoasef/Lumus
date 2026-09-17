@@ -4,21 +4,34 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { TermsCheckbox } from '@/components/modules/legal/accept-terms-form'
+import { TERMS_VERSION } from '@/lib/legal/owner'
 
 export default function RegisterPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    if (!acceptedTerms) {
+      setError('Para crear la cuenta tenés que aceptar los términos y la política de privacidad')
+      return
+    }
     setLoading(true)
 
     const supabase = createClient()
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    // La versión aceptada viaja con el alta y un trigger la guarda en
+    // `legal_acceptances` (00037): todavía no hay sesión para insertarla acá.
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { terms_version: TERMS_VERSION } },
+    })
 
     if (error) {
       setError(
@@ -77,6 +90,8 @@ export default function RegisterPage() {
           />
         </div>
 
+        <TermsCheckbox checked={acceptedTerms} onChange={setAcceptedTerms} />
+
         {error && (
           <div className="bg-[var(--danger-muted)] border border-[var(--danger)]/20 rounded-lg px-3 py-2.5 text-sm text-[var(--danger)]">
             {error}
@@ -85,7 +100,7 @@ export default function RegisterPage() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !acceptedTerms}
           className="w-full rounded-full bg-[var(--accent-lumus)] py-3 text-sm font-bold uppercase text-[#190f5d] transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-50"
           style={{ letterSpacing: '0.08em' }}
         >

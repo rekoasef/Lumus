@@ -4,6 +4,7 @@ import { Check, Plus } from 'lucide-react'
 import { SUBSCRIPTION_PRICE_ARS, SUBSCRIPTION_CURRENCY, TRIAL_DAYS } from '@/lib/billing/plan'
 import { SUPPORT_EMAIL } from '@/lib/contact'
 import { formatCurrency } from '@/lib/utils/format-currency'
+import { LegalLinks } from '@/components/shared/legal-links'
 import { LivingOrb } from './living-orb'
 import { Reveal } from './reveal'
 import { FAQ, FINAL_CTA, FOOTER, PRICING, STEPS } from './landing-copy'
@@ -164,12 +165,12 @@ export function LandingFooter() {
         </div>
 
         <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--text-secondary)]">
-          <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-[var(--text-primary)]">{FOOTER.support}</a>
           <Link href="/login" className="hover:text-[var(--text-primary)]">{FOOTER.login}</Link>
           <Link href="/register" className="hover:text-[var(--text-primary)]">{FOOTER.register}</Link>
         </nav>
       </div>
-      <p className="mx-auto mt-8 max-w-6xl text-xs text-[var(--text-muted)]">© {new Date().getFullYear()} Lumus</p>
+      <LegalLinks className="mx-auto mt-8 max-w-6xl border-t border-white/[0.04] pt-6" showOwner />
+      <p className="mx-auto mt-4 max-w-6xl text-xs text-[var(--text-muted)]">© {new Date().getFullYear()} Lumus · {FOOTER.disclaimer}</p>
     </footer>
   )
 }
