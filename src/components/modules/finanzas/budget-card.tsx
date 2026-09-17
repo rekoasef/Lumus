@@ -28,10 +28,10 @@ export function BudgetCard({ budget, currency = 'ARS', onEdit, onDelete }: Budge
 
   return (
     <div className="lumus-glass group relative rounded-xl p-5 transition-all hover:border-white/15">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-3">
           <div
-            className="flex h-9 w-9 items-center justify-center rounded-lg"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
             style={{ backgroundColor: `${accentColor}22` }}
           >
             {budget.category?.icon ? (
@@ -42,8 +42,8 @@ export function BudgetCard({ budget, currency = 'ARS', onEdit, onDelete }: Budge
               </span>
             )}
           </div>
-          <div>
-            <p className="lumus-heading text-sm font-semibold text-[var(--text-primary)]">
+          <div className="min-w-0">
+            <p className="lumus-heading break-words text-sm font-semibold text-[var(--text-primary)]">
               {budget.category?.name ?? 'Sin categoría'}
             </p>
             <p className="lumus-label mt-0.5 text-[0.6rem] text-[var(--text-muted)]">
@@ -61,20 +61,20 @@ export function BudgetCard({ budget, currency = 'ARS', onEdit, onDelete }: Budge
               aria-label={overspent ? 'Sobregirado' : 'Cerca del límite'}
             />
           )}
-          <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="flex shrink-0 gap-1 transition-opacity can-hover:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
             <button
               onClick={() => onEdit(budget)}
-              className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-white/10 hover:text-[var(--text-primary)]"
+              className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] can-hover:size-7 can-hover:rounded-md hover:bg-white/10 hover:text-[var(--text-primary)]"
               aria-label="Editar presupuesto"
             >
-              <Pencil size={14} />
+              <Pencil size={16} />
             </button>
             <button
               onClick={() => onDelete(budget.id)}
-              className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--danger)]/10 hover:text-[var(--danger)]"
+              className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] can-hover:size-7 can-hover:rounded-md hover:bg-[var(--danger)]/10 hover:text-[var(--danger)]"
               aria-label="Eliminar presupuesto"
             >
-              <Trash2 size={14} />
+              <Trash2 size={16} />
             </button>
           </div>
         </div>

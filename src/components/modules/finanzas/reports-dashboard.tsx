@@ -18,6 +18,9 @@ import { regenerationState } from '@/lib/finance/report-limits'
 import { WealthAnalysisCard, type WealthAnalysis } from './wealth-analysis-card'
 
 const LABELS = {
+  back: 'Volver a Gastos',
+  noReports: 'Todavía no generaste ningún informe.',
+  noReportsHint: 'Cuando cierre un mes, en Gastos te aparece el aviso para generar su informe.',
   regenerate: 'Regenerar',
   regenerating: 'Regenerando...',
   regenerateDone: 'Ya lo rehiciste',
@@ -215,23 +218,23 @@ function MonthYearFilter({
   const isAtMinYear = selectedYear <= 2020 && selectedMonth === 1
 
   const selectClass =
-    'cursor-pointer rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-sm text-[var(--text-secondary)] outline-none transition-colors hover:border-white/[0.14] hover:bg-white/[0.07] focus:border-[var(--accent-lumus)]/40'
+    'h-10 min-w-0 cursor-pointer rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 text-sm text-[var(--text-secondary)] sm:h-8 outline-none transition-colors hover:border-white/[0.14] hover:bg-white/[0.07] focus:border-[var(--accent-lumus)]/40'
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex w-full items-center gap-2 sm:w-auto">
       <button
         onClick={prevMonth}
         disabled={isAtMinYear}
-        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.04] text-[var(--text-muted)] transition-colors hover:border-white/[0.14] hover:bg-white/[0.07] hover:text-[var(--text-secondary)] disabled:pointer-events-none disabled:opacity-30"
+        className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.04] sm:size-8 text-[var(--text-muted)] transition-colors hover:border-white/[0.14] hover:bg-white/[0.07] hover:text-[var(--text-secondary)] disabled:pointer-events-none disabled:opacity-30"
         aria-label="Mes anterior"
       >
-        <ChevronLeft size={14} />
+        <ChevronLeft size={16} />
       </button>
 
       <select
         value={selectedMonth}
         onChange={e => navigate(Number(e.target.value), selectedYear)}
-        className={selectClass}
+        className={`${selectClass} flex-1 sm:flex-none`}
       >
         {MONTH_NAMES.map((name, i) => (
           <option key={i + 1} value={i + 1}>
@@ -243,7 +246,7 @@ function MonthYearFilter({
       <select
         value={selectedYear}
         onChange={e => navigate(selectedMonth, Number(e.target.value))}
-        className={selectClass}
+        className={`${selectClass} w-24 shrink-0`}
       >
         {years.map(y => (
           <option key={y} value={y}>
@@ -255,10 +258,10 @@ function MonthYearFilter({
       <button
         onClick={nextMonth}
         disabled={isAtCurrentMonth}
-        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.04] text-[var(--text-muted)] transition-colors hover:border-white/[0.14] hover:bg-white/[0.07] hover:text-[var(--text-secondary)] disabled:pointer-events-none disabled:opacity-30"
+        className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.04] sm:size-8 text-[var(--text-muted)] transition-colors hover:border-white/[0.14] hover:bg-white/[0.07] hover:text-[var(--text-secondary)] disabled:pointer-events-none disabled:opacity-30"
         aria-label="Mes siguiente"
       >
-        <ChevronRight size={14} />
+        <ChevronRight size={16} />
       </button>
     </div>
   )
@@ -329,21 +332,21 @@ export function ReportsDashboard({
         <header className="mb-10">
           <Link
             href="/finanzas"
-            className="mb-5 inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+            className="-my-2 mb-3 inline-flex items-center gap-1.5 py-2 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
           >
             <ArrowLeft size={12} />
-            Volver a Finanzas
+            {LABELS.back}
           </Link>
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="lumus-heading text-4xl font-bold text-[var(--text-primary)] md:text-5xl">
+              <h1 className="lumus-heading text-3xl font-bold text-[var(--text-primary)] sm:text-4xl md:text-5xl">
                 Reportes
               </h1>
-              <p className="mt-3 text-base text-[var(--text-secondary)]">
+              <p className="mt-2 text-sm text-[var(--text-secondary)] sm:mt-3 sm:text-base">
                 {monthLabel} · Análisis de tu actividad financiera
               </p>
               {hasForeignCurrency && exchangeRates && (
-                <p className="mt-1 text-[0.6rem] text-[var(--text-muted)]">
+                <p className="mt-1 text-[0.68rem] text-[var(--text-muted)]">
                   Montos en USD convertidos a ARS al dólar blue (${exchangeRates.USD.toLocaleString('es-AR')})
                 </p>
               )}
@@ -356,27 +359,27 @@ export function ReportsDashboard({
           </div>
         </header>
 
-        {/* Summary cards */}
-        <div className="mb-8 grid grid-cols-3 gap-4">
-          <div className="lumus-glass rounded-xl p-4">
+        {/* Summary cards — en el celular tres columnas no entran: los montos se salían de la tarjeta */}
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:mb-8 sm:grid-cols-3 sm:gap-4">
+          <div className="lumus-glass min-w-0 rounded-xl p-4">
             <div className="flex items-center gap-2">
               <TrendingDown size={14} className="text-[var(--danger)]" />
               <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">GASTOS DEL MES</p>
             </div>
-            <p className="lumus-heading mt-2 text-2xl font-bold text-[var(--danger)]">
+            <p className="lumus-heading mt-2 text-xl font-bold break-words text-[var(--danger)] sm:text-2xl">
               {formatCurrency(currentMonth.gastos)}
             </p>
           </div>
-          <div className="lumus-glass rounded-xl p-4">
+          <div className="lumus-glass min-w-0 rounded-xl p-4">
             <div className="flex items-center gap-2">
               <TrendingUp size={14} className="text-[var(--success)]" />
               <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">INGRESOS DEL MES</p>
             </div>
-            <p className="lumus-heading mt-2 text-2xl font-bold text-[var(--success)]">
+            <p className="lumus-heading mt-2 text-xl font-bold break-words text-[var(--success)] sm:text-2xl">
               {formatCurrency(currentMonth.ingresos)}
             </p>
           </div>
-          <div className="lumus-glass rounded-xl p-4">
+          <div className="lumus-glass col-span-2 rounded-xl p-4 sm:col-span-1">
             <div className="flex items-center gap-2">
               <Minus
                 size={14}
@@ -385,7 +388,7 @@ export function ReportsDashboard({
               <p className="lumus-label text-[0.6rem] text-[var(--text-muted)]">BALANCE</p>
             </div>
             <p
-              className="lumus-heading mt-2 text-2xl font-bold"
+              className="lumus-heading mt-2 text-xl font-bold break-words sm:text-2xl"
               style={{ color: balancePositive ? 'var(--success)' : 'var(--danger)' }}
             >
               {balancePositive ? '+' : ''}{formatCurrency(currentMonth.balance)}
@@ -394,10 +397,10 @@ export function ReportsDashboard({
         </div>
 
         {/* Pie chart + Top 5 */}
-        <div className="mb-8 grid gap-6 lg:grid-cols-2">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:mb-8 sm:gap-6 lg:grid-cols-2">
 
           {/* Donut chart */}
-          <div className="lumus-glass rounded-2xl p-6">
+          <div className="lumus-glass rounded-2xl p-5 sm:p-6">
             <h2 className="lumus-heading mb-1 text-lg font-semibold text-[var(--text-primary)]">
               Gastos por categoría
             </h2>
@@ -447,7 +450,7 @@ export function ReportsDashboard({
           </div>
 
           {/* Top 5 categorías */}
-          <div className="lumus-glass rounded-2xl p-6">
+          <div className="lumus-glass rounded-2xl p-5 sm:p-6">
             <h2 className="lumus-heading mb-1 text-lg font-semibold text-[var(--text-primary)]">
               Top 5 categorías
             </h2>
@@ -498,7 +501,7 @@ export function ReportsDashboard({
         </div>
 
         {/* Line chart — evolución 6 meses */}
-        <div className="lumus-glass rounded-2xl p-6">
+        <div className="lumus-glass rounded-2xl p-5 sm:p-6">
           <h2 className="lumus-heading mb-1 text-lg font-semibold text-[var(--text-primary)]">
             Evolución 6 meses
           </h2>
@@ -604,11 +607,11 @@ export function ReportsDashboard({
           </div>
 
           {aiReports.length === 0 ? (
-            <div className="lumus-glass rounded-2xl py-14 text-center">
+            <div className="lumus-glass rounded-2xl px-5 py-10 text-center sm:py-14">
               <Sparkles size={22} className="mx-auto mb-3 text-[var(--text-muted)]" />
-              <p className="text-sm text-[var(--text-muted)]">Todavía no generaste ningún informe.</p>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Volvé al dashboard de Finanzas y usá el banner para generar tu primer informe mensual.
+              <p className="text-sm text-[var(--text-muted)]">{LABELS.noReports}</p>
+              <p className="mx-auto mt-1 max-w-xs text-xs text-[var(--text-muted)]">
+                {LABELS.noReportsHint}
               </p>
             </div>
           ) : (

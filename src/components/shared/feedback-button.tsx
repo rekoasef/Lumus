@@ -25,6 +25,16 @@ const KIND_CONFIG: Record<FeedbackKind, { label: string; icon: typeof Bug; color
   otro:   { label: 'Otro',   icon: MessageCircle, color: '#a78bfa' },
 }
 
+let _open: (() => void) | null = null
+
+/**
+ * Abre el formulario desde otro lado. En el celular el botón flotante tapaba
+ * las acciones de las filas, así que ahí se abre desde el menú "Más".
+ */
+export function openFeedback() {
+  _open?.()
+}
+
 const MAX_LENGTH = 2000
 const SUCCESS_CLOSE_MS = 1600
 
@@ -36,6 +46,11 @@ export function FeedbackButton() {
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    _open = () => setOpen(true)
+    return () => { _open = null }
+  }, [])
 
   // Cerrar con Escape, como el resto de los diálogos de la app.
   useEffect(() => {
@@ -86,12 +101,12 @@ export function FeedbackButton() {
 
   return (
     <>
-      {/* Trigger: sobre la bottom-nav en mobile, esquina libre en desktop */}
+      {/* Trigger: solo en desktop. En el celular está en el menú "Más" */}
       <button
         onClick={() => setOpen(true)}
         aria-label={LABELS.trigger}
         title={LABELS.trigger}
-        className="fixed bottom-28 right-4 z-40 flex size-11 items-center justify-center rounded-full border border-white/10 bg-[#13121c]/90 text-[var(--text-secondary)] shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-all hover:scale-105 hover:border-[var(--accent-lumus)]/40 hover:text-[var(--accent-lumus)] lg:bottom-6 lg:right-6"
+        className="fixed right-6 bottom-6 z-40 hidden size-11 items-center justify-center rounded-full border border-white/10 bg-[#13121c]/90 text-[var(--text-secondary)] shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-all hover:scale-105 hover:border-[var(--accent-lumus)]/40 hover:text-[var(--accent-lumus)] lg:flex"
       >
         <MessageSquarePlus size={18} />
       </button>

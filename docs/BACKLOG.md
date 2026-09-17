@@ -192,7 +192,7 @@ Ideas de contenido, la calculadora pública (*"¿cuánto perdieron tus pesos?"*,
 
 ## `H7` — La app pensada para el celular
 
-Estado: **pendiente — se arranca el 2026-09-18** · la barra de abajo ya está hecha (`216ddb2`)
+Estado: **recorrido hecho y corregido el 2026-09-17** · la barra de abajo ya estaba (`216ddb2`) · falta probarlo en un teléfono de verdad
 
 ### Por qué
 
@@ -210,6 +210,37 @@ El dueño espera que Lumus se use **más en el celular que en la computadora**, 
 4. **Anotar y corregir** lo que se vea mal: desbordes, textos cortados, botones chicos (< 44 px), tablas que no entran, formularios incómodos con el teclado, modales que no scrollean. Criterio: se tiene que poder usar con una mano.
 5. **Borrar la cuenta de prueba al terminar** (borrar el usuario de `auth.users` borra en cascada sus datos) y verificar que no quede nada.
 
+### Resultado (2026-09-17)
+
+Se hizo el mismo día, con la cuenta `qa@gestorlumus.site` (5 billeteras, 38 movimientos en dos meses, 3 presupuestos, 2 fijos, 2 metas, 2 préstamos). Ninguna pantalla tenía scroll horizontal. Lo que sí apareció, de más grave a menos:
+
+| Qué | Dónde | Arreglo |
+|---|---|---|
+| **Editar y borrar eran invisibles en el celular.** Los botones tenían `opacity-0` y aparecían con `group-hover`: sin mouse, no aparecían nunca. Desde el teléfono no se podía editar ni borrar una billetera, una meta, un presupuesto ni una categoría | `wallet-card`, `saving-goal-card`, `budget-card`, `category-list` | Variante `can-hover` en `globals.css` (`@media (hover: hover)`): se esconden solo donde hay mouse. Botones de 40 px en pantallas táctiles |
+| **La fila de Fijos estaba rota**: el nombre desaparecía y el monto pisaba la billetera, en 360 y en 390 px | `recurring-transaction-list` | Las acciones pasan a una segunda línea en el celular |
+| **Reportes: las tres tarjetas no entraban** y el balance quedaba cortado (lo marcó el dueño) | `reports-dashboard` | Gastos e ingresos lado a lado, balance abajo a lo ancho; selector de mes a lo ancho con botones de 40 px |
+| La tarjeta de préstamo se salía de la pantalla con un nombre largo | `prestamos-view` | `grid-cols-1` (una grilla sin columnas arma una pista `auto` que se estira con el texto). Mismo arreglo preventivo en metas, billeteras y presupuestos |
+| Tres botones de "cargar": arriba, en la barra y uno flotante en Gastos | `top-nav`, `transaction-list` | Arriba y el flotante, solo desde `lg`/borrados: en el celular queda el de la barra |
+| "Cerrar sesión" pegado a Perfil en la barra de arriba | `top-nav` | En el celular vive solo en "Más" |
+| El botón de comentarios tapaba las acciones de la última fila | `feedback-button`, `bottom-nav` | En el celular se abre desde "Más" (`openFeedback()`); en desktop sigue flotando |
+| Nombres de categoría cortados ("Comi…", "Trans…") y "1,1 M$" | `transaction-list` | Columnas sin ancho fijo en el celular; "$ 1,1 M" |
+| El aviso del informe apretado, y "Agosto De 2026" | `monthly-report-banner`, `monthly-report-modal` | Apilado en el celular; el mes en minúscula a mitad de frase |
+| Categorías en dos columnas cortaban los nombres | `category-list` | Una columna en el celular |
+| Íconos de la barra de arriba de 32 px | `top-nav`, `notification-bell` | 40 px |
+
+**Un bug de datos que salió de mirar las pantallas, no de diseño.** Un gasto de US$ 120 en "Ocio" aparecía como $ 120 en Presupuestos (0 %) y como $ 185.280 en el panel (741 %). La API, la pantalla, el informe de IA y el aviso diario sumaban crudo a propósito ("para que el uso no se mueva con el dólar"); el panel convertía con el dólar de hoy. Decisión del dueño: **el blue del día del gasto**, que es correcto y además no se mueve con el dólar. Ver `lib/finance/budget-spend.ts` (11 tests) y `budget-spend-data.ts`, que lee paginado. Verificado con la cuenta de prueba: API, pantalla y panel dicen lo mismo ($ 183.480 = 120 × 1.529, el blue del 08/09).
+
+**Otro, para `H6`: borrar un usuario desde la API de Auth falla** (`Database error deleting user`). Como `postgres` el mismo borrado funciona, así que la cuenta de prueba se borró por SQL. Hipótesis sin confirmar: al borrar en cascada los movimientos, el trigger de saldo llama a `recompute_wallet_balance`, y `supabase_auth_admin` no tiene `EXECUTE` sobre esa función desde `00017`. Importa porque el derecho de supresión de la Ley 25.326 necesita que borrar una cuenta funcione.
+
+**Visto y no tocado:**
+
+- El panel arranca con el orbe y el reloj ocupando toda la primera pantalla: el saldo recién aparece al bajar. Es una decisión de diseño, no un bug.
+- En Mercado, las especies que terminan en `D` (`ALUAD`, `COMED`) cotizan en dólares y se muestran con `$` como si fueran pesos ($ 0, $ 1).
+- Las fechas de los `input type="date"` se ven `mm/dd/yyyy` en el Chromium de prueba; en un teléfono en español las muestra el sistema.
+- Aviso diario: la consulta de presupuestos no pagina y el `in(category_id)` junta los ids de todos los usuarios en la URL. Con pocos usuarios no importa; con cientos, sí.
+
+Capturas antes/después en el scratchpad de la sesión (no van al repo: tienen datos de la cuenta de prueba). La cuenta se borró al terminar y se verificó que no quedó ninguna fila.
+
 ### Cuidados
 
 - El dev server de Turbopack puede servir CSS viejo: `rm -rf .next` antes de levantarlo.
@@ -218,8 +249,9 @@ El dueño espera que Lumus se use **más en el celular que en la computadora**, 
 
 ### Done cuando
 
-- Todas las pantallas se ven y se usan bien en 360 px, con capturas antes y después.
-- La cuenta de prueba ya no existe.
+- ✅ Todas las pantallas se ven y se usan bien en 360 px, con capturas antes y después.
+- ✅ La cuenta de prueba ya no existe.
+- ⏳ Probado en un teléfono de verdad (el dueño).
 
 ---
 

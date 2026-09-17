@@ -8,7 +8,7 @@ import { fetchRateHistory, yearsAgo } from '@/lib/finance/rate-history'
 import { getCryptoMarket } from '@/lib/finance/crypto-prices'
 
 const LABELS = {
-  back: 'Volver a finanzas',
+  back: 'Volver a Gastos',
   title: 'Mercado',
   subtitle: 'Cómo viene el dólar, la cripto y el panel argentino.',
 } as const

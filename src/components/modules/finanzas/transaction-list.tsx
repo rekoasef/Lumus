@@ -116,9 +116,9 @@ function getAñoDates(offset: number): { from: string; to: string; label: string
 function fmtShort(n: number): string {
   if (n >= 1_000_000) {
     const m = n / 1_000_000
-    return `${m % 1 === 0 ? m : m.toFixed(1).replace('.', ',')} M$`
+    return `$ ${m % 1 === 0 ? m : m.toFixed(1).replace('.', ',')} M`
   }
-  if (n >= 1_000) return `${Math.round(n / 1_000).toLocaleString('es-AR')} K$`
+  if (n >= 1_000) return `$ ${Math.round(n / 1_000).toLocaleString('es-AR')} mil`
   return `$${n}`
 }
 
@@ -660,7 +660,7 @@ export function TransactionList({
                       <button
                         key={group.key}
                         onClick={() => setSelectedCategoryKey(group.key)}
-                        className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3.5 text-left transition-colors hover:bg-white/[0.05]"
+                        className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3.5 text-left sm:px-4 transition-colors hover:bg-white/[0.05]"
                       >
                         <div
                           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
@@ -679,12 +679,12 @@ export function TransactionList({
                           {group.category?.name ?? 'Sin categoría'}
                         </span>
 
-                        <span className="lumus-label w-10 text-right text-xs text-[var(--text-muted)]">
-                          {pct} %
+                        <span className="lumus-label shrink-0 text-right text-xs text-[var(--text-muted)] sm:w-10">
+                          {pct}%
                         </span>
 
                         <span
-                          className="lumus-heading w-28 text-right text-sm font-semibold"
+                          className="lumus-heading shrink-0 text-right text-sm font-semibold sm:w-28"
                           style={{ color: viewType === 'gastos' ? 'var(--danger)' : 'var(--success)' }}
                         >
                           {fmt(group.total)}
@@ -698,16 +698,6 @@ export function TransactionList({
           )}
         </>
       )}
-
-      {/* FAB flotante — solo mobile */}
-      <button
-        onClick={() => { setEditing(null); setShowForm(true) }}
-        disabled={mutating || wallets.length === 0}
-        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-lumus)] text-white shadow-lg shadow-[var(--accent-lumus)]/30 active:scale-95 transition-transform disabled:opacity-50 sm:hidden"
-        aria-label="Nuevo movimiento"
-      >
-        <Plus size={22} />
-      </button>
 
       {/* Formulario */}
       {showForm && (

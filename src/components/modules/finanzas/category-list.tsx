@@ -119,11 +119,11 @@ export function CategoryList({ initialCategories }: CategoryListProps) {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {visibleCategories.map(cat => (
           <div
             key={cat.id}
-            className="group flex items-center justify-between rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2.5"
+            className="group flex items-center justify-between gap-2 rounded-lg border border-white/[0.07] bg-white/[0.03] py-1.5 pr-1.5 pl-3 can-hover:py-2.5 can-hover:pr-3"
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <div
@@ -140,31 +140,31 @@ export function CategoryList({ initialCategories }: CategoryListProps) {
               </div>
               <span className="truncate text-sm text-[var(--text-secondary)]">{cat.name}</span>
             </div>
-            <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="flex shrink-0 gap-1 transition-opacity can-hover:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
               <button
                 onClick={() => setMerging(cat)}
-                className="rounded p-1 text-[var(--text-muted)] hover:text-[var(--accent-lumus)]"
+                className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] can-hover:size-6 can-hover:rounded hover:text-[var(--accent-lumus)]"
                 aria-label="Unificar"
                 title="Unificar con otra categoría"
               >
-                <Merge size={12} />
+                <Merge size={15} />
               </button>
               {!cat.is_default && (
                 <>
                 <button
                   onClick={() => handleEdit(cat)}
-                  className="rounded p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                  className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] can-hover:size-6 can-hover:rounded hover:text-[var(--text-primary)]"
                   aria-label="Editar"
                 >
-                  <Pencil size={12} />
+                  <Pencil size={15} />
                 </button>
                 <button
                   onClick={() => handleDelete(cat.id)}
                   disabled={loading}
-                  className="rounded p-1 text-[var(--text-muted)] hover:text-[var(--danger)]"
+                  className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] can-hover:size-6 can-hover:rounded hover:text-[var(--danger)]"
                   aria-label="Eliminar"
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={15} />
                 </button>
                 </>
               )}

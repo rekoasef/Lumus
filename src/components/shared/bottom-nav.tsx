@@ -4,9 +4,10 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { LogOut, Menu, Plus, UserCircle, X } from 'lucide-react'
+import { LogOut, Menu, MessageSquarePlus, Plus, UserCircle, X } from 'lucide-react'
 import { MOBILE_MORE, MOBILE_PRIMARY, isActiveHref } from '@/lib/nav/destinations'
 import { openQuickExpense } from './quick-expense'
+import { openFeedback } from './feedback-button'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -87,7 +88,7 @@ export function BottomNav() {
                 <button
                   onClick={() => setMoreOpen(false)}
                   aria-label="Cerrar"
-                  className="rounded-lg p-2 text-[var(--text-muted)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)]"
+                  className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)]"
                 >
                   <X size={18} />
                 </button>
@@ -125,13 +126,22 @@ export function BottomNav() {
                 </Link>
               </div>
 
-              <button
-                onClick={handleLogout}
-                className="mx-4 mt-3 flex w-[calc(100%-2rem)] items-center justify-center gap-2 rounded-2xl border border-white/[0.07] p-4 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-red-500/10 hover:text-red-400"
-              >
-                <LogOut size={18} />
-                Cerrar sesión
-              </button>
+              <div className="mx-4 mt-3 grid grid-cols-2 gap-2.5">
+                <button
+                  onClick={() => { setMoreOpen(false); openFeedback() }}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.07] p-4 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-white/[0.05]"
+                >
+                  <MessageSquarePlus size={18} />
+                  Comentarios
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.07] p-4 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-red-500/10 hover:text-red-400"
+                >
+                  <LogOut size={18} />
+                  Cerrar sesión
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

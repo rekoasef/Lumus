@@ -176,11 +176,12 @@ export function TopNav({ unreadNotifications = 0 }: { unreadNotifications?: numb
         {/* Right actions */}
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
           {/* El equivalente del `+` de la barra inferior: cargar un gasto no
-              puede depender de en qué pantalla estás. */}
+              puede depender de en qué pantalla estás. Debajo de `lg` ya está
+              el de la barra, y dos botones iguales en la misma pantalla confunden. */}
           <button
             onClick={() => openQuickExpense()}
             title="Cargar gasto"
-            className="flex items-center gap-1.5 rounded-lg bg-[var(--accent-lumus)] px-2.5 py-2 text-white transition-colors hover:bg-[var(--accent-hover)]"
+            className="hidden items-center lg:flex gap-1.5 rounded-lg bg-[var(--accent-lumus)] px-2.5 py-2 text-white transition-colors hover:bg-[var(--accent-hover)]"
           >
             <Plus size={15} strokeWidth={2.5} />
             <span className="hidden text-[0.72rem] font-semibold lg:block">Nuevo gasto</span>
@@ -191,7 +192,7 @@ export function TopNav({ unreadNotifications = 0 }: { unreadNotifications?: numb
           <Link
             href="/perfil"
             title="Perfil"
-            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[var(--text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--text-secondary)] ${
+            className={`flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-lg px-2.5 text-[var(--text-muted)] transition-colors hover:bg-white/[0.05] lg:h-auto lg:min-w-0 lg:py-2 hover:text-[var(--text-secondary)] ${
               pathname === '/perfil' ? 'text-[var(--text-primary)] bg-white/[0.08]' : ''
             }`}
           >
@@ -199,12 +200,14 @@ export function TopNav({ unreadNotifications = 0 }: { unreadNotifications?: numb
             <span className="hidden xl:block text-[0.72rem] font-medium">Perfil</span>
           </Link>
 
-          <div className="h-5 w-px bg-white/10" />
+          {/* En el celular cerrar sesión está en "Más": acá quedaba pegado a
+              Perfil y era fácil tocarlo sin querer. */}
+          <div className="hidden h-5 w-px bg-white/10 lg:block" />
 
           <button
             onClick={handleLogout}
             title="Cerrar sesión"
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[var(--text-muted)] transition-colors hover:bg-red-500/10 hover:text-red-400"
+            className="hidden items-center lg:flex gap-1.5 rounded-lg px-2.5 py-2 text-[var(--text-muted)] transition-colors hover:bg-red-500/10 hover:text-red-400"
           >
             <LogOut size={14} />
             <span className="hidden xl:block text-[0.72rem] font-medium">Salir</span>

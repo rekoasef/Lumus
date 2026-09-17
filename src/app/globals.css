@@ -3,6 +3,9 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Solo en dispositivos con mouse. Esconder algo hasta el hover sin este
+   variante lo vuelve inalcanzable en el celular, donde no hay hover. */
+@custom-variant can-hover (@media (hover: hover));
 
 @theme inline {
   --color-background: var(--background);

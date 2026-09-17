@@ -193,7 +193,7 @@ export function PrestamosView({
               <h2 className="lumus-heading mb-4 text-lg font-semibold text-[var(--text-primary)]">
                 Los que sacaste
               </h2>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {taken.map(loan => (
                   <LoanCard
                     key={loan.id}
@@ -214,7 +214,7 @@ export function PrestamosView({
               <h2 className="lumus-heading mb-4 text-lg font-semibold text-[var(--text-primary)]">
                 Los que diste
               </h2>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {given.map(loan => (
                   <LoanCard
                     key={loan.id}

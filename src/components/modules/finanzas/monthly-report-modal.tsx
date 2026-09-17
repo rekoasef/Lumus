@@ -81,7 +81,7 @@ export function MonthlyReportModal({
               </div>
               <div>
                 <p className="text-sm font-medium text-[var(--text-primary)]">
-                  Generá tu informe de <span className="capitalize">{monthLabel}</span>
+                  Generá tu informe de {monthLabel}
                 </p>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
                   Lumus analiza tus transacciones, presupuestos y metas para darte un resumen y recomendaciones personalizadas.

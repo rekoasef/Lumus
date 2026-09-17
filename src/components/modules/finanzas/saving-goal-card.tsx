@@ -78,18 +78,18 @@ export function SavingGoalCard({ goal, wallets, toARS, onEdit, onDelete, onContr
 
   return (
     <div className="lumus-glass group relative rounded-xl p-5 transition-all hover:border-white/15">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-3">
           <div
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold"
             style={{ backgroundColor: `${color}22`, color }}
           >
             {goal.icon
               ? <CategoryIcon icon={goal.icon} size={17} style={{ color }} />
               : goal.name[0].toUpperCase()}
           </div>
-          <div>
-            <p className="lumus-heading text-sm font-semibold text-[var(--text-primary)]">
+          <div className="min-w-0">
+            <p className="lumus-heading break-words text-sm font-semibold text-[var(--text-primary)]">
               {goal.name}
             </p>
             <div className="mt-0.5 flex items-center gap-2">
@@ -112,29 +112,29 @@ export function SavingGoalCard({ goal, wallets, toARS, onEdit, onDelete, onContr
           </div>
         </div>
 
-        <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex shrink-0 gap-1 transition-opacity can-hover:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
           {!goal.achieved && (
             <button
               onClick={() => onMarkAchieved(goal.id)}
-              className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--success)]/10 hover:text-[var(--success)]"
+              className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] can-hover:size-7 can-hover:rounded-md hover:bg-[var(--success)]/10 hover:text-[var(--success)]"
               aria-label="Marcar como alcanzada"
             >
-              <CheckCircle2 size={14} />
+              <CheckCircle2 size={16} />
             </button>
           )}
           <button
             onClick={() => onEdit(goal)}
-            className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-white/10 hover:text-[var(--text-primary)]"
+            className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] can-hover:size-7 can-hover:rounded-md hover:bg-white/10 hover:text-[var(--text-primary)]"
             aria-label="Editar"
           >
-            <Pencil size={14} />
+            <Pencil size={16} />
           </button>
           <button
             onClick={() => onDelete(goal.id)}
-            className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--danger)]/10 hover:text-[var(--danger)]"
+            className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] can-hover:size-7 can-hover:rounded-md hover:bg-[var(--danger)]/10 hover:text-[var(--danger)]"
             aria-label="Eliminar"
           >
-            <Trash2 size={14} />
+            <Trash2 size={16} />
           </button>
         </div>
       </div>

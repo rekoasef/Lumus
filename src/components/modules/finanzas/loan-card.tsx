@@ -64,9 +64,9 @@ export function LoanCard({ loan, repayments, onPay, onEdit, onDelete, onArchive 
           <button
             onClick={() => onEdit(loan)}
             aria-label="Editar préstamo"
-            className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-white/10 hover:text-[var(--text-primary)]"
+            className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] transition-colors can-hover:size-7 hover:bg-white/10 hover:text-[var(--text-primary)]"
           >
-            <Pencil size={14} />
+            <Pencil size={16} />
           </button>
           {/*
             Archivar solo aparece cuando no queda nada pendiente. Con deuda
@@ -78,17 +78,17 @@ export function LoanCard({ loan, repayments, onPay, onEdit, onDelete, onArchive 
             <button
               onClick={() => onArchive(loan.id)}
               aria-label="Archivar préstamo"
-              className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-white/10 hover:text-[var(--text-primary)]"
+              className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] transition-colors can-hover:size-7 hover:bg-white/10 hover:text-[var(--text-primary)]"
             >
-              <Archive size={14} />
+              <Archive size={16} />
             </button>
           )}
           <button
             onClick={() => onDelete(loan.id)}
             aria-label="Eliminar préstamo"
-            className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-red-500/10 hover:text-red-400"
+            className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] transition-colors can-hover:size-7 hover:bg-red-500/10 hover:text-red-400"
           >
-            <Trash2 size={14} />
+            <Trash2 size={16} />
           </button>
         </div>
       </div>

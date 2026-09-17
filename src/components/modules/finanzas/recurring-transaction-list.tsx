@@ -231,7 +231,9 @@ function RecurringCard({
   const catColor = r.category?.color ?? (isGasto ? 'var(--danger)' : 'var(--success)')
 
   return (
-    <div className="group flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3 sm:px-4">
+    // En el celular las acciones van en su propia línea: en una sola fila no
+    // dejaban lugar para el nombre, que desaparecía.
+    <div className="group flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3 sm:flex-nowrap sm:px-4">
       {/* Ícono */}
       <div
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
@@ -245,20 +247,18 @@ function RecurringCard({
 
       {/* Info */}
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium text-[var(--text-primary)]">
-            {r.description ?? (isGasto ? 'Gasto recurrente' : 'Ingreso recurrente')}
-          </p>
-          <span className="shrink-0 rounded-full border border-white/[0.08] px-1.5 py-0.5 text-[0.55rem] font-medium text-[var(--text-muted)]">
+        <p className="line-clamp-2 text-sm font-medium break-words text-[var(--text-primary)]">
+          {r.description ?? (isGasto ? 'Gasto recurrente' : 'Ingreso recurrente')}
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+          <span className="rounded-full border border-white/[0.08] px-1.5 py-px text-[0.6rem] font-medium text-[var(--text-muted)]">
             {REPEAT_LABELS[r.repeat_type]}
           </span>
-        </div>
-        <div className="mt-0.5 flex items-center gap-2">
           {r.category && (
-            <span className="text-[0.6rem]" style={{ color: catColor }}>{r.category.name}</span>
+            <span className="whitespace-nowrap" style={{ color: catColor }}>{r.category.name}</span>
           )}
-          <span className="text-[0.6rem] text-[var(--text-muted)]">· {r.wallet?.name}</span>
-          <span className="text-[0.6rem] font-semibold" style={{ color }}>{label}</span>
+          <span className="whitespace-nowrap text-[var(--text-muted)]">· {r.wallet?.name}</span>
+          <span className="whitespace-nowrap font-semibold" style={{ color }}>{label}</span>
         </div>
       </div>
 
@@ -271,32 +271,36 @@ function RecurringCard({
       </p>
 
       {/* Acciones */}
-      <div className="flex shrink-0 items-center gap-0.5">
+      <div className="flex basis-full items-center justify-end gap-1 border-t border-white/[0.05] pt-2 sm:basis-auto sm:shrink-0 sm:gap-0.5 sm:border-0 sm:pt-0">
         <button
           onClick={() => onApply(r.id)}
           title="Registrar ahora"
-          className="rounded-md p-2 text-[var(--text-muted)] hover:bg-[var(--accent-lumus)]/10 hover:text-[var(--accent-lumus)] active:bg-[var(--accent-lumus)]/10 sm:p-1.5"
+          aria-label="Registrar ahora"
+          className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--accent-lumus)]/10 hover:text-[var(--accent-lumus)] active:bg-[var(--accent-lumus)]/10 sm:size-8"
         >
-          <Play size={13} />
+          <Play size={15} />
         </button>
         <button
           onClick={() => onToggle(r.id)}
           title={r.active ? 'Pausar' : 'Activar'}
-          className="rounded-md p-2 text-[var(--text-muted)] hover:bg-white/10 hover:text-[var(--text-primary)] sm:p-1.5"
+          aria-label={r.active ? 'Pausar' : 'Activar'}
+          className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-white/10 hover:text-[var(--text-primary)] sm:size-8"
         >
-          <Power size={13} />
+          <Power size={15} />
         </button>
         <button
           onClick={onEdit}
-          className="rounded-md p-2 text-[var(--text-muted)] hover:bg-white/10 hover:text-[var(--text-primary)] sm:p-1.5"
+          aria-label="Editar"
+          className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-white/10 hover:text-[var(--text-primary)] sm:size-8"
         >
-          <Pencil size={13} />
+          <Pencil size={15} />
         </button>
         <button
           onClick={() => onDelete(r.id)}
-          className="rounded-md p-2 text-[var(--text-muted)] hover:bg-[var(--danger)]/10 hover:text-[var(--danger)] sm:p-1.5"
+          aria-label="Eliminar"
+          className="flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--danger)]/10 hover:text-[var(--danger)] sm:size-8"
         >
-          <Trash2 size={13} />
+          <Trash2 size={15} />
         </button>
       </div>
     </div>

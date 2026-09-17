@@ -136,7 +136,7 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
         onClick={() => setOpen(v => !v)}
         title={LABELS.trigger}
         aria-label={LABELS.trigger}
-        className={`relative flex items-center rounded-lg px-2.5 py-2 text-[var(--text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--text-secondary)] ${
+        className={`relative flex size-10 items-center justify-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--text-secondary)] ${
           open ? 'bg-white/[0.08] text-[var(--text-primary)]' : ''
         }`}
       >
